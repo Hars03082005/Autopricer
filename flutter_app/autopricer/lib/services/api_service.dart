@@ -4,8 +4,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // Change this to your Railway URL
   // when deployed
-  static const String baseUrl =
-    'https://brush-altitude-silk.ngrok-free.dev'; // Wi-Fi LAN IP — phone must be on same network
+  static const String baseUrl = 'https://web-production-47b7f.up.railway.app'; // Wi-Fi LAN IP — phone must be on same network
   // Use 10.0.2.2 for Android emulator
   // Use your IP for physical device
   // e.g. http://192.168.1.5:8000

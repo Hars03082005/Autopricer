@@ -116,9 +116,9 @@ def train(df):
                     y_pred_actual)), 0),
     }
 
-    print(f"\nR²   : {metrics['r2']}")
-    print(f"MAE  : ₹{int(metrics['mae']):,}")
-    print(f"RMSE : ₹{int(metrics['rmse']):,}")
+    print(f"\nR2   : {metrics['r2']}")
+    print(f"MAE  : Rs.{int(metrics['mae']):,}")
+    print(f"RMSE : Rs.{int(metrics['rmse']):,}")
 
     # Save
     with open('models/model_artifacts.pkl',
