@@ -455,7 +455,7 @@ ML_FEATURE_COLS = [
 
 # Extra cols for dataset analysis and business logic
 ANALYSIS_COLS = [
-    "year", "list_price", "negotiation_margin", "negotiation_pct",
+    "year",
     "owner_missing", "seller_type",
     # Enriched v8.0 features
     "Km_Per_Year", "Depreciation_Bucket", "Mileage_Tier", "Brand_Tier",
