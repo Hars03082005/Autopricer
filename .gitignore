@@ -54,6 +54,10 @@ model_artifacts/vehicle_price_xgboost.json
 # training_report.json is an exact duplicate of model_metadata.json — skip it
 model_artifacts/training_report.json
 
+# Comparison training artifact directories (large pkl files — retrain-able)
+model_artifacts_cell7/
+model_artifacts_owner_assumed/
+
 # Small files kept for documentation & reproducibility:
 #   model_artifacts/model_metadata.json        (~110 KB)
 #   model_artifacts/cleaned_training_sample.csv (~56 KB)
