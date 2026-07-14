@@ -1,4 +1,4 @@
-﻿# PriceRef — Dealership ML Valuation System
+# PriceRef — Dealership ML Valuation System
 
 > **Scope:** Dealership / manager internal portal only.  
 > Seller portal · Buyer portal · Computer vision — all on hold.
@@ -179,81 +179,50 @@ Price-Prediction/
 
 ## 5. ML Pipeline
 
-### Dataset
-| Metric | Value |
-|---|---|
-| Source | `ml_training/data/combined_2026.csv` |
-| Raw lines | 217,423 |
-| Schema variants | 7 (6-pipe to 20-pipe, all parsed) |
-| Clean rows after parsing | **214,825** |
-| OEM brands | 28 |
-| Price range (clean) | ₹54,000 – ₹75.99 L |
+### 5.1 Datasets & Cleaning
+We support two primary datasets located in `ml_training/data/`:
+1. **Cell7 Dataset (`cell7_dataset.csv`):** 212,427 raw rows, featuring original ownership details (with some "Unknown" values).
+2. **Owner-Assumed Dataset (`owner assumed dataset.csv`):** 212,427 raw rows, where unknown owners have been filled using local imputation/heuristics.
 
-### Why so many schemas?
-`combined_2026.csv` is a concatenation of multiple data exports with evolving column schemas. The cleaner (`clean_data.py`) detects each schema by field count and maps all variants to a common feature set — recovering **~207,000 rows** that a naïve single-schema parser would silently discard.
+### 5.2 The 34k Row Deduplication Explained
+While the raw CSV exports contain **212,427 rows**, the flat preprocessor (`preprocess_flat_csv.py`) outputs **~34,266 cleaned rows** for training. 
 
-| Schema (fields) | Rows | Extra columns vs baseline |
-|---|---|---|
-| 7–8 fields | ~3,000 | Full model string in one field |
-| 11–12 fields | ~1,900 | No RTO |
-| 14 fields (baseline) | 9,877 | — |
-| 15 fields | 4,036 | + SEGMENT |
-| 16 fields | 20,057 | + SEGMENT, INSPECTED |
-| 18 fields | 66,134 | + BRANCH, PINCODE |
-| 19 fields | 38,711 | + OWNER_COUNT |
-| 21 fields | 73,685 | + COLOR |
+This is because the raw files contain **172,439 exact duplicate rows** (where every single column value, including city, price, odometer, year, trim, and locality, is 100% identical). These duplicates are caused by scraping loops appending active listings multiple times. 
+* Standard deduplication (`drop_duplicates(keep="first")`) preserves the first unique instance and discards the duplicate copies to prevent the ML model from overfitting on duplicated queries.
 
-### Features Used (22)
-| Feature | Type | Source |
-|---|---|---|
-| `brand` | Categorical | MAKE column |
-| `model` | Categorical | MODEL column |
-| `variant` | Categorical | TRIM column |
-| `city` | Categorical | CITY column |
-| `rto_state` | Categorical | RTO prefix (e.g. KA-19 → KA) |
-| `color` | Categorical | COLOR column (21-field schema) |
-| `segment` | Categorical | SEGMENT column (mass market / luxury / standard) |
-| `brand_tier` | Categorical | Derived from brand (budget/mid/premium/luxury) |
-| `fuel_type` | Categorical | FUEL column |
-| `transmission` | Categorical | TRANS column |
-| `vehicle_age` | Numeric | `2026 - YEAR` |
-| `odometer_reading` | Numeric | ODOMETER column |
-| `km_per_year` | Numeric | `odometer / max(age, 0.5)` |
-| `owner_count` | Numeric | Explicit column or parsed from CATEGORY |
-| `fuel_efficiency` | Numeric | Median-imputed (15.0 km/L) |
-| `engine_cc` | Numeric | Median-imputed (1200 cc) |
-| `ownership_trust_score` | Numeric | Composite score (owner, age, km) |
-| `vehicle_health_score` | Numeric | Composite score (km, age, owner) |
-| `depreciation_ratio` | Numeric | `selling_price / list_price` |
-| `listing_month` | Numeric | Month from RECEIVED date (seasonality) |
-| `listing_year` | Numeric | Year from RECEIVED date |
-| `inspected` | Binary | INSPECTED column (1 = Yes) |
+| Dataset | Raw Rows | Duplicate Rows Removed | Cleaned/Valid Rows |
+|---|---|---|---|
+| **Cell7 Dataset** | 212,427 | 177,980 | **34,266** |
+| **Owner-Assumed Dataset** | 212,427 | 179,342 | **32,904** |
 
-### Training Split
-```
-Total: 214,825 rows
-  ├── Train:      70%  (~150,378 rows)
-  ├── Validation: 15%  (~32,224 rows)  ← ensemble weight optimisation
-  └── Test:       15%  (~32,224 rows)  ← final unbiased metrics
-```
+### 5.3 Features Used (19 ML Features + 8 Enriched Features)
+**ML Feature Set:**
+* **Categorical (9):** `brand`, `model`, `variant`, `city`, `rto_state`, `color`, `segment_class`, `fuel_type`, `transmission`
+* **Numeric (10):** `vehicle_age`, `odometer_reading`, `km_per_year`, `owner_count`, `ownership_trust_score`, `vehicle_health_score`, `inspected`, `high_mileage`, `luxury_brand`, `has_list_price`
 
-### Ensemble Strategy
-- Three base learners trained independently: CatBoost, LightGBM, XGBoost
-- Ensemble weights optimised on the validation set using SLSQP (maximise R²)
-- Final prediction: `w_cb × pred_cb + w_lgb × pred_lgb + w_xgb × pred_xgb`
-- Target transform: `log1p(selling_price)` → `expm1()` at inference
-- CatBoost dominates (weight = 1.0) — expected with high-cardinality categoricals (brand/model/variant)
+**Decision Engine Enriched Features:**
+* `Km_Per_Year`, `Depreciation_Bucket`, `Mileage_Tier`, `Brand_Tier`, `Ownership_Category`, `Price_Segment`, `Is_Recent_Model`, `Seller_Type_Clean`
 
-### Condition Calibration (post-ML)
-Applied after ensemble prediction to enforce monotonicity:
-| Condition | Multiplier |
-|---|---|
-| Excellent | 1.035 |
-| Good | 1.000 |
-| Average | 0.940 |
-| Poor | 0.860 |
+### 5.4 Training Comparison Results (Cell7 vs. Owner-Assumed)
+We train the ensemble (`CatBoost`, `LightGBM`, `XGBoost`) on both processed datasets separately. The comparison results are:
+
+| Metric | Cell7 (original owners) | Owner-Assumed (filled) | Winner |
+|---|---|---|---|
+| **Global R² Score** | **0.9723** | 0.9711 | **Cell7** |
+| **Global MAPE** | **7.43%** | 7.79% | **Cell7** |
+| **Global MAE** | ₹47,025 | **₹46,720** | **Owner-Assumed** |
+| **Global RMSE** | ₹86,842 | **₹78,755** | **Owner-Assumed** |
+| **Overfit Gap (Train-Test R²)** | **0.0086** | 0.0094 | **Cell7** |
+
+*Verdict:* **Cell7 is the recommended training dataset** due to superior generalizability, lower MAPE, and a cleaner premium-segment model (R² 0.9791).
+
+### 5.5 Ensemble & Training Rules
+- **Split:** 70% Train / 15% Validation / 15% Test.
+- **Model Blending:** Weights are optimized using SLSQP (Sequential Least Squares Programming) on the validation set. On the 34k deduplicated row sets, CatBoost gets 100% weight.
+- **Target Transformation:** Models train on `log1p(selling_price)` and predict using `expm1()`.
 
 ---
+
 
 ## 6. Model Performance
 
@@ -489,8 +458,19 @@ Password: dealer123
 | v2.1 | cars.csv | 36,956 | 14 | 11.93% | 0.9312 |
 | v3.0 | cars.csv | 36,956 | 14 | 11.93% | Mid: 0.9332 |
 | v4.0 | combined_2026.csv | 214,825 | 22 | 4.82% | Luxury: 0.9987 |
-| **v5.0** | **cleaned_used_car_dataset.csv** | **213,820** | **19** | **5.36%** | **Luxury: 0.9976** |
-| **v6.0** | **cleaned_used_car_dataset.csv** | **213,820** | **19** | **5.36%** | **Luxury: 0.9976 (UI Overhaul)** |
+| v5.0 | cleaned_used_car_dataset.csv | 213,820 | 19 | 5.36% | Luxury: 0.9976 |
+| v6.0 | cleaned_used_car_dataset.csv | 213,820 | 19 | 5.36% | Luxury: 0.9976 (UI Overhaul) |
+| **v8.0** | **processed_cell7_dataset.csv** | **34,266** | **19 + 8** | **7.43%** | **Premium: 0.9791 (Enriched Preprocessing)** |
+| **v9.0** | **processed_cell7_dataset.csv** | **34,266** | **19 + 8** | **7.43%** | **Premium: 0.9791 (Dynamic Engine Spec)** |
+
+**v9.0 highlights:**
+- **Dynamic Valuation Upgrades:** Shipped 13 production specs including brand repair multipliers (Toyota/Honda 0.8x vs. Jaguar 2.2x), brand-popularity holding durations, and additive risk penalties for missing fields.
+- **Improved Confidence & Safety:** Geometric mean of model confidence × business confidence; adaptive clamp scaling bands based on prediction certainty.
+- **Monetary SHAP:** Explains feature impact on resale value in absolute rupee values (e.g. `−₹42,000`).
+
+**v8.0 highlights:**
+- **Phase 7 Feature-Enriched Preprocessing:** Engineered 8 new features (`Km_Per_Year`, `Depreciation_Bucket`, `Mileage_Tier`, `Brand_Tier`, `Ownership_Category`, `Price_Segment`, `Is_Recent_Model`, `Seller_Type_Clean`) for advanced analytical rules and metrics.
+- **Dynamic Decision Engine:** Replaced static values with segment-aware rupee formulas for holding, recon, documentation, profit margins, and risk buffers.
 
 **v6.0 highlights:**
 - **Enterprise SaaS UI/UX Overhaul:** Re-imagined the layout into a professional, high-whitespace enterprise portal (Linear, Stripe, Ramp aesthetics). Responsive sidebar navigation replacing the mobile-first template.
@@ -502,4 +482,3 @@ Password: dealer123
 ---
 
 *PriceRef is a dealership-internal prototype. All predictions are ML estimates and should be reviewed by an experienced dealer before finalising any acquisition.*
-
