@@ -8,6 +8,7 @@ const DEFAULT_INPUTS = {
   fuel: 'Petrol', transmission: 'Manual', mileage: '28000', fuelEfficiency: '17.5',
   city: 'Mumbai', vin: '',
   ownerCount: '1', engineCc: '1497', condition: 'Good',
+  color: 'White', inspected: false,
   sellerAskingPrice: '0', targetMarginPct: '15', repairBuffer: '25000',
 };
 

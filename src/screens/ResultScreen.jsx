@@ -1,204 +1,489 @@
 import { useApp } from '../context/AppContext.jsx';
-import { formatINR } from '../utils/mockData.js';
 import Icon from '../components/Icon.jsx';
 
-function actionClass(action) {
-  if (action === 'BUY') return 'buy';
-  if (action === 'NEGOTIATE') return 'negotiate';
-  if (action === 'REJECT') return 'reject';
-  return 'review';
+/* ─── helpers ────────────────────────────────────────────── */
+const fmtL = (n) => {
+  if (!n || isNaN(n)) return '₹0';
+  const v = Number(n);
+  if (v >= 10000000) return `₹${(v/10000000).toFixed(2)}Cr`;
+  if (v >= 100000)   return `₹${(v/100000).toFixed(2)}L`;
+  if (v >= 1000)     return `₹${Math.round(v/1000)}K`;
+  return `₹${Math.round(v).toLocaleString()}`;
+};
+
+const fmtLarge = (n) => {
+  const v = Number(n || 0);
+  if (v >= 100000) return (v/100000).toFixed(2);
+  return '0.00';
+};
+
+const getActionInfo = (action = '') => {
+  const a = String(action).toUpperCase();
+  if (a === 'BUY') return { cls: 'buy', label: '✓ BUY', color: '#16a34a' };
+  if (a === 'NEGOTIATE') return { cls: 'negotiate', label: '⟳ NEGOTIATE', color: '#d97706' };
+  if (a === 'REJECT' || a === 'PASS') return { cls: 'reject', label: '✕ PASS', color: '#dc2626' };
+  return { cls: 'review', label: '⊘ REVIEW', color: '#94a3b8' };
+};
+
+const getRiskClass = (score) => {
+  if (score <= 35) return 'low';
+  if (score <= 65) return 'mid';
+  return 'high';
+};
+
+const getRiskLabel = (score) => {
+  if (score <= 35) return 'Low';
+  if (score <= 65) return 'Medium';
+  return 'High';
+};
+
+function ConfidencePill({ score }) {
+  const cls = score >= 75 ? 'high' : score >= 50 ? 'medium' : 'low';
+  const label = score >= 75 ? 'High Confidence' : score >= 50 ? 'Medium' : 'Low Confidence';
+  return (
+    <span className={`conf-pill ${cls}`}>
+      <Icon name="shield" size={11} strokeWidth={2.2}
+        color={cls === 'high' ? '#16a34a' : cls === 'medium' ? '#d97706' : '#dc2626'} />
+      {score}% · {label}
+    </span>
+  );
 }
 
-export default function ResultScreen() {
-  const { valuationResult, inputs, setActiveScreen, isLoading } = useApp();
+function WaterfallItem({ label, value, pct, color = 'gray', deduct = false }) {
+  return (
+    <div className="waterfall-row">
+      <div className="waterfall-label">{label}</div>
+      <div className="waterfall-bar-track">
+        <div
+          className={`waterfall-bar-fill ${color}`}
+          style={{ width: `${Math.min(100, Math.max(2, pct))}%` }}
+        />
+      </div>
+      <div className="waterfall-val" style={{ color: deduct ? '#dc2626' : 'var(--text-1)' }}>
+        {deduct ? '−' : ''}{fmtL(Math.abs(value))}
+      </div>
+    </div>
+  );
+}
 
-  if (isLoading) {
-    return (
-      <div className="screen loading-screen">
-        <div className="loading-label">Analysing your vehicle…</div>
+function RiskItem({ label, score, sub }) {
+  const cls = getRiskClass(score);
+  return (
+    <div className="risk-item">
+      <div>
+        <div className="risk-item-label">{label}</div>
+        {sub && <div className="risk-item-sub">{sub}</div>}
+      </div>
+      <div className={`risk-score-badge ${cls}`}>
+        {score}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Loading state ──────────────────────────────────────── */
+function ResultLoading() {
+  const steps = [
+    'Routing to segment model…',
+    'Running CatBoost inference…',
+    'Computing dealer margins…',
+    'Building risk profile…',
+  ];
+  return (
+    <div className="screen">
+      <div className="loading-screen">
+        <div className="loading-spinner" />
+        <div className="loading-label">Analysing vehicle with ML…</div>
         <div className="loading-steps-list">
-          {[
-            { text: 'Reading vehicle specifications', icon: 'clipboard' },
-            { text: 'Checking market comparables', icon: 'barChart' },
-            { text: 'Running AI valuation models', icon: 'robot' },
-            { text: 'Calculating condition score', icon: 'gauge' },
-          ].map((s, i) => (
-            <div key={i} className="loading-step-item" style={{ animationDelay: `${i * 0.5}s` }}>
-              <Icon name={s.icon} size={14} color="#f75d34" strokeWidth={1.8} />
-              {s.text}
+          {steps.map((s, i) => (
+            <div key={i} className="loading-step-item" style={{ animationDelay: `${i * 0.4}s` }}>
+              <Icon name="check" size={13} color="#16a34a" strokeWidth={2.5} />
+              {s}
             </div>
           ))}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (!valuationResult) {
-    return (
-      <div className="screen empty-screen">
-        <h2 className="empty-title">No valuation yet</h2>
-        <p className="empty-sub">Fill in vehicle details to get instant AI pricing</p>
-        <button className="cd-btn-orange" onClick={() => setActiveScreen('input')}>
+/* ─── Empty state ────────────────────────────────────────── */
+function ResultEmpty({ setActiveScreen }) {
+  return (
+    <div className="screen">
+      <div className="empty-screen">
+        <div className="home-empty-icon">
+          <Icon name="bulb" size={28} color="#94a3b8" strokeWidth={1.8} />
+        </div>
+        <div className="empty-title">No result yet</div>
+        <div className="empty-sub">
+          Run a vehicle valuation to see ML-powered buy/sell recommendations and ROI analysis.
+        </div>
+        <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
           <Icon name="car" size={16} color="white" strokeWidth={2} />
           Start Valuation
         </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+/* ─── Main Result Screen ─────────────────────────────────── */
+export default function ResultScreen() {
+  const { valuationResult, inputs, isLoading, setActiveScreen } = useApp();
+
+  if (isLoading) return <ResultLoading />;
+  if (!valuationResult) return <ResultEmpty setActiveScreen={setActiveScreen} />;
 
   const {
-    action, confidenceScore,
-    recommendedBuyPrice, recommendedSellPrice,
-    expectedProfit, expectedMarginPct,
-    openingOffer, maxOffer,
-    positiveFactors, negativeFactors, warnings,
+    predictedPrice,
+    priceMin, priceMax,
+    confidenceScore = 80,
+    conditionScore  = 75,
+    recommendedBuyPrice,
+    openingOffer,
+    maxOffer,
+    recommendedSellPrice,
+    expectedProfit  = 0,
+    expectedMarginPct = 0,
+    action          = 'MANUAL REVIEW',
+    positiveFactors = [],
+    negativeFactors = [],
+    warnings        = [],
+    riskScore       = 50,
+    riskLevel       = 'Medium',
+    segmentClass    = 'economy',
+    holdingCost     = 0,
+    riskBuffer      = 0,
+    repairBuffer    = 0,
   } = valuationResult;
 
-  // Buy range: opening offer (target) → recommended buy price (ceiling)
-  const buyLow  = openingOffer || Math.round(recommendedBuyPrice * 0.97);
-  const buyHigh = recommendedBuyPrice;
+  const actionInfo     = getActionInfo(action);
+  const marketValueNum = Number(predictedPrice || 0);
+  const buyPrice       = Number(recommendedBuyPrice || marketValueNum * 0.82);
+  const sellPrice      = Number(recommendedSellPrice || marketValueNum * 1.08);
+  const profit         = Number(expectedProfit || sellPrice - buyPrice);
+  const marginPct      = Number(expectedMarginPct || ((profit / buyPrice) * 100).toFixed(1));
+  const opening        = Number(openingOffer || buyPrice * 0.97);
+  const walkAway       = Number(maxOffer || buyPrice);
 
-  const aClass = actionClass(action);
-  const actionColors = { buy: '#00a651', negotiate: '#f7941d', reject: '#e02020', review: '#888' };
-  const actionColor = actionColors[aClass] || '#888';
+  // Risk items computed from available data
+  const ageYears       = new Date().getFullYear() - Number(inputs.year || 2020);
+  const mileageNum     = Number(inputs.mileage || 0);
+  const ownerCount     = Number(inputs.ownerCount || 1);
+
+  const riskItems = [
+    {
+      label: 'Mechanical',
+      score: Math.max(5, Math.round(100 - (conditionScore || 75))),
+      sub: `Condition: ${inputs.condition || 'Good'}`,
+    },
+    {
+      label: 'Market Demand',
+      score: Math.round(riskScore * 0.6),
+      sub: `${inputs.city || 'Local'} market`,
+    },
+    {
+      label: 'Ownership',
+      score: Math.min(90, ownerCount * 20),
+      sub: `${ownerCount} previous owner${ownerCount > 1 ? 's' : ''}`,
+    },
+    {
+      label: 'Depreciation',
+      score: Math.min(85, ageYears * 9),
+      sub: `${ageYears} years old`,
+    },
+    {
+      label: 'Mileage',
+      score: Math.min(90, Math.round(mileageNum / 2000)),
+      sub: `${(mileageNum/1000).toFixed(0)}k km driven`,
+    },
+    {
+      label: 'Overall Risk',
+      score: riskScore,
+      sub: riskLevel,
+    },
+  ];
+
+  // Waterfall denominator = buyPrice
+  const wfBase = buyPrice;
+  const wfPct  = (v) => (Math.abs(v) / wfBase) * 100;
 
   return (
     <div className="screen">
-      {/* Vehicle header */}
-      <div className="result-hero" style={{ marginBottom: 16 }}>
-        <div className="result-hero-details">
-          <div className="result-hero-name">{inputs.year} {inputs.model}</div>
-          <div className="result-hero-spec">
-            {inputs.brand} · {inputs.fuel} · {inputs.transmission} · {Number(inputs.mileage || 0).toLocaleString('en-IN')} km
+      {/* ── Hero Card ─────────────────────────────────────── */}
+      <div className="result-hero-card">
+        <div className="result-hero-top">
+          <div>
+            <div className="result-vehicle-name">
+              {inputs.brand} {inputs.model}
+              {inputs.variant && <span style={{ opacity:0.65 }}> {inputs.variant}</span>}
+            </div>
+            <div className="result-vehicle-spec">
+              {inputs.year} · {inputs.fuel} · {inputs.transmission} ·{' '}
+              {(mileageNum/1000).toFixed(0)}k km · {inputs.city}
+            </div>
+            <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:10, flexWrap:'wrap' }}>
+              <span className={`segment-badge ${segmentClass}`}>
+                {segmentClass?.toUpperCase()}
+              </span>
+              {inputs.inspected && (
+                <span className="badge badge-success" style={{ fontSize:10 }}>
+                  ✓ Inspected
+                </span>
+              )}
+            </div>
           </div>
-          <div className="result-hero-city">
-            <Icon name="mapPin" size={12} color="#007be5" strokeWidth={2} />
-            {inputs.city}
+
+          <div className="result-market-value" style={{ textAlign:'right' }}>
+            <div className="result-market-label">ML Market Value</div>
+            <div className="result-market-price">
+              <span className="currency">₹</span>
+              {fmtLarge(predictedPrice)}L
+            </div>
+            <div className="result-ci-row" style={{ justifyContent:'flex-end' }}>
+              <span className="result-ci-label">Range</span>
+              <span className="result-ci-range">
+                {fmtL(priceMin)} – {fmtL(priceMax)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="result-hero-bottom">
+          <ConfidencePill score={confidenceScore} />
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveScreen('pricing')}
+              style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)' }}
+            >
+              Pricing Detail
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveScreen('explain')}
+              style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)' }}
+            >
+              AI Explain
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ── ACTION BANNER ── */}
-      <div className="cd-card" style={{
-        background: `linear-gradient(135deg, ${actionColor}18 0%, ${actionColor}08 100%)`,
-        border: `2px solid ${actionColor}40`,
-        padding: '20px 18px',
-        marginBottom: 12,
-        textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-          Acquisition Recommendation
+      {/* ── Decision Row ──────────────────────────────────── */}
+      <div className="decision-row">
+        <div className="decision-action-card">
+          <div className="decision-label">Dealer Recommendation</div>
+          <div className={`action-badge ${actionInfo.cls}`} style={{ fontSize:16, padding:'10px 20px' }}>
+            {actionInfo.label}
+          </div>
+          <div style={{ fontSize:11, color:'var(--text-3)' }}>
+            {action === 'BUY' ? 'High value deal' :
+             action === 'NEGOTIATE' ? 'Negotiate price down' :
+             action === 'REJECT' ? 'Not profitable' : 'Review manually'}
+          </div>
         </div>
-        <div className={`action-badge ${aClass}`} style={{ fontSize: 28, padding: '10px 28px', display: 'inline-block' }}>
-          {action}
+
+        <div className="decision-action-card">
+          <div className="decision-label">Risk Profile</div>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+            <div
+              style={{
+                width:60, height:60, borderRadius:'50%',
+                background: riskScore <= 35 ? '#f0fdf4' : riskScore <= 65 ? '#fffbeb' : '#fef2f2',
+                border: `3px solid ${riskScore <= 35 ? '#16a34a' : riskScore <= 65 ? '#d97706' : '#dc2626'}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:20, fontWeight:800,
+                color: riskScore <= 35 ? '#16a34a' : riskScore <= 65 ? '#d97706' : '#dc2626',
+              }}
+            >
+              {riskScore}
+            </div>
+            <span className={`badge badge-${riskScore<=35?'success':riskScore<=65?'warning':'danger'}`}>
+              {getRiskLabel(riskScore)} Risk
+            </span>
+          </div>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <span className={`confidence-pill ${confidenceScore >= 75 ? 'good' : confidenceScore >= 55 ? 'medium' : 'bad'}`}>
-            <Icon name="shield" size={12} color={confidenceScore >= 75 ? '#00a651' : confidenceScore >= 55 ? '#f7941d' : '#e02020'} strokeWidth={2} />
-            {confidenceScore}% Confidence
+
+        <div className="decision-action-card" style={{ display: window.innerWidth >= 768 ? 'flex' : 'none' }}>
+          <div className="decision-label">Net Dealer Profit</div>
+          <div style={{ fontSize:28, fontWeight:800, color: profit > 0 ? '#16a34a' : '#dc2626', letterSpacing:'-0.8px' }}>
+            {fmtL(profit)}
+          </div>
+          <div style={{ fontSize:11, color:'var(--text-3)' }}>
+            {marginPct}% margin · target achieved
+          </div>
+        </div>
+      </div>
+
+      {/* ── ROI Summary Grid ──────────────────────────────── */}
+      <div className="roi-grid" style={{ marginBottom:16 }}>
+        <div className="roi-item">
+          <div className="roi-item-label">Buy Price</div>
+          <div className="roi-item-value">{fmtL(buyPrice)}</div>
+        </div>
+        <div className="roi-item">
+          <div className="roi-item-label">Sell Price</div>
+          <div className="roi-item-value">{fmtL(sellPrice)}</div>
+        </div>
+        <div className="roi-item">
+          <div className="roi-item-label">Net Profit</div>
+          <div className={`roi-item-value ${profit > 0 ? 'green' : 'red'}`}>{fmtL(profit)}</div>
+        </div>
+      </div>
+
+      {/* ── Acquisition Strategy ─────────────────────────── */}
+      <div className="acq-timeline card">
+        <div className="card-label" style={{ marginBottom:0 }}>Negotiation Strategy</div>
+        <div style={{ fontSize:11, color:'var(--text-3)', marginBottom:16 }}>
+          Three-point offer framework for negotiating acquisition price
+        </div>
+        <div className="acq-timeline-points">
+          <div className="acq-timeline-line" />
+          <div className="acq-point">
+            <div className="acq-dot opening" />
+            <div className="acq-point-label">Opening</div>
+            <div className="acq-point-price">{fmtL(opening)}</div>
+          </div>
+          <div className="acq-point">
+            <div className="acq-dot ideal" />
+            <div className="acq-point-label">Ideal</div>
+            <div className="acq-point-price">{fmtL(buyPrice)}</div>
+          </div>
+          <div className="acq-point">
+            <div className="acq-dot walkaway" />
+            <div className="acq-point-label">Walk Away</div>
+            <div className="acq-point-price">{fmtL(walkAway)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Cost Waterfall ────────────────────────────────── */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)' }}>Cost Waterfall</div>
+            <div style={{ fontSize:11, color:'var(--text-3)' }}>How dealer margin is calculated</div>
+          </div>
+        </div>
+         <div className="waterfall">
+          {valuationResult.waterfall && valuationResult.waterfall.length > 0 ? (
+            valuationResult.waterfall.map((item, idx) => {
+              if (idx === valuationResult.waterfall.length - 1) return null; // Skip recommended buy price row at end of list
+              const isDeduct = item.sign === '-';
+              return (
+                <WaterfallItem
+                  key={idx}
+                  label={item.label}
+                  value={item.value}
+                  pct={idx === 0 ? 100 : wfPct(item.value)}
+                  color={idx === 0 ? 'blue' : isDeduct ? 'red' : 'gray'}
+                  deduct={isDeduct}
+                />
+              );
+            })
+          ) : (
+            <>
+              <WaterfallItem label="ML Market Value"  value={marketValueNum} pct={100}           color="blue"  />
+              {repairBuffer > 0 && <WaterfallItem label="Recon / Repair"   value={repairBuffer}  pct={wfPct(repairBuffer)} color="red"   deduct />}
+              {riskBuffer > 0   && <WaterfallItem label="Risk Buffer"      value={riskBuffer}    pct={wfPct(riskBuffer)}   color="red"   deduct />}
+              {holdingCost > 0  && <WaterfallItem label="Holding Cost"     value={holdingCost}   pct={wfPct(holdingCost)}  color="orange" deduct />}
+              <WaterfallItem label="Target Margin"     value={profit}        pct={wfPct(profit)}   color="gray"  deduct />
+            </>
+          )}
+        </div>
+        <div
+          style={{
+            display:'flex', justifyContent:'space-between', alignItems:'center',
+            borderTop:'2px solid var(--border)', paddingTop:14, marginTop:8,
+          }}
+        >
+          <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)' }}>Recommended Buy Price</div>
+          <div style={{ fontSize:22, fontWeight:800, color:'var(--accent)', letterSpacing:'-0.5px' }}>
+            {fmtL(buyPrice)}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Risk Grid ─────────────────────────────────────── */}
+      <div className="card">
+        <div className="card-header">
+          <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)' }}>Risk Assessment</div>
+          <span className={`badge badge-${riskScore<=35?'success':riskScore<=65?'warning':'danger'}`}>
+            {getRiskLabel(riskScore)} · {riskScore}/100
           </span>
         </div>
-      </div>
-
-      {/* ── PRICE DECISION GRID ── */}
-      <div className="cd-card" style={{ marginBottom: 12 }}>
-        <div className="cd-section-label" style={{ marginBottom: 12 }}>
-          <Icon name="coins" size={13} color="#f75d34" strokeWidth={2} /> Pricing Decision
-        </div>
-        {/* Buy range — full width */}
-        <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '16px 14px', marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="coins" size={11} color="#00a651" strokeWidth={2} />
-            Buy Price Range
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4 }}>Start offer at</div>
-              <div style={{ fontSize: 19, fontWeight: 800, color: '#00a651' }}>{formatINR(buyLow)}</div>
-            </div>
-            {/* Range bar */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'linear-gradient(90deg, #00a651 0%, #f7941d 100%)', position: 'relative', margin: '4px 0' }}>
-                <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: '#00a651', border: '2px solid white', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
-                <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: '#f7941d', border: '2px solid white', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
-              </div>
-              <div style={{ fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>negotiation window</div>
-            </div>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4 }}>Walk away at</div>
-              <div style={{ fontSize: 19, fontWeight: 800, color: '#f7941d' }}>{formatINR(buyHigh)}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sell price */}
-        <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>
-            Sell at
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#007be5' }}>
-            {formatINR(recommendedSellPrice)}
-          </div>
-        </div>
-        <div style={{ marginTop: 12, background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Expected profit</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: expectedProfit > 0 ? '#00a651' : '#e02020' }}>
-            {formatINR(expectedProfit)}
-            <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)', marginLeft: 6 }}>({expectedMarginPct}% margin)</span>
-          </span>
+        <div className="risk-grid">
+          {riskItems.map(item => (
+            <RiskItem key={item.label} {...item} />
+          ))}
         </div>
       </div>
 
-      {/* ── FACTORS ── */}
-      {((positiveFactors?.length > 0) || (negativeFactors?.length > 0)) && (
-        <div className="two-col result-factors-row" style={{ marginBottom: 12 }}>
-          {positiveFactors?.length > 0 && (
-            <div className="cd-card factor-card positive">
-              <div className="cd-section-label">
-                <Icon name="trendUp" size={13} color="#00a651" strokeWidth={2} /> Positives
+      {/* ── Key Factors ───────────────────────────────────── */}
+      {(positiveFactors.length > 0 || negativeFactors.length > 0) && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          {positiveFactors.length > 0 && (
+            <div className="card card-success">
+              <div style={{ fontSize:12, fontWeight:700, color:'#16a34a', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:10 }}>
+                ✓ Positive Factors
               </div>
-              {positiveFactors.slice(0, 3).map((f, i) => (
-                <div key={i} className="factor-row">+ {f}</div>
-              ))}
+              <div className="factor-list">
+                {positiveFactors.slice(0, 4).map((f, i) => (
+                  <div key={i} className="factor-item positive">
+                    <div className="factor-dot" />
+                    {f}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          {negativeFactors?.length > 0 && (
-            <div className="cd-card factor-card negative">
-              <div className="cd-section-label">
-                <Icon name="trendDown" size={13} color="#e02020" strokeWidth={2} /> Watch out
+          {negativeFactors.length > 0 && (
+            <div className="card card-danger">
+              <div style={{ fontSize:12, fontWeight:700, color:'#dc2626', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:10 }}>
+                ✗ Risk Factors
               </div>
-              {negativeFactors.slice(0, 3).map((f, i) => (
-                <div key={i} className="factor-row">− {f}</div>
-              ))}
+              <div className="factor-list">
+                {negativeFactors.slice(0, 4).map((f, i) => (
+                  <div key={i} className="factor-item negative">
+                    <div className="factor-dot" />
+                    {f}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ── WARNINGS ── */}
-      {warnings?.length > 0 && (
-        <div className="cd-card warn-card" style={{ marginBottom: 12 }}>
-          <div className="cd-section-label">
-            <Icon name="warning" size={13} color="#f75d34" strokeWidth={2} /> Points to Note
+      {/* ── Warnings ──────────────────────────────────────── */}
+      {warnings.length > 0 && (
+        <div className="card" style={{ borderLeft:'3px solid var(--warning)', background:'var(--warning-light)' }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'var(--warning)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:10 }}>
+            ⚠ Warnings
           </div>
           {warnings.map((w, i) => (
-            <div key={i} className="warn-row">
-              <Icon name="warning" size={13} color="#f75d34" strokeWidth={2} />
-              {w}
+            <div key={i} style={{ fontSize:13, color:'#92400e', marginBottom:6, display:'flex', alignItems:'flex-start', gap:8 }}>
+              <span style={{ marginTop:2 }}>•</span> {w}
             </div>
           ))}
         </div>
       )}
 
-      {/* ── CTAs ── */}
-      <div className="cta-pair">
-        <button className="cd-btn-outline flex1" onClick={() => setActiveScreen('enhanced-input')}>
-          <Icon name="zap" size={15} color="#f75d34" strokeWidth={2} />
-          Full Analysis
+      {/* ── CTA row ───────────────────────────────────────── */}
+      <div style={{ display:'flex', gap:10, marginTop:8, flexWrap:'wrap' }}>
+        <button className="btn btn-primary" onClick={() => setActiveScreen('pricing')}>
+          <Icon name="coins" size={15} color="white" strokeWidth={2} />
+          Full Pricing Breakdown
         </button>
-        <button className="cd-btn-orange flex1" onClick={() => setActiveScreen('explain')}>
-          <Icon name="brain" size={15} color="white" strokeWidth={2} />
-          Why this price?
+        <button className="btn btn-secondary" onClick={() => setActiveScreen('explain')}>
+          <Icon name="brain" size={15} color="#475569" strokeWidth={2} />
+          AI Explanation
+        </button>
+        <button className="btn btn-secondary" onClick={() => setActiveScreen('input')}>
+          <Icon name="refresh" size={15} color="#475569" strokeWidth={2} />
+          New Valuation
         </button>
       </div>
     </div>

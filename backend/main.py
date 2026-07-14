@@ -23,6 +23,9 @@ from backend.decision_engine import (
     get_recon_cost,
     get_negotiation_trio,
     get_deal_health,
+    apply_market_sanity_clamp,
+    shap_explanation,
+    generate_similar_cars,
 )
 from backend.ensemble_predictor import EnsemblePredictor
 from backend.brand_catalog import build_brand_catalog
@@ -45,25 +48,30 @@ CONDITION_MULTIPLIERS = METADATA.get("condition_handling", {}).get(
 predictor    = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
 BRAND_CATALOG = build_brand_catalog()
 
-# ── Brand-class models ───────────────────────────────────────────────────
-BRAND_CLASS_MODELS: dict = {}
-for _cls in ["budget", "mid", "premium", "luxury"]:
-    _path = ARTIFACT_DIR / f"ensemble_{_cls}.pkl"
+# ── Segment models (economy / premium / luxury) ──────────────────────────────
+SEGMENT_MODELS: dict = {}
+for _seg in ["economy", "premium", "luxury"]:
+    _path = ARTIFACT_DIR / f"ensemble_{_seg}.pkl"
     if _path.exists():
-        BRAND_CLASS_MODELS[_cls] = joblib.load(_path)
+        SEGMENT_MODELS[_seg] = joblib.load(_path)
+# Backward-compat: also try old brand-class names and alias them
+for _old, _new in [("budget", "economy"), ("mid", "economy")]:
+    if _old not in SEGMENT_MODELS:
+        _path = ARTIFACT_DIR / f"ensemble_{_old}.pkl"
+        if _path.exists() and _new not in SEGMENT_MODELS:
+            SEGMENT_MODELS[_new] = joblib.load(_path)
 
-# Brand → class map (mirrors train_ml_model.py; loaded from metadata when available)
-BRAND_CLASS_MAP: dict = METADATA.get("brand_class_map", {
-    # Budget
-    "maruti": "budget", "datsun": "budget", "bajaj": "budget",
-    "chevrolet": "budget", "fiat": "budget", "opel": "budget",
-    "premier": "budget", "hindustan motors": "budget", "icml": "budget",
-    "force": "budget", "ashok leyland": "budget",
-    # Mid
-    "hyundai": "mid", "honda": "mid", "tata": "mid", "renault": "mid",
-    "nissan": "mid", "ford": "mid", "mahindra": "mid",
-    "mahindra renault": "mid", "mahindra ssangyong": "mid",
-    "mitsubishi": "mid", "isuzu": "mid", "citroen": "mid", "dc": "mid",
+# Brand → segment map (loaded from metadata, fallback inline)
+BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
+    # Economy
+    "maruti": "economy", "maruti suzuki": "economy", "datsun": "economy",
+    "bajaj": "economy", "chevrolet": "economy", "fiat": "economy",
+    "opel": "economy", "premier": "economy", "force": "economy",
+    "ashok leyland": "economy", "ambassador": "economy",
+    "hyundai": "economy", "honda": "economy", "tata": "economy",
+    "renault": "economy", "nissan": "economy", "ford": "economy",
+    "mahindra": "economy", "mitsubishi": "economy",
+    "isuzu": "economy", "citroen": "economy", "dc": "economy",
     # Premium
     "volkswagen": "premium", "skoda": "premium", "toyota": "premium",
     "mg": "premium", "jeep": "premium", "kia": "premium",
@@ -99,6 +107,8 @@ class VehicleInput(BaseModel):
     owner_count: int = Field(1, ge=1)
     engine_cc: int = Field(1497, ge=0)
     city: str = "Mumbai"
+    color: str = "unknown"          # car colour — from dataset schema; improves accuracy
+    inspected: bool = False         # inspection certificate present
     condition: str = "Good"
     seller_asking_price: float = 0
     target_margin_pct: float = 15
@@ -174,32 +184,49 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
     km          = max(0, float(vehicle.odometer_reading or 0))
     owner       = max(1, int(vehicle.owner_count or 1))
-    # Cap km_per_year at 50,000 to prevent inflation when vehicle_age == 0.
-    # Identical cap must be applied in train_ml_model.py (Task 3).
-    km_per_year = min(km / max(vehicle_age, 1), 50_000)
-    ownership_trust_score = {1: 100, 2: 75, 3: 55, 4: 35, 5: 25}.get(owner, 35)
-    vehicle_health_score  = max(0, min(100, 100 - vehicle_age * 3 - km / 10000 - (owner - 1) * 8))
-    # fuel_efficiency: cars.csv and cleaned.csv have no mileage column.
-    # Model was trained with median-imputed value = 0.0 for all rows.
-    # Sending 0 is correct — it matches training distribution exactly.
-    fuel_eff = float(vehicle.fuel_efficiency or 0)
+    km_per_year = min(km / max(vehicle_age, 1), 100_000)
+
+    # Scores — mirror train_ml_model.py v5.0 formulas exactly
+    ownership_trust_score = (
+        (1 / owner) * 0.5
+        + (1 - min(vehicle_age / 35, 1.0)) * 0.3
+        + (1 - min(km / 600_000, 1.0)) * 0.2
+    )
+    vehicle_health_score = (
+        (1 - min(km / 600_000, 1.0)) * 0.5
+        + (1 - min(vehicle_age / 35, 1.0)) * 0.3
+        + (1 / owner) * 0.2
+    )
+
+    seg_class   = get_segment_class(vehicle.brand)   # economy/premium/luxury
+    color       = clean_text(getattr(vehicle, 'color', None) or 'unknown')
+    high_mileage = 1 if km > 93_143 else 0          # 75th percentile from training
+    luxury_brand = 1 if seg_class == "luxury" else 0
+    inspected    = 1 if getattr(vehicle, 'inspected', False) else 0
 
     row = {
-        "brand":                 clean_text(vehicle.brand),
-        "model":                 normalize_model_name(vehicle.brand, vehicle.model),
-        "variant":               clean_text(vehicle.variant or "unknown"),
-        "vehicle_age":           vehicle_age,
-        "fuel_type":             clean_text(vehicle.fuel_type),
-        "transmission":          clean_text(vehicle.transmission),
-        "odometer_reading":      km,
-        "fuel_efficiency":       fuel_eff,
-        "owner_count":           owner,
-        "engine_cc":             float(vehicle.engine_cc or 0),
-        "city":                  clean_text(vehicle.city),
-        "condition":             clean_text(vehicle.condition, "good"),
-        "km_per_year":           km_per_year,
-        "ownership_trust_score": ownership_trust_score,
-        "vehicle_health_score":  vehicle_health_score,
+        # Categorical
+        "brand":         clean_text(vehicle.brand),
+        "model":         normalize_model_name(vehicle.brand, vehicle.model),
+        "variant":       clean_text(vehicle.variant or "unknown"),
+        "city":          clean_text(vehicle.city),
+        "rto_state":     "unknown",   # not collected at basic input
+        "color":         color,
+        "segment_class": seg_class,
+        "fuel_type":     clean_text(vehicle.fuel_type),
+        "transmission":  clean_text(vehicle.transmission),
+        # Numeric
+        "vehicle_age":           float(vehicle_age),
+        "odometer_reading":      float(km),
+        "km_per_year":           float(km_per_year),
+        "owner_count":           float(owner),
+        "ownership_trust_score": float(ownership_trust_score),
+        "vehicle_health_score":  float(vehicle_health_score),
+        # Binary
+        "inspected":     float(inspected),
+        "high_mileage":  float(high_mileage),
+        "luxury_brand":  float(luxury_brand),
+        "has_list_price": 0.0,   # not known at inference
     }
     df = pd.DataFrame([row], columns=FEATURES)
     for col in CAT_FEATURES:
@@ -216,39 +243,66 @@ def condition_multiplier(condition: str) -> float:
     )
 
 
-# ── Brand-class routing helpers ────────────────────────────────────────────────
-def get_brand_class(brand: str) -> str:
-    """Return the brand class for a given brand string.
-    Brand is always known at inference time — no price estimation needed.
-    Unknown brands default to 'mid' (safest middle-ground prior).
+# ── Segment routing helpers ────────────────────────────────────────────────────
+def get_segment_class(brand: str) -> str:
+    """Return the segment class (economy / premium / luxury) for a given brand.
+    Brand is always known at inference time — O(1) dict lookup.
+    Unknown brands default to 'economy' (safest prior).
     """
-    return BRAND_CLASS_MAP.get(clean_text(brand), "mid")
+    return BRAND_SEGMENT_MAP.get(clean_text(brand), "economy")
+
+
+# Median depreciation ratio from training data (used when list_price is unknown)
+_MEDIAN_DEP_RATIO = 0.75
 
 
 def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
     """Run the three sub-models for a brand class and return the blended log-price.
     Uses category_levels saved in the pkl to normalise unseen values to 'unknown'.
+    Correctly encodes categoricals per model type:
+      - CatBoost: string columns (handles internally)
+      - LightGBM: pd.Categorical dtype (required by lgb.Booster.predict)
+      - XGBoost:  integer-encoded columns
     """
     cb_f  = features.copy()
     lgb_f = features.copy()
     xgb_f = features.copy()
     for col in artifact.get("cat_features", []):
-        if col in features.columns:
-            cat_levels = artifact.get("category_levels", {}).get(col, [])
-            for frame in (cb_f, lgb_f, xgb_f):
-                if cat_levels:
-                    frame[col] = frame[col].astype(str).where(
-                        frame[col].astype(str).isin(cat_levels), "unknown"
-                    )
-                else:
-                    frame[col] = frame[col].astype(str)
+        if col not in features.columns:
+            continue
+        cat_levels = artifact.get("category_levels", {}).get(col, [])
+        raw = features[col].astype(str)
+        if cat_levels:
+            # Normalise unseen values → "unknown" (must be in cat_levels)
+            known_levels = cat_levels if "unknown" in cat_levels else cat_levels + ["unknown"]
+            raw = raw.where(raw.isin(cat_levels), "unknown")
+            # CatBoost: plain string
+            cb_f[col] = raw.astype(str)
+            # LightGBM: pd.Categorical with explicit categories
+            lgb_f[col] = pd.Categorical(raw, categories=known_levels)
+            # XGBoost: integer label
+            mapping = {cat: idx for idx, cat in enumerate(known_levels)}
+            xgb_f[col] = raw.map(mapping).fillna(len(known_levels)).astype(int)
+        else:
+            cb_f[col]  = raw.astype(str)
+            lgb_f[col] = raw.astype("category")
+            # XGBoost: encode by category code
+            cat_series = raw.astype("category")
+            xgb_f[col] = cat_series.cat.codes.astype(int)
     weights = artifact["weights"]
-    preds = {
-        "catboost": float(artifact["catboost"].predict(cb_f)[0]),
-        "lightgbm": float(artifact["lightgbm"].predict(lgb_f)[0]),
-        "xgboost":  float(artifact["xgboost"].predict(xgb_f)[0]),
-    }
-    return sum(weights[k] * preds[k] for k in weights)
+    preds = {}
+    if weights.get("catboost", 0) > 0:
+        preds["catboost"] = float(artifact["catboost"].predict(cb_f)[0])
+    if weights.get("lightgbm", 0) > 0:
+        preds["lightgbm"] = float(artifact["lightgbm"].predict(lgb_f)[0])
+    if weights.get("xgboost", 0) > 0:
+        preds["xgboost"]  = float(artifact["xgboost"].predict(xgb_f)[0])
+    if not preds:
+        # Fallback: all weights zero — just use catboost
+        preds["catboost"] = float(artifact["catboost"].predict(cb_f)[0])
+        weights = {"catboost": 1.0}
+    return sum(weights[k] * preds[k] for k in preds)
+
 
 
 # ── Core prediction ────────────────────────────────────────────────────────────
@@ -256,24 +310,24 @@ def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
     """
     Returns (market_value_inr: int, routing_note: str).
 
-    Routing: brand → class (budget / mid / premium / luxury).
-    Brand is always known at input time — no two-pass estimation needed.
-    Falls back to global ensemble if the class model file is missing.
+    Routing: brand → segment_class (economy / premium / luxury).
+    Brand is always known at input time — O(1) dict lookup.
+    Falls back to global ensemble if segment model file is missing.
     """
-    features   = build_features(vehicle)
-    brand_cls  = get_brand_class(vehicle.brand)
-    artifact   = BRAND_CLASS_MODELS.get(brand_cls)
+    features  = build_features(vehicle)
+    seg_class = get_segment_class(vehicle.brand)
+    artifact  = SEGMENT_MODELS.get(seg_class)
 
     if artifact:
         try:
             log_price    = _run_class_model(features, artifact)
-            routing_note = f"{brand_cls} class model used"
+            routing_note = f"{seg_class} segment model used"
         except Exception:
             log_price    = predictor.predict_log_price(features)
-            routing_note = f"{brand_cls} class model error — fell back to global"
+            routing_note = f"{seg_class} segment model error — fell back to global"
     else:
         log_price    = predictor.predict_log_price(features)
-        routing_note = "global model used (class model not found)"
+        routing_note = "global model used (segment model not found)"
 
     market_value = float(np.expm1(log_price))
     if not math.isfinite(market_value):
@@ -283,41 +337,51 @@ def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
 
 
 def predict_market_value(vehicle: VehicleInput) -> dict:
-    """Return base ML value and final condition-calibrated market value."""
+    """Return base ML value and final condition-calibrated, sanity-clamped market value."""
     base_value, routing_note = predict_base_market_value(vehicle)
-    brand_cls = get_brand_class(vehicle.brand)
+    seg_class = get_segment_class(vehicle.brand)
+    age       = max(0, CURRENT_YEAR - int(vehicle.year))
 
     mult     = condition_multiplier(vehicle.condition)
     adjusted = max(50_000, min(base_value * mult, 20_000_000))
     adjusted = int(round(adjusted / 500) * 500)
+
+    # Apply market sanity clamp AFTER condition adjustment
+    clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
+        vehicle.model, seg_class, age, float(adjusted)
+    )
+    final_value = int(round(clamped_value / 500) * 500)
+
     return {
-        "base_market_value":    int(base_value),
-        "market_value":         int(adjusted),
-        "condition_multiplier": round(mult, 3),
-        "condition_adjustment": int(adjusted - base_value),
-        "condition_score":      condition_to_score(vehicle.condition),
-        "brand_class":          brand_cls,
-        "class_model_used":     brand_cls in BRAND_CLASS_MODELS,
-        "routing_note":         routing_note,
+        "base_market_value":     int(base_value),
+        "market_value":          final_value,
+        "condition_multiplier":  round(mult, 3),
+        "condition_adjustment":  int(adjusted - base_value),
+        "condition_score":       condition_to_score(vehicle.condition),
+        "segment_class":         seg_class,
+        "segment_model_used":    seg_class in SEGMENT_MODELS,
+        "routing_note":          routing_note,
+        "sanity_clamped":        sanity_clamped,
+        "sanity_note":           sanity_note,
     }
 
 
 def shap_like_explanation(vehicle: VehicleInput, market_value: int) -> list[dict]:
-    # market_value is a bare int (passed from evaluate_vehicle) — Task 5 confirmed correct.
+    """Delegate to the monetary SHAP function in decision_engine."""
     age = max(0, CURRENT_YEAR - int(vehicle.year))
     km  = max(0, int(vehicle.odometer_reading or 0))
-    fe  = float(vehicle.fuel_efficiency or 0)
-    cond_score = condition_to_score(vehicle.condition)
-    items = [
-        {"feature": "ML Model",         "value": METADATA.get("model_name", "Ensemble ML"), "contribution": int(market_value * 0.08)},
-        {"feature": "Vehicle Age",       "value": f"{age} yrs",            "contribution": int(-age * market_value * 0.025)},
-        {"feature": "Odometer Reading",  "value": f"{km/1000:.0f}k km",    "contribution": int(-max(km - 25000, 0) / 10000 * market_value * 0.012)},
-        {"feature": "Fuel Efficiency",   "value": f"{fe:.1f} km/l" if fe else "Not provided", "contribution": int((fe - 16) * market_value * 0.004) if fe else 0},
-        {"feature": "Fuel Type",         "value": vehicle.fuel_type,       "contribution": int((1 if clean_text(vehicle.fuel_type) in {"petrol", "hybrid"} else -1) * market_value * 0.015)},
-        {"feature": "Transmission",      "value": vehicle.transmission,    "contribution": int((1 if clean_text(vehicle.transmission) == "automatic" else 0) * market_value * 0.025)},
-        {"feature": "Condition",         "value": f"{cond_score}/100",     "contribution": int((cond_score - 70) / 100 * market_value * 0.12)},
-    ]
-    return sorted(items, key=lambda x: abs(x["contribution"]), reverse=True)
+    return shap_explanation(
+        market_value    = float(market_value),
+        vehicle_age     = age,
+        km              = float(km),
+        owner_count     = int(vehicle.owner_count or 1),
+        condition       = str(vehicle.condition or "Good"),
+        fuel            = str(vehicle.fuel_type or "Petrol"),
+        transmission    = str(vehicle.transmission or "Manual"),
+        city            = str(vehicle.city or ""),
+        inspected       = bool(getattr(vehicle, "inspected", False)),
+        fuel_efficiency = float(vehicle.fuel_efficiency or 0),
+    )
 
 
 def warnings_for(vehicle: VehicleInput, decision: dict) -> list[str]:
@@ -339,8 +403,21 @@ def warnings_for(vehicle: VehicleInput, decision: dict) -> list[str]:
 
 def evaluate_vehicle(vehicle: VehicleInput) -> dict:
     prediction   = predict_market_value(vehicle)
-    market_value = prediction["market_value"]   # int — safe to pass to shap/warnings
+    market_value = prediction["market_value"]   # int — sanity-clamped
     decision     = calculate_decision(vehicle, market_value)
+    seg_class    = prediction.get("segment_class", "economy")
+
+    # Similar cars
+    similar = generate_similar_cars(
+        market_value = float(market_value),
+        brand        = vehicle.brand,
+        model        = vehicle.model,
+        year         = int(vehicle.year),
+        fuel         = str(vehicle.fuel_type),
+        city         = str(vehicle.city),
+        segment      = seg_class,
+    )
+
     return {
         **prediction,
         "model_name":         METADATA["model_name"],
@@ -352,6 +429,7 @@ def evaluate_vehicle(vehicle: VehicleInput) -> dict:
         "overfitting_check":  METADATA.get("overfitting_check", {}),
         "shap":               shap_like_explanation(vehicle, market_value),
         "warnings":           warnings_for(vehicle, decision),
+        "similar_cars":       similar,
         **decision,
     }
 
@@ -364,8 +442,8 @@ def health():
         "model_loaded":        (ARTIFACT_DIR / "vehicle_price_lightgbm.txt").exists(),
         "ensemble_enabled":    METADATA.get("ensemble", {}).get("enabled", False),
         "model_name":          METADATA["model_name"],
-        "segmentation":        "brand_class",
-        "classes_loaded":      list(BRAND_CLASS_MODELS.keys()),
+        "segmentation":        "segment_class",
+        "segments_loaded":     list(SEGMENT_MODELS.keys()),
     }
 
 

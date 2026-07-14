@@ -35,8 +35,7 @@ mlruns/
 
 # ── Large training datasets (GitHub 100 MB file limit) ────────────────────────
 # Raw and cleaned CSVs are large; keep only brand_stats.csv (small reference file)
-ml_training/data/cars.csv
-ml_training/data/cleaned.csv
+ml_training/data/*.csv
 ml_training/data/*.zip
 # Keep brand_stats.csv (tiny) and any .gitkeep sentinels
 !ml_training/data/brand_stats.csv
@@ -102,3 +101,10 @@ Desktop.ini
 .gemini/
 .cursor/
 .agents/
+
+# ── Jupyter Notebooks & checkpoints ───────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Temp / scratch files ──────────────────────────────────────────────────────
+ml_training/scratch_diff.txt

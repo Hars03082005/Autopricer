@@ -5,7 +5,7 @@ function getApiBase() {
   return (
     (typeof window !== 'undefined' && window.PRICERPOINT_API_URL) ||
     import.meta.env.VITE_ML_API_URL ||
-    'http://localhost:8000'
+    'http://localhost:9000'
   );
 }
 
@@ -59,6 +59,27 @@ function normalizeCondition(value) {
   return 'Good';
 }
 
+function normalizeColor(value) {
+  const text = String(value || '').trim().toLowerCase();
+  // Map common variants to canonical lowercase color names the model knows
+  const colorMap = {
+    'white': 'white', 'pearl white': 'white', 'solid white': 'white',
+    'silver': 'silver', 'silver metallic': 'silver', 'grey': 'grey', 'gray': 'grey',
+    'black': 'black', 'jet black': 'black', 'phantom black': 'black',
+    'blue': 'blue', 'navy blue': 'blue', 'cobalt blue': 'blue', 'azure blue': 'blue',
+    'red': 'red', 'magma red': 'red', 'torch red': 'red', 'fiery red': 'red',
+    'brown': 'brown', 'copper brown': 'brown', 'chestnut brown': 'brown',
+    'beige': 'beige', 'ivory': 'beige', 'champagne': 'beige',
+    'gold': 'gold', 'golden': 'gold', 'bronze': 'gold',
+    'green': 'green', 'apple green': 'green', 'mint green': 'green',
+    'orange': 'orange', 'saffron': 'orange', 'tangerine': 'orange',
+    'yellow': 'yellow', 'lemon': 'yellow', 'mustard': 'yellow',
+    'maroon': 'maroon', 'wine': 'maroon', 'burgundy': 'maroon',
+    'purple': 'purple', 'violet': 'purple',
+  };
+  return colorMap[text] || text || 'unknown';
+}
+
 export function payloadFromInputs(inputs) {
   return {
     brand: titleCase(inputs.brand || 'Unknown'),
@@ -68,10 +89,10 @@ export function payloadFromInputs(inputs) {
     fuel_type: normalizeFuel(inputs.fuel || inputs.fuel_type),
     transmission: normalizeTransmission(inputs.transmission),
     odometer_reading: Math.trunc(toNumber(inputs.mileage ?? inputs.odometer_reading, 0)),
-    fuel_efficiency: toNumber(inputs.fuelEfficiency ?? inputs.fuel_efficiency, 0),
     owner_count: parseOwnerCount(inputs.ownerCount ?? inputs.owner_count, 1),
-    engine_cc: Math.trunc(toNumber(inputs.engineCc ?? inputs.engine_cc, 0)),
     city: titleCase(inputs.city || 'Unknown'),
+    color: normalizeColor(inputs.color || ''),
+    inspected: Boolean(inputs.inspected),
     condition: normalizeCondition(inputs.condition),
     seller_asking_price: 0,
     target_margin_pct: toNumber(inputs.targetMarginPct ?? inputs.target_margin_pct, 15),
@@ -131,11 +152,17 @@ function normalizeApiResult(data, inputs) {
     expectedMarginPct,
     openingOffer: data.opening_offer ?? Math.round(recommendedBuyPrice * 0.97),
     maxOffer: data.max_offer ?? Math.round(recommendedBuyPrice * 1.03),
+    targetOffer: data.target_offer ?? recommendedBuyPrice,
     sellerGap: data.seller_gap ?? 0,
     targetMarginPct: data.target_margin_pct ?? toNumber(inputs.targetMarginPct, 15),
     repairBuffer: data.repair_buffer ?? toNumber(inputs.repairBuffer, 25000),
-    holdingCost: data.holding_cost ?? 0,
-    riskBuffer: data.risk_buffer ?? 0,
+    recon_cost: data.recon_cost ?? 18000,
+    holding_cost: data.holding_cost ?? 5000,
+    doc_cost: data.doc_cost ?? 4500,
+    risk_buffer: data.risk_buffer ?? 3000,
+    target_profit: data.target_profit ?? 35000,
+    waterfall: data.waterfall || [],
+    similarCars: data.similar_cars || [],
     action: data.action ?? 'MANUAL REVIEW',
     riskScore: data.risk_score ?? 0,
     riskLevel: data.risk_level ?? 'Medium',
@@ -167,6 +194,9 @@ function normalizeApiResult(data, inputs) {
     testMetrics: data.test_metrics || {},
     overfittingCheck: data.overfitting_check || {},
     valuationSource: 'CatBoost ML Backend',
+    segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
+    segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
+    routingNote: data.routing_note ?? '',
   };
 }
 

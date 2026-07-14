@@ -76,16 +76,17 @@ class EnsemblePredictor:
         if not self.enabled:
             return catboost_pred
 
-        lightgbm_pred = float(self.lightgbm.predict(lgb_frame)[0])
-        xgboost_pred = float(self.xgboost.predict(xgb_frame)[0])
-
         weights = self.weights
-        blended = (
-            weights.get("catboost", 0.0) * catboost_pred
-            + weights.get("lightgbm", 0.0) * lightgbm_pred
-            + weights.get("xgboost", 0.0) * xgboost_pred
-        )
+        blended = weights.get("catboost", 0.0) * catboost_pred
+
+        if self.lightgbm is not None and weights.get("lightgbm", 0.0) > 0:
+            blended += weights["lightgbm"] * float(self.lightgbm.predict(lgb_frame)[0])
+
+        if self.xgboost is not None and weights.get("xgboost", 0.0) > 0:
+            blended += weights["xgboost"] * float(self.xgboost.predict(xgb_frame)[0])
+
         return float(blended)
+
 
     @classmethod
     def from_artifact_dir(cls, artifact_dir: Path) -> "EnsemblePredictor":

@@ -17,53 +17,54 @@ import './App.css';
 
 const NAV_SECTIONS = [
   {
-    title: 'Main',
+    title: 'Workspace',
     items: [
-      { id: 'home',           label: 'Home',                icon: 'home'           },
-      { id: 'input',          label: 'Valuation',           icon: 'car'            },
-      { id: 'enhanced-input', label: 'Enhanced Valuation',  icon: 'zap'            },
-      { id: 'reverse-calc',   label: 'Reverse Calculator',  icon: 'arrowLeftRight' },
+      { id: 'home',   label: 'Dashboard',     icon: 'home'  },
+      { id: 'input',  label: 'New Valuation',  icon: 'car'   },
+      { id: 'result', label: 'Result',         icon: 'bulb'  },
     ],
   },
   {
-    title: 'Results',
+    title: 'Analysis',
     items: [
-      { id: 'result',          label: 'Result',           icon: 'bulb'  },
-      { id: 'enhanced-result', label: 'Enhanced Result',  icon: 'zap'   },
-      { id: 'explain',         label: 'AI Report',        icon: 'brain' },
+      { id: 'explain',         label: 'AI Explain',       icon: 'brain'        },
+      { id: 'pricing',         label: 'Pricing',           icon: 'coins'        },
+      { id: 'dashboard',       label: 'Analytics',         icon: 'chart'        },
+      { id: 'enhanced-input',  label: 'Enhanced',          icon: 'zap'          },
+      { id: 'reverse-calc',    label: 'Reverse Calc',      icon: 'arrowLeftRight'},
     ],
   },
   {
     title: 'Tools',
     items: [
-      { id: 'pricing',   label: 'Pricing',   icon: 'coins' },
-      { id: 'dashboard', label: 'Analytics', icon: 'chart' },
-      { id: 'assistant', label: 'Assistant', icon: 'brain' },
+      { id: 'assistant', label: 'AI Assistant', icon: 'brain' },
     ],
   },
 ];
 
-const NAV_TABS = NAV_SECTIONS.flatMap(section => section.items);
-
-const ROLE_COLORS = { Dealer: '#f75d34' };
+// Mobile bottom nav — 5 key items only
+const MOBILE_NAV = [
+  { id: 'home',      label: 'Home',     icon: 'home'   },
+  { id: 'input',     label: 'Valuate',  icon: 'car'    },
+  { id: 'result',    label: 'Result',   icon: 'bulb'   },
+  { id: 'pricing',   label: 'Pricing',  icon: 'coins'  },
+  { id: 'dashboard', label: 'Analytics',icon: 'chart'  },
+];
 
 // ── User Avatar Button + Dropdown ─────────────────────────
 function UserMenu() {
   const { currentUser, logout } = useAuth();
   const [open, setOpen] = useState(false);
-
   if (!currentUser) return null;
-
-  const roleColor = ROLE_COLORS[currentUser.role] || '#f75d34';
 
   return (
     <div className="user-menu-wrap">
       <button
         className="user-avatar-btn"
         onClick={() => setOpen(o => !o)}
-        style={{ '--role-color': roleColor }}
+        aria-label="User menu"
       >
-        <span className="user-avatar" style={{ background: roleColor }}>
+        <span className="user-avatar" style={{ background: '#f75d34' }}>
           {currentUser.avatar}
         </span>
       </button>
@@ -73,25 +74,25 @@ function UserMenu() {
           <div className="user-menu-backdrop" onClick={() => setOpen(false)} />
           <div className="user-menu-dropdown">
             <div className="user-menu-profile">
-              <div className="user-menu-avatar" style={{ background: roleColor }}>
+              <div className="user-menu-avatar" style={{ background: '#f75d34' }}>
                 {currentUser.avatar}
               </div>
               <div className="user-menu-info">
                 <div className="user-menu-name">{currentUser.name}</div>
                 <div className="user-menu-email">{currentUser.email}</div>
-                <div className="user-menu-role" style={{ color: roleColor }}>
-                  <Icon
-                    name="store"
-                    size={11} color={roleColor} strokeWidth={2}
-                  />
-                  Dealer / Seller
+                <div className="user-menu-role" style={{ color: '#f75d34' }}>
+                  <Icon name="store" size={11} color="#f75d34" strokeWidth={2} />
+                  Dealer Account
                 </div>
               </div>
             </div>
             <div className="user-menu-divider" />
-            <button className="user-menu-item" onClick={() => { setOpen(false); logout(); }}>
-              <Icon name="arrowLeft" size={15} color="#e02020" strokeWidth={2} />
-              <span style={{ color: '#e02020' }}>Sign Out</span>
+            <button
+              className="user-menu-item"
+              onClick={() => { setOpen(false); logout(); }}
+            >
+              <Icon name="arrowLeft" size={15} color="#dc2626" strokeWidth={2} />
+              <span style={{ color: '#dc2626' }}>Sign Out</span>
             </button>
           </div>
         </>
@@ -100,96 +101,120 @@ function UserMenu() {
   );
 }
 
-// ── Main App Shell (authenticated) ────────────────────────
+// ── Main App Shell ─────────────────────────────────────────
 function AppShell() {
   const { activeScreen, setActiveScreen } = useApp();
-  useAuth();
 
   const SCREENS = {
-    home:      <HomeScreen />,
-    input:     <InputScreen />,
+    home:             <HomeScreen />,
+    input:            <InputScreen />,
     'enhanced-input': <EnhancedValuationScreen />,
-    'enhanced-result': <EnhancedResultScreen />,
-    'reverse-calc': <ReverseCalculatorScreen />,
-    result:    <ResultScreen />,
-    explain:   <ExplainScreen />,
-    pricing:   <PricingScreen />,
-    dashboard: <DashboardScreen />,
-    assistant: <AssistantScreen />,
+    'enhanced-result':<EnhancedResultScreen />,
+    'reverse-calc':   <ReverseCalculatorScreen />,
+    result:           <ResultScreen />,
+    explain:          <ExplainScreen />,
+    pricing:          <PricingScreen />,
+    dashboard:        <DashboardScreen />,
+    assistant:        <AssistantScreen />,
   };
-
-  const isActiveNav = (id) => activeScreen === id;
 
   return (
     <div className="app-root">
-      {/* ── Desktop sidebar ── */}
+      {/* Desktop Sidebar */}
       <aside className="app-sidebar">
+        {/* Brand */}
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <Icon name="car" size={18} color="white" strokeWidth={2} />
+          </div>
+          <div>
+            <div className="sidebar-brand-name">PricerPoint</div>
+            <div className="sidebar-brand-sub">Dealer OS</div>
+          </div>
+        </div>
+
+        {/* Nav sections */}
         <nav className="sidebar-nav">
           {NAV_SECTIONS.map(section => (
             <div key={section.title} className="sidebar-section">
               <div className="sidebar-section-label">{section.title}</div>
-              {section.items.map(tab => (
+              {section.items.map(item => (
                 <button
-                  key={tab.id}
-                  className={`sidebar-nav-btn ${isActiveNav(tab.id) ? 'active' : ''}`}
-                  onClick={() => setActiveScreen(tab.id)}
+                  key={item.id}
+                  className={`sidebar-nav-btn ${activeScreen === item.id ? 'active' : ''}`}
+                  onClick={() => setActiveScreen(item.id)}
                 >
                   <Icon
-                    name={tab.icon}
-                    size={18}
-                    color={isActiveNav(tab.id) ? '#f75d34' : '#888'}
-                    strokeWidth={isActiveNav(tab.id) ? 2.2 : 1.6}
+                    name={item.icon}
+                    size={16}
+                    color={activeScreen === item.id ? '#f75d34' : '#94a3b8'}
+                    strokeWidth={activeScreen === item.id ? 2.2 : 1.6}
                   />
-                  <span>{tab.label}</span>
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>
           ))}
         </nav>
+
+        {/* User at bottom */}
+        <div className="sidebar-footer">
+          <UserMenu />
+        </div>
       </aside>
 
+      {/* Body */}
       <div className="app-body">
-        {/* ── Header ── */}
+        {/* Header */}
         <header className="app-header">
           <div className="header-brand">
             <div className="header-logo-wrap">
-              <Icon name="car" size={22} color="#f75d34" strokeWidth={2} />
+              <Icon name="car" size={18} color="white" strokeWidth={2} />
             </div>
             <div>
               <div className="header-name">Pricer<span className="header-ai">Point</span></div>
               <div className="header-tagline">Dealer Decision Engine</div>
             </div>
           </div>
+
           <div className="header-search">
-            <Icon name="search" size={16} color="#aaa" strokeWidth={2} />
-            <input type="text" placeholder="Search vehicles, VINs, evaluations…" readOnly aria-label="Search" />
+            <Icon name="search" size={15} color="#94a3b8" strokeWidth={2} />
+            <input
+              type="text"
+              placeholder="Search vehicles, evaluations…"
+              readOnly
+              aria-label="Search"
+            />
           </div>
-          <UserMenu />
+
+          <div className="header-right">
+            <UserMenu />
+          </div>
         </header>
 
-        {/* ── Mobile top nav ── */}
+        {/* Mobile bottom nav */}
         <nav className="top-nav">
-          {NAV_TABS.map(tab => (
+          {MOBILE_NAV.map(tab => (
             <button
               key={tab.id}
-              className={`top-nav-btn ${isActiveNav(tab.id) ? 'active' : ''}`}
+              className={`top-nav-btn ${activeScreen === tab.id ? 'active' : ''}`}
               onClick={() => setActiveScreen(tab.id)}
             >
               <Icon
                 name={tab.icon}
-                size={18}
-                color={isActiveNav(tab.id) ? '#f75d34' : '#aaa'}
-                strokeWidth={isActiveNav(tab.id) ? 2.2 : 1.6}
+                size={19}
+                color={activeScreen === tab.id ? '#f75d34' : '#94a3b8'}
+                strokeWidth={activeScreen === tab.id ? 2.2 : 1.6}
               />
               <span className="tnav-label">{tab.label}</span>
             </button>
           ))}
         </nav>
 
-        {/* ── Content ── */}
+        {/* Main content */}
         <main className="app-main">
           <div className="screen-wrapper" key={activeScreen}>
-            {SCREENS[activeScreen]}
+            {SCREENS[activeScreen] || <HomeScreen />}
           </div>
         </main>
       </div>
@@ -205,7 +230,7 @@ function Root() {
     return (
       <div className="splash-screen">
         <div className="splash-logo">
-          <Icon name="car" size={40} color="#f75d34" strokeWidth={1.8} />
+          <Icon name="car" size={28} color="white" strokeWidth={2} />
         </div>
         <div className="splash-name">Pricer<span style={{ color:'#f75d34', fontStyle:'italic' }}>Point</span></div>
         <div className="splash-dots">

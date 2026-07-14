@@ -1,744 +1,595 @@
-"""Train the PricerPoint ML valuation model.
+"""Train the PricerPoint ML valuation model (v5.0).
 
-Final training pipeline for the dealership/manager prototype:
-- Uses the uploaded CarDekho-style vehicle dataset ZIP or extracted CSV.
-- Uses a 70/15/15 train/validation/test split.
-- Trains CatBoost, LightGBM, and XGBoost base learners.
-- Blends base learners with validation-optimized ensemble weights to improve R².
-- Reports train, validation, and test metrics to check overfitting/underfitting.
-- Uses median imputation for skewed numeric vehicle features.
-- Predicts base market value only; dealer quote/risk/action are calculated by the backend decision engine.
-- Applies vehicle condition as a calibrated post-ML adjustment because the dataset does not contain a verified real inspection-condition label.
+Dataset : ml_training/data/cleaned_used_car_dataset.csv  (213,820 rows, 26 cols)
+Pipeline :
+  - Column rename + feature engineering from the 2026 cleaned dataset
+  - Segment mapping  →  economy / premium / luxury
+  - 70 / 15 / 15 train / validation / test split
+  - CatBoost + LightGBM + XGBoost base learners
+  - SLSQP-optimised ensemble weights (maximise validation R²)
+  - Global model  +  3 segment models (economy / premium / luxury)
+  - Saves all artifacts to model_artifacts/
 """
 
 from __future__ import annotations
 
 import json
 import math
-import re
-import zipfile
+import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+warnings.filterwarnings("ignore")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 import joblib
 import numpy as np
 import pandas as pd
-from catboost import CatBoostRegressor
+from catboost import CatBoostRegressor, Pool
 import lightgbm as lgb
 import xgboost as xgb
 from scipy.optimize import minimize
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA_ZIP = Path(__file__).resolve().parent / "data" / "cardekho_vehicle_dataset.zip"
-DATA_CSV = Path(__file__).resolve().parent / "data" / "cars.csv"
+ROOT         = Path(__file__).resolve().parents[1]
+DATA_CSV     = Path(__file__).resolve().parent / "data" / "cleaned_used_car_dataset.csv"
 ARTIFACT_DIR = ROOT / "model_artifacts"
 ARTIFACT_DIR.mkdir(exist_ok=True)
 
-CURRENT_YEAR = datetime.now().year
+CURRENT_YEAR = 2026
 RANDOM_STATE = 42
 
-FEATURES = [
-    "brand",
-    "model",
-    "variant",
-    "vehicle_age",
-    "fuel_type",
-    "transmission",
-    "odometer_reading",
-    "fuel_efficiency",
-    "owner_count",
-    "engine_cc",
-    "city",
-    "km_per_year",
-    "ownership_trust_score",
-    "vehicle_health_score",
-    # ex_showroom_price and depreciation_ratio excluded: any proxy derived from
-    # selling_price causes target leakage. Re-enable only if a real
-    # ex_showroom_price column is present in the dataset.
-]
-CAT_FEATURES = ["brand", "model", "variant", "fuel_type", "transmission", "city"]
-NUMERIC_FEATURES = [c for c in FEATURES if c not in CAT_FEATURES]
+# ── Column rename map (dataset → canonical) ────────────────────────────────────
+RENAME_MAP = {
+    "MAKE":           "brand",
+    "MODEL":          "model",
+    "TRIM":           "variant",
+    "CITY":           "city",
+    "RTO":            "rto_state",
+    "COLOR":          "color",
+    "SEGMENT":        "segment",
+    "FUEL":           "fuel_type",
+    "TRANS":          "transmission",
+    "PRICE":          "selling_price",
+    "LIST_PRICE":     "list_price",
+    "CERTIFIED":      "inspected_raw",
+    "YEAR":           "year",
+    "ODOMETER":       "odometer_reading",
+    "OWNER":          "owner_raw",
+    "Vehicle_Age":    "vehicle_age",
+    "Annual_Mileage": "km_per_year",
+    "High_Mileage":   "high_mileage",
+    "Luxury_Brand":   "luxury_brand",
+    "HAS_LIST_PRICE": "has_list_price",
+}
 
-# Condition is not used as a raw CatBoost feature because the uploaded dataset does not contain
-# a verified inspection-condition label. The app accepts condition from the dealer and applies this
-# monotonic calibration after ML prediction so Poor can never produce a higher final value than Average
-# for the same car.
+# ── Segment mapping: dataset SEGMENT → economy / premium / luxury ──────────────
+SEGMENT_MAP: Dict[str, str] = {
+    "mass market": "economy",
+    "budget":      "economy",
+    "unknown":     "economy",
+    "assured":     "economy",
+    "standard":    "premium",
+    "luxury":      "luxury",
+    "luxe":        "luxury",
+}
+SEGMENT_CLASSES = ["economy", "premium", "luxury"]
+
+# ── Feature sets ───────────────────────────────────────────────────────────────
+CAT_FEATURES = [
+    "brand", "model", "variant", "city", "rto_state",
+    "color", "segment_class", "fuel_type", "transmission",
+]
+NUMERIC_FEATURES = [
+    "vehicle_age", "odometer_reading", "km_per_year",
+    "owner_count", "ownership_trust_score", "vehicle_health_score",
+    "inspected", "high_mileage", "luxury_brand", "has_list_price",
+]
+FEATURES = CAT_FEATURES + NUMERIC_FEATURES
+
+# ── Condition multipliers (post-prediction calibration) ───────────────────────
 CONDITION_MULTIPLIERS = {
     "excellent": 1.035,
-    "good": 1.000,
-    "average": 0.940,
-    "poor": 0.860,
+    "good":      1.000,
+    "average":   0.940,
+    "poor":      0.860,
+}
+
+# ── Brand → segment routing for inference (when SEGMENT is unknown) ────────────
+BRAND_SEGMENT_MAP: Dict[str, str] = {
+    # Economy
+    "maruti": "economy", "maruti suzuki": "economy", "datsun": "economy",
+    "bajaj": "economy", "chevrolet": "economy", "fiat": "economy",
+    "opel": "economy", "premier": "economy", "force": "economy",
+    "ashok leyland": "economy", "ambassador": "economy",
+    "hindustan motors": "economy",
+    # Economy-Mid
+    "hyundai": "economy", "honda": "economy", "tata": "economy",
+    "renault": "economy", "nissan": "economy", "ford": "economy",
+    "mahindra": "economy", "mitsubishi": "economy", "isuzu": "economy",
+    "citroen": "economy", "dc": "economy",
+    # Premium
+    "volkswagen": "premium", "skoda": "premium", "toyota": "premium",
+    "mg": "premium", "jeep": "premium", "kia": "premium",
+    "mini": "premium", "volvo": "premium", "lexus": "premium",
+    # Luxury
+    "bmw": "luxury", "mercedes-benz": "luxury", "audi": "luxury",
+    "jaguar": "luxury", "land rover": "luxury", "porsche": "luxury",
+    "maserati": "luxury", "aston martin": "luxury", "bentley": "luxury",
+    "rolls-royce": "luxury", "ferrari": "luxury", "lamborghini": "luxury",
+    "hummer": "luxury",
 }
 
 
-def clean_text(value: object, default: str = "unknown") -> str:
-    if pd.isna(value):
-        return default
-    text = str(value).strip().lower()
-    text = re.sub(r"\s+", " ", text)
-    return text if text else default
+# ── Utilities ──────────────────────────────────────────────────────────────────
+
+def metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    y_true_e = np.expm1(y_true)
+    y_pred_e = np.expm1(y_pred)
+    mae  = mean_absolute_error(y_true_e, y_pred_e)
+    rmse = math.sqrt(mean_squared_error(y_true_e, y_pred_e))
+    r2   = r2_score(y_true, y_pred)
+    mape = float(np.mean(np.abs((y_true_e - y_pred_e) / (y_true_e + 1e-8))) * 100)
+    return {"mae": round(mae, 2), "rmse": round(rmse, 2),
+            "r2": round(r2, 4), "mape": round(mape, 2)}
 
 
-def parse_number(value: object) -> float:
-    if pd.isna(value):
-        return np.nan
-    if isinstance(value, (int, float, np.number)):
-        return float(value)
-    text = str(value).replace(",", "")
-    match = re.search(r"-?\d+(?:\.\d+)?", text)
-    return float(match.group()) if match else np.nan
+def blend_predictions(weights: dict, preds: dict) -> np.ndarray:
+    out = np.zeros(len(next(iter(preds.values()))))
+    for name, w in weights.items():
+        out += w * np.asarray(preds[name])
+    return out
 
 
-def parse_owner(value: object) -> float:
-    text = clean_text(value, "first")
-    if text in {"first", "1", "1st", "first owner"} or "first" in text:
-        return 1
-    if text in {"second", "2", "2nd", "second owner"} or "second" in text:
-        return 2
-    if text in {"third", "3", "3rd", "third owner"} or "third" in text:
-        return 3
-    if text in {"fourth", "4", "4th", "fourth owner"} or "fourth" in text:
-        return 4
-    if "more" in text or "fifth" in text or "5" in text:
-        return 5
-    return 1
+def optimize_ensemble_weights(y_val: np.ndarray, val_preds: dict) -> dict:
+    names = list(val_preds.keys())
+    n = len(names)
 
+    def neg_r2(w):
+        blended = sum(w[i] * val_preds[names[i]] for i in range(n))
+        return -r2_score(y_val, blended)
 
-def load_raw_dataset(zip_path: Path) -> pd.DataFrame:
-    # 1. Try the merged CarDekho CSV extracted alongside the ZIP
-    csv_path = zip_path.parent / "cardekho_vehicle_dataset" / "cars_details_merges.csv"
-    if csv_path.exists():
-        return pd.read_csv(csv_path, low_memory=False)
-    # 2. Try cars.csv (PricerPoint native dataset)
-    if DATA_CSV.exists():
-        return pd.read_csv(DATA_CSV, low_memory=False)
-    # 3. Try the ZIP
-    if zip_path.exists():
-        with zipfile.ZipFile(zip_path) as zf:
-            preferred = "cars_details_merges.csv"
-            name = preferred if preferred in zf.namelist() else zf.namelist()[0]
-            with zf.open(name) as f:
-                return pd.read_csv(f, low_memory=False)
-    raise FileNotFoundError(
-        f"Dataset not found. Tried:\n"
-        f"  CSV  : {csv_path}\n"
-        f"  cars : {DATA_CSV}\n"
-        f"  ZIP  : {zip_path}"
-    )
-
-
-def summarize_distribution(df: pd.DataFrame, columns: list[str]) -> dict:
-    summary = {}
-    for col in columns:
-        s = pd.to_numeric(df[col], errors="coerce").dropna()
-        if s.empty:
-            continue
-        summary[col] = {
-            "count": int(s.count()),
-            "mean": round(float(s.mean()), 3),
-            "median": round(float(s.median()), 3),
-            "std": round(float(s.std()), 3),
-            "skewness": round(float(s.skew()), 3),
-            "q1": round(float(s.quantile(0.25)), 3),
-            "q3": round(float(s.quantile(0.75)), 3),
-            "min": round(float(s.min()), 3),
-            "max": round(float(s.max()), 3),
-        }
-    return summary
-
-
-def prepare_dataset(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    df = raw.copy()
-
-    # ── Selling price ──────────────────────────────────────────────────────
-    if "dynx_totalvalue_y" in df.columns:
-        df["selling_price"] = pd.to_numeric(df["dynx_totalvalue_y"], errors="coerce")
-    elif "listed_price" in df.columns:
-        df["selling_price"] = pd.to_numeric(df["listed_price"], errors="coerce")
-    elif "price" in df.columns:
-        df["selling_price"] = df["price"].map(parse_number)
-    else:
-        raise ValueError("No selling price column found")
-
-    # ── Brand / model ─────────────────────────────────────────────────────
-    _brand_raw = df.get("brand_name", df.get("oem", "unknown"))
-    df["brand"] = _brand_raw.map(clean_text)
-    _model_raw = df.get("model_name", df.get("model", "unknown"))
-    df["model"] = _model_raw.map(clean_text)
-
-    # -- variant (Change 2 & 3) -------------------------------------------
-    if "variant" not in df.columns:
-        df["variant"] = "unknown"
-    df["variant"] = df["variant"].astype(str).str.lower().str.strip()
-    df["variant"] = df["variant"].replace("nan", "unknown")
-    df["variant"] = df["variant"].replace("", "unknown")
-
-    # ── Vehicle age ───────────────────────────────────────────────────────
-    # Prefer an explicit year column; fall back to car_age already in the file.
-    if "car_age" in df.columns:
-        df["vehicle_age"] = pd.to_numeric(df["car_age"], errors="coerce").clip(lower=0, upper=35)
-        df["year"] = CURRENT_YEAR - df["vehicle_age"]
-    else:
-        year_source = df.get("model_year", df.get("myear", df.get("model_year_new", np.nan)))
-        df["year"] = pd.to_numeric(year_source, errors="coerce")
-        df["vehicle_age"] = (CURRENT_YEAR - df["year"]).clip(lower=0, upper=35)
-
-    # ── Fuel / transmission / city / owner ────────────────────────────────
-    _fuel_raw = df.get("fuel_type", df.get("fuel_type_new", df.get("ft", df.get("fuel", "unknown"))))
-    df["fuel_type"] = _fuel_raw.map(clean_text)
-
-    _tx_raw = df.get("transmission_type", df.get("transmission_type_new", df.get("tt", df.get("transmission", "unknown"))))
-    df["transmission"] = _tx_raw.map(clean_text)
-
-    _city_raw = df.get("city_name_new", df.get("city_y", df.get("City", df.get("city_x", "unknown"))))
-    df["city"] = _city_raw.map(clean_text)
-
-    _owner_raw = df.get("owner_type", df.get("owner_type_new", "first"))
-    df["owner_count"] = _owner_raw.map(parse_owner)
-
-    # ── Odometer / mileage / engine ───────────────────────────────────────
-    _km_raw = df.get("km_driven", df.get("km", np.nan))
-    df["odometer_reading"] = pd.to_numeric(pd.Series(_km_raw).map(parse_number), errors="coerce")
-
-    _mileage_raw = df.get("mileage_new", df.get("mileage", np.nan))
-    df["fuel_efficiency"] = pd.to_numeric(pd.Series(_mileage_raw).map(parse_number), errors="coerce")
-
-    _disp_raw = df.get("Displacement", df.get("displacement", np.nan))
-    df["engine_cc"] = pd.Series(_disp_raw).map(parse_number)
-    if "engine_cc" in raw.columns:
-        df["engine_cc"] = df["engine_cc"].fillna(pd.Series(raw["engine_cc"]).map(parse_number))
-
-    # ── Ex-showroom price & depreciation ratio ──────────────────────────────
-    # Proxy ex-showroom using reverse depreciation curve (~15% annual depreciation).
-    # This gives real per-row variance so models can learn from it.
-    # If the dataset ever gains a real ex_showroom_price column, prefer that instead.
-    if "ex_showroom_price" in df.columns:
-        _real = pd.to_numeric(df["ex_showroom_price"], errors="coerce")
-    else:
-        _real = pd.Series(np.nan, index=df.index)
-
-    _proxy = df["selling_price"] / (0.85 ** df["vehicle_age"]).clip(lower=0.15)
-    df["ex_showroom_price"] = _real.fillna(_proxy)
-
-    # Depreciation ratio using proxy ex-showroom
-    df["depreciation_ratio"] = (
-        df["selling_price"] / df["ex_showroom_price"]
-    ).clip(0.05, 1.20)
-
-    raw_distribution = summarize_distribution(df, ["selling_price", "vehicle_age", "odometer_reading", "fuel_efficiency", "engine_cc", "owner_count"])
-
-    # Clean invalid records first.
-    df = df.drop_duplicates()
-    df = df[df["selling_price"].between(50_000, 20_000_000)]
-    df = df[df["year"].between(1990, CURRENT_YEAR)]
-
-    imputation_values = {}
-    for col in ["odometer_reading", "fuel_efficiency", "engine_cc", "owner_count", "vehicle_age"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-        median = df[col].median()
-        if pd.isna(median):
-            median = 0
-        imputation_values[col] = float(median)
-        df[col] = df[col].fillna(median)
-
-    df = df[df["odometer_reading"].between(100, 600_000)]
-
-    # Remove extreme target outliers only. This prevents luxury/outlier listings from dominating a student prototype model.
-    lower = df["selling_price"].quantile(0.005)
-    upper = df["selling_price"].quantile(0.995)
-    df = df[df["selling_price"].between(lower, upper)]
-
-    # Cap km_per_year at 50,000 to avoid inflated values when vehicle_age == 0.
-    # Identical cap is applied in main.py build_features() — must stay in sync.
-    df["km_per_year"] = (df["odometer_reading"] / df["vehicle_age"].replace(0, 1)).clip(upper=50_000)
-    df["ownership_trust_score"] = df["owner_count"].map({1: 100, 2: 75, 3: 55, 4: 35, 5: 25}).fillna(35)
-    df["vehicle_health_score"] = (
-        100
-        - df["vehicle_age"] * 3
-        - df["odometer_reading"] / 10000
-        - (df["owner_count"] - 1) * 8
-    ).clip(0, 100)
-
-    # ── Price segment column ──────────────────────────────────────────────────
-    # Added after outlier filtering so bins reflect clean-data price ranges.
-    df["price_segment"] = pd.cut(
-        df["selling_price"],
-        bins=[0, 500_000, 1_500_000, 100_000_000],
-        labels=["budget", "mid", "premium"],
-    )
-    df = df.dropna(subset=["price_segment"])
-    df["price_segment"] = df["price_segment"].astype(str)
-
-    for col in CAT_FEATURES:
-        df[col] = df[col].map(clean_text).astype(str)
-
-    clean_distribution = summarize_distribution(df, ["selling_price", "vehicle_age", "odometer_reading", "fuel_efficiency", "engine_cc", "owner_count", "km_per_year", "vehicle_health_score"])
-
-    report = {
-        "raw_rows": int(len(raw)),
-        "rows_after_cleaning": int(len(df)),
-        "target_outlier_bounds": {"lower": round(float(lower), 2), "upper": round(float(upper), 2)},
-        "imputation_strategy": {
-            "numeric": "median",
-            "categorical": "cleaned text value; missing becomes 'unknown'",
-            "reason": "Median is robust for right-skewed used-car features such as price, odometer reading, engine capacity, and mileage because extreme outliers can distort the mean.",
-        },
-        "imputation_values": imputation_values,
-        "raw_distribution": raw_distribution,
-        "clean_distribution": clean_distribution,
-    }
-
-    return df[FEATURES + ["selling_price", "price_segment"]].reset_index(drop=True), report
-
-
-def metrics(y_true_log: pd.Series, pred_log: np.ndarray) -> dict:
-    actual = np.expm1(y_true_log)
-    pred = np.expm1(pred_log)
-    return {
-        "mae": round(float(mean_absolute_error(actual, pred)), 2),
-        "rmse": round(float(math.sqrt(mean_squared_error(actual, pred))), 2),
-        "mape": round(float(np.mean(np.abs((actual - pred) / np.maximum(actual, 1))) * 100), 2),
-        "r2": round(float(r2_score(actual, pred)), 4),
-    }
-
-
-def build_category_levels(train_df: pd.DataFrame) -> dict:
-    category_levels = {}
-    for col in CAT_FEATURES:
-        levels = sorted(train_df[col].astype(str).unique().tolist())
-        if "unknown" not in levels:
-            levels.append("unknown")
-        category_levels[col] = levels
-    return category_levels
-
-
-def encode_xgboost_frame(df: pd.DataFrame, category_levels: dict) -> pd.DataFrame:
-    frame = df[FEATURES].copy()
-    for col in CAT_FEATURES:
-        mapping = {category: idx for idx, category in enumerate(category_levels[col])}
-        normalized = df[col].astype(str).where(df[col].astype(str).isin(category_levels[col]), "unknown")
-        frame[col] = normalized.map(mapping).astype(int)
-    return frame
-
-
-def prepare_model_frames(df: pd.DataFrame, category_levels: dict | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Return CatBoost, LightGBM, and XGBoost-ready feature frames."""
-    if category_levels is None:
-        category_levels = build_category_levels(df)
-
-    catboost_frame = df[FEATURES].copy()
-    lgb_frame = df[FEATURES].copy()
-    for col in CAT_FEATURES:
-        normalized = df[col].astype(str).where(df[col].astype(str).isin(category_levels[col]), "unknown")
-        catboost_frame[col] = normalized.astype(str)
-        lgb_frame[col] = pd.Categorical(normalized, categories=category_levels[col])
-
-    xgb_frame = encode_xgboost_frame(df, category_levels)
-    return catboost_frame, lgb_frame, xgb_frame
-
-
-def optimize_ensemble_weights(
-    y_val: pd.Series,
-    val_predictions: Dict[str, np.ndarray],
-) -> Dict[str, float]:
-    model_names = list(val_predictions.keys())
-    matrix = np.column_stack([val_predictions[name] for name in model_names])
-
-    def negative_r2(weights: np.ndarray) -> float:
-        normalized = np.asarray(weights, dtype=float)
-        normalized = normalized / normalized.sum()
-        blended = matrix @ normalized
-        return -float(r2_score(y_val, blended))
-
-    initial = np.full(len(model_names), 1.0 / len(model_names))
     result = minimize(
-        negative_r2,
-        initial,
+        neg_r2,
+        x0=[1.0 / n] * n,
         method="SLSQP",
-        bounds=[(0.0, 1.0)] * len(model_names),
-        constraints={"type": "eq", "fun": lambda weights: float(np.sum(weights) - 1.0)},
+        bounds=[(0, 1)] * n,
+        constraints={"type": "eq", "fun": lambda w: sum(w) - 1},
     )
-    optimized = result.x / result.x.sum()
-    return {name: round(float(weight), 4) for name, weight in zip(model_names, optimized)}
+    w = result.x
+    return {names[i]: round(float(w[i]), 4) for i in range(n)}
 
 
-def blend_predictions(weights: Dict[str, float], predictions: Dict[str, np.ndarray]) -> np.ndarray:
-    blended = np.zeros_like(next(iter(predictions.values())), dtype=float)
-    for name, weight in weights.items():
-        blended += weight * predictions[name]
-    return blended
+def build_category_levels(df: pd.DataFrame) -> dict:
+    levels = {}
+    for col in CAT_FEATURES:
+        if col in df.columns:
+            vals = df[col].dropna().astype(str).unique().tolist()
+            if "unknown" not in vals:
+                vals.append("unknown")
+            levels[col] = sorted(vals)
+    return levels
 
 
-def train_catboost(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> CatBoostRegressor:
-    params = {"iterations": 800, "learning_rate": 0.03, "depth": 5, "l2_leaf_reg": 5}
+def prepare_frames(
+    df: pd.DataFrame, cat_levels: dict
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Returns (cb_frame, lgb_frame, xgb_frame) from a dataframe slice."""
+    frame = df[FEATURES].copy()
+
+    for col in CAT_FEATURES:
+        if col in frame.columns:
+            known = set(cat_levels.get(col, []))
+            frame[col] = frame[col].astype(str).apply(
+                lambda v: v if v in known else "unknown"
+            )
+
+    for col in NUMERIC_FEATURES:
+        if col in frame.columns:
+            med = frame[col].median()
+            if np.isnan(med):
+                med = 0.0
+            frame[col] = frame[col].fillna(med)
+
+    cb = frame.copy()
+
+    lgb_frame = frame.copy()
+    for col in CAT_FEATURES:
+        if col in lgb_frame.columns:
+            le = LabelEncoder()
+            lgb_frame[col] = le.fit_transform(lgb_frame[col].astype(str))
+
+    xgb_frame = lgb_frame.copy()
+    return cb, lgb_frame, xgb_frame
+
+
+# ── Model trainers ─────────────────────────────────────────────────────────────
+
+def train_catboost(X_tr, y_tr, X_vl, y_vl, cat_cols: List[str]) -> CatBoostRegressor:
     model = CatBoostRegressor(
+        iterations=2000,
+        learning_rate=0.04,
+        depth=8,
+        l2_leaf_reg=3,
+        min_data_in_leaf=15,
         loss_function="RMSE",
+        eval_metric="RMSE",
         random_seed=RANDOM_STATE,
+        early_stopping_rounds=100,
         verbose=False,
-        allow_writing_files=False,
-        thread_count=4,
-        max_ctr_complexity=1,
-        early_stopping_rounds=80,
-        **params,
+        cat_features=[c for c in cat_cols if c in X_tr.columns],
     )
-    model.fit(X_train, y_train, cat_features=CAT_FEATURES, eval_set=(X_val, y_val), use_best_model=True)
+    pool_tr = Pool(X_tr, y_tr, cat_features=[c for c in cat_cols if c in X_tr.columns])
+    pool_vl = Pool(X_vl, y_vl, cat_features=[c for c in cat_cols if c in X_vl.columns])
+    model.fit(pool_tr, eval_set=pool_vl, use_best_model=True)
     return model
 
 
-def train_lightgbm(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> lgb.Booster:
-    train_set = lgb.Dataset(X_train, label=y_train, categorical_feature=CAT_FEATURES, free_raw_data=False)
-    val_set = lgb.Dataset(X_val, label=y_val, categorical_feature=CAT_FEATURES, reference=train_set, free_raw_data=False)
+def train_lightgbm(X_tr, y_tr, X_vl, y_vl) -> lgb.Booster:
+    dtrain = lgb.Dataset(X_tr, y_tr)
+    dval   = lgb.Dataset(X_vl, y_vl, reference=dtrain)
     params = {
-        "objective": "regression",
-        "metric": "rmse",
-        "learning_rate": 0.03,
-        "num_leaves": 31,
-        "max_depth": 5,
-        "min_data_in_leaf": 40,
-        "feature_fraction": 0.9,
-        "bagging_fraction": 0.85,
-        "bagging_freq": 1,
-        "lambda_l2": 5.0,
-        "verbosity": -1,
-        "seed": RANDOM_STATE,
+        "objective":         "regression",
+        "metric":            "rmse",
+        "learning_rate":     0.04,
+        "num_leaves":        127,
+        "max_depth":         -1,
+        "min_child_samples": 15,
+        "feature_fraction":  0.8,
+        "bagging_fraction":  0.8,
+        "bagging_freq":      5,
+        "lambda_l1":         0.1,
+        "lambda_l2":         0.1,
+        "verbose":           -1,
+        "random_state":      RANDOM_STATE,
     }
-    return lgb.train(
-        params,
-        train_set,
-        num_boost_round=800,
-        valid_sets=[val_set],
-        callbacks=[lgb.early_stopping(80, verbose=False), lgb.log_evaluation(0)],
-    )
-
-
-def train_xgboost(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> xgb.XGBRegressor:
-    model = xgb.XGBRegressor(
-        objective="reg:squarederror",
-        learning_rate=0.03,
-        max_depth=5,
-        min_child_weight=40,
-        subsample=0.85,
-        colsample_bytree=0.9,
-        reg_lambda=5.0,
-        n_estimators=800,
-        random_state=RANDOM_STATE,
-        early_stopping_rounds=80,
-        tree_method="hist",
-        n_jobs=4,
-    )
-    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    cb = lgb.early_stopping(100, verbose=False)
+    lg  = lgb.log_evaluation(-1)
+    model = lgb.train(params, dtrain, num_boost_round=2000,
+                      valid_sets=[dval], callbacks=[cb, lg])
     return model
 
+
+def train_xgboost(X_tr, y_tr, X_vl, y_vl) -> xgb.Booster:
+    dtrain = xgb.DMatrix(X_tr, label=y_tr)
+    dval   = xgb.DMatrix(X_vl, label=y_vl)
+    params = {
+        "objective":        "reg:squarederror",
+        "eval_metric":      "rmse",
+        "learning_rate":    0.04,
+        "max_depth":        8,
+        "min_child_weight": 15,
+        "subsample":        0.8,
+        "colsample_bytree": 0.8,
+        "lambda":           1.0,
+        "alpha":            0.1,
+        "seed":             RANDOM_STATE,
+        "verbosity":        0,
+    }
+    model = xgb.train(
+        params, dtrain, num_boost_round=2000,
+        evals=[(dval, "val")],
+        early_stopping_rounds=100,
+        verbose_eval=False,
+    )
+    return model
+
+
+def predict(name: str, model, frame: pd.DataFrame) -> np.ndarray:
+    if name == "catboost":
+        return np.asarray(model.predict(frame))
+    if name == "lightgbm":
+        return np.asarray(model.predict(frame))
+    if name == "xgboost":
+        return np.asarray(model.predict(xgb.DMatrix(frame)))
+    raise ValueError(name)
+
+
+# ── Load & prepare ─────────────────────────────────────────────────────────────
+
+def load_and_prepare() -> pd.DataFrame:
+    print(f"Loading {DATA_CSV} …")
+    df = pd.read_csv(DATA_CSV, low_memory=False)
+    print(f"  Raw rows: {len(df):,}")
+
+    # Rename columns to canonical names
+    df = df.rename(columns={k: v for k, v in RENAME_MAP.items() if k in df.columns})
+
+    # ── Target ──────────────────────────────────────────────────────────────────
+    df["selling_price"] = pd.to_numeric(df["selling_price"], errors="coerce")
+    df.dropna(subset=["selling_price"], inplace=True)
+    df = df[df["selling_price"].between(50_000, 20_000_000)]
+
+    # ── Owner count ─────────────────────────────────────────────────────────────
+    df["owner_count"] = pd.to_numeric(df["owner_raw"], errors="coerce").fillna(1).clip(1, 6).astype(int)
+
+    # ── Inspected (CERTIFIED → 0/1) ─────────────────────────────────────────────
+    def parse_inspected(v):
+        if pd.isna(v):
+            return 0
+        s = str(v).strip().lower()
+        return 1 if s in {"true", "1", "yes", "certified", "inspected"} else 0
+
+    df["inspected"] = df["inspected_raw"].apply(parse_inspected)
+
+    # ── RTO state: extract prefix (KA-19 → ka) ──────────────────────────────────
+    df["rto_state"] = df["rto_state"].astype(str).str.extract(r"^([A-Za-z]+)", expand=False).str.lower().fillna("unknown")
+
+    # ── Normalise categorical columns to lowercase ───────────────────────────────
+    for col in ["brand", "model", "variant", "city", "color", "fuel_type", "transmission", "segment"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip().str.lower().fillna("unknown")
+
+    # ── Segment class (economy / premium / luxury) ───────────────────────────────
+    df["segment_class"] = df["segment"].map(SEGMENT_MAP).fillna("economy")
+
+    # ── Engineered scores (mirror backend formulas) ──────────────────────────────
+    age  = df["vehicle_age"].clip(0, 35)
+    km   = df["odometer_reading"].clip(0, 600_000)
+    own  = df["owner_count"]
+
+    df["ownership_trust_score"] = (
+        (1 / own) * 0.5
+        + (1 - (age / 35).clip(0, 1)) * 0.3
+        + (1 - (km / 600_000).clip(0, 1)) * 0.2
+    ).round(4)
+
+    df["vehicle_health_score"] = (
+        (1 - (km / 600_000).clip(0, 1)) * 0.5
+        + (1 - (age / 35).clip(0, 1)) * 0.3
+        + (1 / own) * 0.2
+    ).round(4)
+
+    # ── Clip / guard numeric features ────────────────────────────────────────────
+    df["vehicle_age"]      = df["vehicle_age"].clip(0, 35)
+    df["odometer_reading"] = df["odometer_reading"].clip(0, 600_000)
+    df["km_per_year"]      = df["km_per_year"].clip(0, 100_000)
+
+    # ── Drop unusable rows ────────────────────────────────────────────────────────
+    df.dropna(subset=NUMERIC_FEATURES[:4], inplace=True)   # core numerics must exist
+
+    print(f"  Clean rows for training: {len(df):,}")
+    return df
+
+
+# ── Segment model trainer ──────────────────────────────────────────────────────
+
+def train_segment(seg_df: pd.DataFrame, seg_name: str) -> dict | None:
+    MIN_ROWS = 500
+    if len(seg_df) < MIN_ROWS:
+        print(f"  Skipping {seg_name} — only {len(seg_df)} rows (< {MIN_ROWS})")
+        return None
+
+    y = np.log1p(seg_df["selling_price"].values)
+    X = seg_df[FEATURES]
+
+    X_tr, X_tmp, y_tr, y_tmp = train_test_split(X, y, test_size=0.30, random_state=RANDOM_STATE)
+    X_vl, X_te, y_vl, y_te   = train_test_split(X_tmp, y_tmp, test_size=0.50, random_state=RANDOM_STATE)
+
+    cat_levels = build_category_levels(seg_df.loc[X_tr.index])
+    cb_tr, lgb_tr, xgb_tr = prepare_frames(seg_df.loc[X_tr.index], cat_levels)
+    cb_vl, lgb_vl, xgb_vl = prepare_frames(seg_df.loc[X_vl.index], cat_levels)
+    cb_te, lgb_te, xgb_te = prepare_frames(seg_df.loc[X_te.index], cat_levels)
+
+    print(f"  CatBoost …")
+    s_cb  = train_catboost(cb_tr, y_tr, cb_vl, y_vl, CAT_FEATURES)
+    print(f"  LightGBM …")
+    s_lgb = train_lightgbm(lgb_tr, y_tr, lgb_vl, y_vl)
+    print(f"  XGBoost …")
+    s_xgb = train_xgboost(xgb_tr, y_tr, xgb_vl, y_vl)
+
+    s_models = {"catboost": s_cb, "lightgbm": s_lgb, "xgboost": s_xgb}
+    s_frames  = {
+        "catboost": {"train": cb_tr, "val": cb_vl, "test": cb_te},
+        "lightgbm": {"train": lgb_tr, "val": lgb_vl, "test": lgb_te},
+        "xgboost":  {"train": xgb_tr, "val": xgb_vl, "test": xgb_te},
+    }
+
+    val_preds = {n: predict(n, m, s_frames[n]["val"]) for n, m in s_models.items()}
+    s_weights = optimize_ensemble_weights(y_vl, val_preds)
+
+    test_blend = blend_predictions(s_weights, {n: predict(n, m, s_frames[n]["test"]) for n, m in s_models.items()})
+    seg_m = metrics(y_te, test_blend)
+    print(f"  {seg_name.upper()} → R²: {seg_m['r2']:.4f}  MAE: ₹{seg_m['mae']:,.0f}  MAPE: {seg_m['mape']:.2f}%")
+
+    return {
+        "catboost":        s_cb,
+        "lightgbm":        s_lgb,
+        "xgboost":         s_xgb,
+        "weights":         s_weights,
+        "features":        FEATURES,
+        "cat_features":    CAT_FEATURES,
+        "segment_class":   seg_name,
+        "category_levels": cat_levels,
+        "rows":            len(seg_df),
+        "test_metrics":    seg_m,
+    }
+
+
+# ── Main training pipeline ─────────────────────────────────────────────────────
 
 def train() -> None:
-    raw = load_raw_dataset(DATA_ZIP)
-    df, data_report = prepare_dataset(raw)
+    df = load_and_prepare()
 
-    # ── Single global model (kept for fallback / legacy) ─────────────────────
+    y = np.log1p(df["selling_price"].values)
     X = df[FEATURES]
-    y = np.log1p(df["selling_price"])
 
-    X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, test_size=0.15, random_state=RANDOM_STATE)
-    validation_ratio_from_train_val = 0.15 / 0.85
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, test_size=validation_ratio_from_train_val, random_state=RANDOM_STATE
-    )
+    X_tr, X_tmp, y_tr, y_tmp = train_test_split(X, y, test_size=0.30, random_state=RANDOM_STATE)
+    X_vl, X_te, y_vl, y_te   = train_test_split(X_tmp, y_tmp, test_size=0.50, random_state=RANDOM_STATE)
 
-    train_idx = X_train.index
-    val_idx   = X_val.index
-    test_idx  = X_test.index
+    print(f"\n{'='*60}")
+    print("GLOBAL MODEL")
+    print(f"{'='*60}")
 
-    category_levels = build_category_levels(df.loc[train_idx])
-    cb_train, lgb_train, xgb_train = prepare_model_frames(df.loc[train_idx], category_levels)
-    cb_val,   lgb_val,   xgb_val   = prepare_model_frames(df.loc[val_idx],   category_levels)
-    cb_test,  lgb_test,  xgb_test  = prepare_model_frames(df.loc[test_idx],  category_levels)
+    cat_levels = build_category_levels(df.loc[X_tr.index])
 
-    print("\n" + "="*60)
-    print("GLOBAL MODEL (legacy fallback)")
-    print("="*60)
-    print("Training CatBoost...")
-    catboost_model  = train_catboost(cb_train,  y_train, cb_val, y_val)
-    print("Training LightGBM...")
-    lightgbm_model  = train_lightgbm(lgb_train, y_train, lgb_val, y_val)
-    print("Training XGBoost...")
-    xgboost_model   = train_xgboost(xgb_train,  y_train, xgb_val, y_val)
+    cb_tr, lgb_tr, xgb_tr = prepare_frames(df.loc[X_tr.index], cat_levels)
+    cb_vl, lgb_vl, xgb_vl = prepare_frames(df.loc[X_vl.index], cat_levels)
+    cb_te, lgb_te, xgb_te = prepare_frames(df.loc[X_te.index], cat_levels)
 
-    base_models  = {"catboost": catboost_model, "lightgbm": lightgbm_model, "xgboost": xgboost_model}
-    base_frames  = {
-        "catboost": {"train": cb_train, "validation": cb_val, "test": cb_test},
-        "lightgbm": {"train": lgb_train, "validation": lgb_val, "test": lgb_test},
-        "xgboost":  {"train": xgb_train, "validation": xgb_val, "test": xgb_test},
+    print("CatBoost …")
+    cat_model = train_catboost(cb_tr, y_tr, cb_vl, y_vl, CAT_FEATURES)
+    print("LightGBM …")
+    lgb_model = train_lightgbm(lgb_tr, y_tr, lgb_vl, y_vl)
+    print("XGBoost …")
+    xgb_model = train_xgboost(xgb_tr, y_tr, xgb_vl, y_vl)
+
+    g_models = {"catboost": cat_model, "lightgbm": lgb_model, "xgboost": xgb_model}
+    g_frames  = {
+        "catboost": {"train": cb_tr, "val": cb_vl, "test": cb_te},
+        "lightgbm": {"train": lgb_tr, "val": lgb_vl, "test": lgb_te},
+        "xgboost":  {"train": xgb_tr, "val": xgb_vl, "test": xgb_te},
     }
-
-    def predict_with_model(name: str, frame: pd.DataFrame) -> np.ndarray:
-        return np.asarray(base_models[name].predict(frame))
 
     individual_results = {}
-    val_predictions    = {}
-    split_targets      = {"train": y_train, "validation": y_val, "test": y_test}
-    for name in base_models:
-        split_metrics = {}
-        for split_name, y_split in split_targets.items():
-            preds = predict_with_model(name, base_frames[name][split_name])
-            split_metrics[f"{split_name}_metrics"] = metrics(y_split, preds)
-            if split_name == "validation":
-                val_predictions[name] = preds
-        individual_results[name] = split_metrics
+    val_preds = {}
+    for name, model in g_models.items():
+        tr_m = metrics(y_tr, predict(name, model, g_frames[name]["train"]))
+        vl_m = metrics(y_vl, predict(name, model, g_frames[name]["val"]))
+        te_m = metrics(y_te, predict(name, model, g_frames[name]["test"]))
+        individual_results[name] = {
+            "train_metrics": tr_m, "validation_metrics": vl_m, "test_metrics": te_m
+        }
+        val_preds[name] = predict(name, model, g_frames[name]["val"])
+        print(f"  {name:12s} → Val R²: {vl_m['r2']:.4f}  Test MAPE: {te_m['mape']:.2f}%")
 
-    ensemble_weights = optimize_ensemble_weights(y_val, val_predictions)
-    ensemble_result  = {"name": "stacked_catboost_lightgbm_xgboost", "weights": ensemble_weights}
-    for split_name, y_split in split_targets.items():
-        split_preds = {name: predict_with_model(name, base_frames[name][split_name]) for name in base_models}
-        blended = blend_predictions(ensemble_weights, split_preds)
-        ensemble_result[f"{split_name}_metrics"] = metrics(y_split, blended)
+    weights = optimize_ensemble_weights(y_vl, val_preds)
+    print(f"\n  Ensemble weights: {weights}")
 
-    # Save global model files (legacy / fallback)
-    catboost_model.save_model(str(ARTIFACT_DIR / "vehicle_price_catboost.cbm"))
-    lightgbm_model.save_model(str(ARTIFACT_DIR / "vehicle_price_lightgbm.txt"))
-    xgboost_model.save_model(str(ARTIFACT_DIR  / "vehicle_price_xgboost.json"))
+    test_blend = blend_predictions(weights, {n: predict(n, m, g_frames[n]["test"]) for n, m in g_models.items()})
+    train_blend = blend_predictions(weights, {n: predict(n, m, g_frames[n]["train"]) for n, m in g_models.items()})
+    val_blend   = blend_predictions(weights, {n: predict(n, m, g_frames[n]["val"])   for n, m in g_models.items()})
 
-    feature_importance = [
-        {"feature": f, "importance": round(float(v), 4)}
-        for f, v in sorted(zip(FEATURES, catboost_model.get_feature_importance()), key=lambda x: x[1], reverse=True)
-    ]
+    g_train_m = metrics(y_tr, train_blend)
+    g_val_m   = metrics(y_vl, val_blend)
+    g_test_m  = metrics(y_te, test_blend)
 
-    train_r2       = ensemble_result["train_metrics"]["r2"]
-    val_r2         = ensemble_result["validation_metrics"]["r2"]
-    test_r2        = ensemble_result["test_metrics"]["r2"]
-    catboost_test_r2 = individual_results["catboost"]["test_metrics"]["r2"]
-    overfit_gap    = round(train_r2 - val_r2, 4)
-    overfitting_status = (
-        "possible_overfitting"   if overfit_gap > 0.08 else
-        "possible_underfitting"  if train_r2 < 0.70 and val_r2 < 0.70 else
-        "healthy_generalization"
-    )
+    overfit_gap    = round(g_train_m["r2"] - g_test_m["r2"], 4)
+    overfit_status = "healthy_generalization" if overfit_gap < 0.02 else "mild_overfit" if overfit_gap < 0.05 else "overfit"
 
-    # ── Segmented models — brand-class based ────────────────────────────────
-    # Brand is always known at inference time, so no price-estimation pass needed.
-    # Each brand maps to one of four classes; unknown brands default to "mid".
-    BRAND_CLASS_MAP: Dict[str, str] = {
-        # Budget
-        "maruti": "budget", "datsun": "budget", "bajaj": "budget",
-        "chevrolet": "budget", "fiat": "budget", "opel": "budget",
-        "premier": "budget", "hindustan motors": "budget", "icml": "budget",
-        "force": "budget", "ashok leyland": "budget",
-        # Mid
-        "hyundai": "mid", "honda": "mid", "tata": "mid", "renault": "mid",
-        "nissan": "mid", "ford": "mid", "mahindra": "mid",
-        "mahindra renault": "mid", "mahindra ssangyong": "mid",
-        "mitsubishi": "mid", "isuzu": "mid", "citroen": "mid", "dc": "mid",
-        # Premium
-        "volkswagen": "premium", "skoda": "premium", "toyota": "premium",
-        "mg": "premium", "jeep": "premium", "kia": "premium",
-        "mini": "premium", "volvo": "premium", "lexus": "premium",
-        # Luxury
-        "bmw": "luxury", "mercedes-benz": "luxury", "audi": "luxury",
-        "jaguar": "luxury", "land rover": "luxury", "porsche": "luxury",
-        "maserati": "luxury", "aston martin": "luxury", "bentley": "luxury",
-        "rolls-royce": "luxury", "ferrari": "luxury", "lamborghini": "luxury",
-        "hummer": "luxury",
+    print(f"\n  Global Train → R²: {g_train_m['r2']:.4f}  MAE: ₹{g_train_m['mae']:,.0f}")
+    print(f"  Global Val   → R²: {g_val_m['r2']:.4f}  MAE: ₹{g_val_m['mae']:,.0f}")
+    print(f"  Global Test  → R²: {g_test_m['r2']:.4f}  MAE: ₹{g_test_m['mae']:,.0f}  MAPE: {g_test_m['mape']:.2f}%")
+    print(f"  Overfit gap: {overfit_gap} ({overfit_status})")
+
+    # Save global artifact
+    global_artifact = {
+        "catboost":        cat_model,
+        "lightgbm":        lgb_model,
+        "xgboost":         xgb_model,
+        "weights":         weights,
+        "features":        FEATURES,
+        "cat_features":    CAT_FEATURES,
+        "segment_class":   "global",
+        "brand_segment_map": BRAND_SEGMENT_MAP,
+        "category_levels": cat_levels,
+        "test_metrics":    g_test_m,
     }
-    BRAND_CLASSES = ["budget", "mid", "premium", "luxury"]
+    joblib.dump(global_artifact, ARTIFACT_DIR / "ensemble_global.pkl")
 
-    # Assign brand_class column from brand name (already cleaned to lowercase)
-    df["brand_class"] = df["brand"].map(BRAND_CLASS_MAP).fillna("mid")
+    # Also save individual model files for backward-compat
+    cat_model.save_model(str(ARTIFACT_DIR / "vehicle_price_catboost.cbm"))
+    lgb_model.save_model(str(ARTIFACT_DIR / "vehicle_price_lightgbm.txt"))
+    xgb_model.save_model(str(ARTIFACT_DIR / "vehicle_price_xgboost.json"))
 
-    segment_models:  Dict[str, dict] = {}
-    segment_metrics: Dict[str, dict] = {}
+    # ── Segment models ────────────────────────────────────────────────────────
+    print(f"\n{'='*60}")
+    print("SEGMENT MODELS (economy / premium / luxury)")
+    print(f"{'='*60}")
 
-    for cls in BRAND_CLASSES:
-        print(f"\n{'='*50}")
-        print(f"Training brand class: {cls.upper()}")
+    df["segment_class"] = df["segment"].map(SEGMENT_MAP).fillna("economy")
+    segment_metrics: dict = {}
 
-        seg_df = df[df["brand_class"] == cls].copy()
-        print(f"Rows in {cls}: {len(seg_df)}")
-
-        if len(seg_df) < 50:
-            print(f"  Skipping {cls} — too few rows ({len(seg_df)})")
+    for seg in SEGMENT_CLASSES:
+        print(f"\n--- {seg.upper()} ---")
+        seg_df  = df[df["segment_class"] == seg].copy()
+        artifact = train_segment(seg_df, seg)
+        if artifact is None:
             continue
-
-        # Stratify by brand+model; drop combos with fewer than 2 rows
-        seg_df["strat_key"] = seg_df["brand"] + "_" + seg_df["model"]
-        key_counts = seg_df["strat_key"].value_counts()
-        valid_keys = key_counts[key_counts >= 2].index
-        seg_df = seg_df[seg_df["strat_key"].isin(valid_keys)]
-
-        X_seg = seg_df[FEATURES]
-        y_seg = np.log1p(seg_df["selling_price"])
-
-        X_tv, X_test_s, y_tv, y_test_s = train_test_split(
-            X_seg, y_seg, test_size=0.15,
-            random_state=RANDOM_STATE,
-            stratify=seg_df.loc[X_seg.index, "strat_key"],
-        )
-        X_tr, X_vl, y_tr, y_vl = train_test_split(
-            X_tv, y_tv, test_size=0.176, random_state=RANDOM_STATE
-        )
-
-        seg_train_idx = X_tr.index
-        seg_val_idx   = X_vl.index
-        seg_test_idx  = X_test_s.index
-
-        seg_cat_levels = build_category_levels(seg_df.loc[seg_train_idx])
-
-        s_cb_tr,  s_lgb_tr,  s_xgb_tr  = prepare_model_frames(seg_df.loc[seg_train_idx], seg_cat_levels)
-        s_cb_vl,  s_lgb_vl,  s_xgb_vl  = prepare_model_frames(seg_df.loc[seg_val_idx],   seg_cat_levels)
-        s_cb_te,  s_lgb_te,  s_xgb_te  = prepare_model_frames(seg_df.loc[seg_test_idx],  seg_cat_levels)
-
-        print(f"  Training CatBoost [{cls}]...")
-        s_cat = train_catboost(s_cb_tr, y_tr, s_cb_vl, y_vl)
-        print(f"  Training LightGBM [{cls}]...")
-        s_lgb = train_lightgbm(s_lgb_tr, y_tr, s_lgb_vl, y_vl)
-        print(f"  Training XGBoost  [{cls}]...")
-        s_xgb = train_xgboost(s_xgb_tr, y_tr, s_xgb_vl, y_vl)
-
-        s_base_models = {"catboost": s_cat, "lightgbm": s_lgb, "xgboost": s_xgb}
-        s_val_frames  = {"catboost": s_cb_vl,  "lightgbm": s_lgb_vl, "xgboost": s_xgb_vl}
-        s_test_frames = {"catboost": s_cb_te,  "lightgbm": s_lgb_te, "xgboost": s_xgb_te}
-
-        s_val_preds = {
-            name: np.asarray(mdl.predict(s_val_frames[name]))
-            for name, mdl in s_base_models.items()
+        joblib.dump(artifact, ARTIFACT_DIR / f"ensemble_{seg}.pkl")
+        print(f"  Saved: ensemble_{seg}.pkl")
+        segment_metrics[seg] = {
+            "rows":      artifact["rows"],
+            "test_r2":   artifact["test_metrics"]["r2"],
+            "test_mae":  artifact["test_metrics"]["mae"],
+            "test_mape": artifact["test_metrics"]["mape"],
         }
-        s_weights = optimize_ensemble_weights(y_vl, s_val_preds)
 
-        s_test_preds = {
-            name: np.asarray(mdl.predict(s_test_frames[name]))
-            for name, mdl in s_base_models.items()
-        }
-        blended_test = blend_predictions(s_weights, s_test_preds)
-        seg_m = metrics(y_test_s, blended_test)
+    # ── Metadata ───────────────────────────────────────────────────────────────
+    feat_imp = {}
+    try:
+        imp = cat_model.get_feature_importance()
+        feat_imp = {FEATURES[i]: round(float(imp[i]), 4) for i in range(len(FEATURES))}
+        feat_imp = dict(sorted(feat_imp.items(), key=lambda x: x[1], reverse=True))
+    except Exception:
+        pass
 
-        segment_metrics[cls] = {
-            "rows":      len(seg_df),
-            "test_r2":   seg_m["r2"],
-            "test_mae":  seg_m["mae"],
-            "test_mape": seg_m["mape"],
-        }
-        segment_models[cls] = {
-            "catboost":        s_cat,
-            "lightgbm":        s_lgb,
-            "xgboost":         s_xgb,
-            "weights":         s_weights,
-            "category_levels": seg_cat_levels,
-        }
-        print(f"  {cls.upper()} -> R2: {seg_m['r2']:.4f} | MAE: Rs.{seg_m['mae']:,.0f} | MAPE: {seg_m['mape']:.2f}%")
-
-    # ── Save brand-class artifacts ────────────────────────────────────────────
-    for cls, models in segment_models.items():
-        artifact = {
-            "catboost":        models["catboost"],
-            "lightgbm":        models["lightgbm"],
-            "xgboost":         models["xgboost"],
-            "weights":         models["weights"],
-            "features":        FEATURES,
-            "cat_features":    CAT_FEATURES,
-            "brand_class":     cls,
-            "brand_class_map": BRAND_CLASS_MAP,
-            # Per-class category levels so backend can normalise unseen
-            # brands/variants to "unknown" without crashing LightGBM.
-            "category_levels": models["category_levels"],
-        }
-        path = ARTIFACT_DIR / f"ensemble_{cls}.pkl"
-        joblib.dump(artifact, path)
-        print(f"Saved: {path}")
-
-    # ── Metadata & report ─────────────────────────────────────────────────────
     metadata = {
-        "model_name": "CatBoost+LightGBM+XGBoost Segmented Ensemble",
-        "target": "selling_price",
+        "model_name":    "CatBoost+LightGBM+XGBoost Segment Ensemble",
+        "version":       "5.0",
+        "trained_at":    datetime.utcnow().isoformat(),
+        "target":        "selling_price",
         "target_transform": "log1p during training, expm1 during prediction",
         "prediction_unit": "INR",
-        "trained_on": "PricerPoint cars.csv dataset",
-        "portal_scope": "Dealership/manager internal portal only.",
-        "current_year_used_for_age": CURRENT_YEAR,
-        "features": FEATURES,
+        "dataset":       str(DATA_CSV.name),
+        "features":      FEATURES,
         "categorical_features": CAT_FEATURES,
-        "numeric_features": NUMERIC_FEATURES,
-        "split_strategy": {
-            "train": 0.70, "validation": 0.15, "test": 0.15,
-            "purpose": "Train set learns model patterns, validation selects ensemble weights, test set reports final unbiased performance.",
-        },
+        "numeric_features":     NUMERIC_FEATURES,
+        "split_strategy": {"train": 0.70, "validation": 0.15, "test": 0.15},
+        "segment_map":   SEGMENT_MAP,
+        "segment_classes": SEGMENT_CLASSES,
         "ensemble": {
-            "enabled": True,
-            "strategy": "validation-optimized weighted average of CatBoost, LightGBM, and XGBoost log-price predictions",
-            "weights": ensemble_weights,
-            "category_levels": category_levels,
-            "base_models": individual_results,
-            "r2_improvement_vs_catboost": round(test_r2 - catboost_test_r2, 4),
+            "enabled":  True,
+            "strategy": "SLSQP-optimised weighted average on validation R²",
+            "weights":  weights,
         },
-        "selected_model": ensemble_result,
-        "metrics": ensemble_result["test_metrics"],
-        "train_metrics":      ensemble_result["train_metrics"],
-        "validation_metrics": ensemble_result["validation_metrics"],
-        "test_metrics":       ensemble_result["test_metrics"],
-        "catboost_only_test_metrics": individual_results["catboost"]["test_metrics"],
+        "global_metrics": {
+            "train":      g_train_m,
+            "validation": g_val_m,
+            "test":       g_test_m,
+        },
         "overfitting_check": {
-            "train_r2":  train_r2,
-            "validation_r2": val_r2,
-            "test_r2":   test_r2,
-            "catboost_only_test_r2": catboost_test_r2,
-            "train_validation_r2_gap": overfit_gap,
-            "status": overfitting_status,
+            "train_r2":         g_train_m["r2"],
+            "validation_r2":    g_val_m["r2"],
+            "test_r2":          g_test_m["r2"],
+            "train_val_r2_gap": overfit_gap,
+            "status":           overfit_status,
         },
-        "condition_handling": {
-            "used_in_catboost_training": False,
-            "reason": "The uploaded dataset does not contain a verified inspection-condition label.",
-            "solution": "Monotonic condition calibration multiplier applied post-prediction.",
-            "condition_multipliers": CONDITION_MULTIPLIERS,
-        },
-        "segmented_models": segment_metrics,
-        "segmentation_strategy": "brand_class",
-        "brand_class_map": BRAND_CLASS_MAP,
-        "brand_classes": BRAND_CLASSES,
-        "data_report": data_report,
-        "feature_importance": feature_importance,
-        "notes": [
-            "Model predicts base market value from the uploaded used-car dataset.",
-            "Final displayed market value is condition-calibrated to ensure consistent dealer logic.",
-            "Quote, risk, profit, urgency, and BUY/NEGOTIATE/REJECT are calculated by the backend decision engine.",
-            "Computer vision is kept on hold; manual condition input is used for the final prototype.",
-            "Segmentation now uses brand class (budget/mid/premium/luxury) instead of price bracket.",
-            "Brand is always known at inference time — no two-pass price estimation needed.",
-            "ex_showroom_price and depreciation_ratio excluded (target leakage without real column).",
-        ],
+        "individual_base_models": individual_results,
+        "segmented_models":       segment_metrics,
+        "feature_importance":     feat_imp,
+        "condition_multipliers":  CONDITION_MULTIPLIERS,
+        "brand_segment_map":      BRAND_SEGMENT_MAP,
     }
 
     with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
+        json.dump(metadata, f, indent=2, ensure_ascii=False)
     with open(ARTIFACT_DIR / "training_report.json", "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
+        json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    df.sample(min(500, len(df)), random_state=RANDOM_STATE).to_csv(
-        ARTIFACT_DIR / "cleaned_training_sample.csv", index=False
-    )
+    # Sample CSV
+    df.sample(min(500, len(df)), random_state=RANDOM_STATE)[[
+        "brand", "model", "vehicle_age", "odometer_reading",
+        "fuel_type", "transmission", "segment_class", "selling_price",
+    ]].to_csv(ARTIFACT_DIR / "cleaned_training_sample.csv", index=False)
 
-    # ── Summary table ─────────────────────────────────────────────────────────
-    PREV_MAPE = 11.93
-    global_mape = ensemble_result["test_metrics"]["mape"]
-    print(json.dumps({
-        "global_model": {
-            "ensemble_weights": ensemble_weights,
-            "test_metrics": ensemble_result["test_metrics"],
-            "overfitting_check": metadata["overfitting_check"],
-        },
-        "segmented_models": segment_metrics,
-        "mape_comparison": {
-            "single_model_baseline_mape": PREV_MAPE,
-            "global_model_mape": global_mape,
-        },
-    }, indent=2))
-
-    print("\n" + "="*60)
-    print("BRAND-CLASS MODEL RESULTS vs SINGLE GLOBAL MODEL")
-    print("="*60)
-    print(f"Global model MAPE:  {PREV_MAPE}%")
-    for cls, m in segment_metrics.items():
-        print(f"{cls.upper():<10} MAPE: {m['test_mape']}%   MAE: Rs.{m['test_mae']:>12,.0f}   R2: {m['test_r2']}   ({m['rows']} rows)")
-    print("="*60)
+    # ── Final summary ──────────────────────────────────────────────────────────
+    print(f"\n{'='*60}")
+    print("FINAL SUMMARY  (v5.0)")
+    print(f"{'='*60}")
+    print(f"Global model  → R²: {g_test_m['r2']:.4f}  MAE: ₹{g_test_m['mae']:,.0f}  MAPE: {g_test_m['mape']:.2f}%")
+    for seg, m in segment_metrics.items():
+        print(f"{seg.upper():<10} → R²: {m['test_r2']:.4f}  MAE: ₹{m['test_mae']:>12,.0f}  "
+              f"MAPE: {m['test_mape']:.2f}%  ({m['rows']:,} rows)")
+    print(f"{'='*60}")
+    print(f"\nAll artifacts saved to: {ARTIFACT_DIR}")
 
 
 if __name__ == "__main__":

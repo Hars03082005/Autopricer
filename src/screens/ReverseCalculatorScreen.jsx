@@ -77,41 +77,58 @@ export default function ReverseCalculatorScreen() {
       setReverseResult(result);
     } catch (e) {
       console.error(e);
-      setError('Reverse calculation failed. Ensure FastAPI backend is running.');
+      setError('Reverse calculation failed. Ensure the FastAPI backend is running.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="screen enhanced-screen">
-      <div className="section-page-head">
-        <h1 className="page-head-title">Reverse Calculator</h1>
-        <p className="page-head-sub">Work backwards from expected sell price to max buy price</p>
+    <div className="screen screen-wide enhanced-screen">
+      <div className="page-header">
+        <div>
+          <div className="page-title">Reverse Calculator</div>
+          <div className="page-subtitle">Determine acquisition ceiling by working backwards from expected sale price</div>
+        </div>
       </div>
 
       {error && (
-        <div className="vin-error" style={{ marginBottom: 12 }}>
-          <Icon name="warning" size={14} color="#e02020" strokeWidth={2} /> {error}
+        <div className="error-banner" style={{ marginBottom: 16 }}>
+          <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
+          {error}
         </div>
       )}
 
-      <div className="enhanced-two-col">
-        <div className="enhanced-col-left">
-          <div className="cd-card">
-            <div className="cd-section-label">Expected selling price</div>
-            <input
-              type="number"
-              className="cd-input reverse-price-input"
-              value={expectedSellPrice}
-              onChange={e => setExpectedSellPrice(e.target.value)}
-              placeholder="950000"
-            />
-            <p className="helper-text">What price do you expect to sell this car for?</p>
+      {/* Main 2-column workspace */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, alignItems: 'start' }}>
+        
+        {/* Left Column: Input Form parameters */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          
+          {/* Expected Sell Price Card */}
+          <div className="card">
+            <div className="label-xs" style={{ marginBottom: 12 }}>Expected Listing Price</div>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: 'var(--text-3)', fontWeight: 700 }}>₹</span>
+              <input
+                type="number"
+                className="field-input field-input-lg"
+                value={expectedSellPrice}
+                onChange={e => setExpectedSellPrice(e.target.value)}
+                placeholder="950000"
+                style={{ paddingLeft: 28 }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>
+              Expected retail value of this vehicle post-recon
+            </div>
           </div>
 
-          <div className="cd-card">
-            <div className="cd-section-label">Target margin — {targetMarginPct}%</div>
+          {/* Target Margin Slider */}
+          <div className="card">
+            <div className="label-xs" style={{ marginBottom: 12 }}>
+              Target Margin: <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{targetMarginPct}%</span>
+            </div>
             <input
               type="range"
               min="10"
@@ -119,99 +136,140 @@ export default function ReverseCalculatorScreen() {
               step="1"
               value={targetMarginPct}
               onChange={e => setTargetMarginPct(Number(e.target.value))}
-              className="margin-slider"
+              style={{ width: '100%', accentColor: 'var(--accent)' }}
             />
-            <div className="helper-text">Profit target: {formatINR(profitPreview)}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>
+              <span>Conservative profit (10%)</span>
+              <span>Target Profit: <strong>{formatINR(profitPreview)}</strong></span>
+            </div>
           </div>
 
-          <div className="cd-card">
-            <div className="cd-section-label">Condition grades</div>
+          {/* Condition Grades */}
+          <div className="card">
+            <div className="label-xs" style={{ marginBottom: 12 }}>Condition Grades</div>
             <ConditionGradesSection
               grades={grades}
               vendorType={vendorType}
               onGradeChange={handleGradeChange}
               onVendorChange={handleVendorChange}
             />
-            <div className="live-cost-preview" style={{ marginTop: 8 }}>
-              Live recon total: {formatINR(liveRecon.total)}
+            <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: 'var(--text-3)' }}>Estimated Recon Costs:</span>
+              <strong style={{ color: 'var(--text-1)' }}>{formatINR(liveRecon.total)}</strong>
             </div>
           </div>
 
-          <div className="cd-card">
-            <div className="cd-section-label">Risk factors</div>
-            <div className="spec-grid">
-              <div className="spec-field">
-                <label className="spec-label">Year</label>
-                <input type="number" className="cd-input" value={year} onChange={e => setYear(e.target.value)} />
+          {/* Risk Factors */}
+          <div className="card">
+            <div className="label-xs" style={{ marginBottom: 16 }}>Risk Adjustments</div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="field-group">
+                <label className="field-label">Year</label>
+                <input type="number" className="field-input" value={year} onChange={e => setYear(e.target.value)} />
               </div>
-              <div className="spec-field">
-                <label className="spec-label">Owner count</label>
-                <select className="cd-input" value={ownerCount} onChange={e => setOwnerCount(e.target.value)}>
+              <div className="field-group">
+                <label className="field-label">Owners</label>
+                <select className="field-input field-select" value={ownerCount} onChange={e => setOwnerCount(e.target.value)}>
                   {OWNER_COUNTS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
-              <div className="spec-field">
-                <label className="spec-label">Odometer (km)</label>
-                <input type="number" className="cd-input" value={odometer} onChange={e => setOdometer(e.target.value)} />
+            </div>
+
+            <div className="field-group">
+              <label className="field-label">Odometer (km)</label>
+              <input type="number" className="field-input" value={odometer} onChange={e => setOdometer(e.target.value)} />
+            </div>
+
+            <div className="field-group">
+              <label className="field-label">Accident History</label>
+              <div className="seg-control" style={{ display: 'flex', gap: 4 }}>
+                {['none', 'minor', 'major'].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    className={`seg-btn ${accidentHistory === v ? 'active' : ''}`}
+                    onClick={() => setAccidentHistory(v)}
+                  >
+                    {v === 'none' ? 'None' : v === 'minor' ? 'Minor' : 'Major'}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="spec-label" style={{ marginTop: 10 }}>Accident history</div>
-            <div className="radio-row">
-              {['none', 'minor', 'major'].map(v => (
-                <label key={v} className={`radio-chip ${accidentHistory === v ? 'active' : ''}`}>
-                  <input type="radio" name="rev-accident" value={v} checked={accidentHistory === v} onChange={() => setAccidentHistory(v)} />
-                  {v === 'none' ? 'None' : v === 'minor' ? 'Minor' : 'Major'}
-                </label>
-              ))}
-            </div>
-
-            <div className="spec-field" style={{ marginTop: 10 }}>
-              <label className="spec-label">Registration state</label>
-              <select className="cd-input" value={registrationState} onChange={e => setRegistrationState(e.target.value)}>
+            <div className="field-group">
+              <label className="field-label">Registration State</label>
+              <select className="field-input field-select" value={registrationState} onChange={e => setRegistrationState(e.target.value)}>
                 {INDIAN_STATES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
 
-            <div className="spec-field">
-              <label className="spec-label">Sale state vs registration</label>
-              <div className="vendor-toggle-row">
-                <button type="button" className={`dep-toggle-btn ${sameState ? 'active' : ''}`} onClick={() => setSameState(true)}>Same state</button>
-                <button type="button" className={`dep-toggle-btn ${!sameState ? 'active' : ''}`} onClick={() => setSameState(false)}>Different state</button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="field-group">
+                <label className="field-label">Sale Jurisdiction</label>
+                <div className="seg-control">
+                  <button type="button" className={`seg-btn ${sameState ? 'active' : ''}`} onClick={() => setSameState(true)}>In-State</button>
+                  <button type="button" className={`seg-btn ${!sameState ? 'active' : ''}`} onClick={() => setSameState(false)}>Out-State</button>
+                </div>
+              </div>
+
+              <div className="field-group">
+                <label className="field-label">Loan Outstanding</label>
+                <div className="seg-control">
+                  <button type="button" className={`seg-btn ${!loanOutstanding ? 'active' : ''}`} onClick={() => setLoanOutstanding(false)}>No</button>
+                  <button type="button" className={`seg-btn ${loanOutstanding ? 'active' : ''}`} onClick={() => setLoanOutstanding(true)}>Yes</button>
+                </div>
               </div>
             </div>
 
-            <div className="spec-field">
-              <label className="spec-label">Loan outstanding</label>
-              <div className="vendor-toggle-row">
-                <button type="button" className={`dep-toggle-btn ${!loanOutstanding ? 'active' : ''}`} onClick={() => setLoanOutstanding(false)}>No</button>
-                <button type="button" className={`dep-toggle-btn ${loanOutstanding ? 'active' : ''}`} onClick={() => setLoanOutstanding(true)}>Yes</button>
-              </div>
-            </div>
-
-            <div className="spec-field">
-              <label className="spec-label">Seller reason</label>
-              <select className="cd-input" value={sellerReason} onChange={e => setSellerReason(e.target.value)}>
+            <div className="field-group" style={{ marginBottom: 0 }}>
+              <label className="field-label">Seller Reason</label>
+              <select className="field-input field-select" value={sellerReason} onChange={e => setSellerReason(e.target.value)}>
                 {SELLER_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
+
           </div>
 
-          <button className="cd-btn-orange cd-btn-full" onClick={handleCalculate} disabled={loading}>
-            <Icon name="arrowLeftRight" size={16} color="white" strokeWidth={2} />
-            {loading ? 'Calculating…' : 'Calculate Max Buy Price'}
+          <button className="btn btn-primary btn-full btn-lg" onClick={handleCalculate} disabled={loading}>
+            <Icon name="arrowLeftRight" size={16} color="white" strokeWidth={2.2} />
+            {loading ? 'Performing calculations…' : 'Calculate Max Buy Price'}
           </button>
         </div>
 
-        <div className="enhanced-col-right">
-          <div className="seasonal-banner">
-            📅 {seasonal.label} — {seasonal.mult}× {seasonal.note}
+        {/* Right Column: Results & Playbook */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          
+          {/* Seasonal context banner */}
+          <div className="card" style={{ background: 'var(--info-light)', borderLeft: '3px solid var(--info)' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <Icon name="calendar" size={16} color="var(--info)" strokeWidth={2.2} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)' }}>
+                  {seasonal.label} · {seasonal.mult}x Demand
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4, lineHeight: 1.4 }}>
+                  {seasonal.note}
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Pre-screening failure */}
           {reverseResult?.disqualifier?.disqualified && (
-            <div className="prescreen-banner fail">
-              <div className="prescreen-title">⚠ This car fails pre-screening</div>
-              <div className="prescreen-reason">{reverseResult.disqualifier.reason}</div>
+            <div className="card card-danger" style={{ borderLeft: '3px solid' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <Icon name="warning" size={18} color="var(--danger)" strokeWidth={2} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>
+                    Disqualified Vehicle
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 4 }}>
+                    {reverseResult.disqualifier.reason}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -221,26 +279,61 @@ export default function ReverseCalculatorScreen() {
                 <DealHealthBanner dealHealth={reverseResult.dealHealth} meta={DEAL_HEALTH_META} />
               )}
 
-              <div className="cd-card price-waterfall">
-                <div className="cd-section-label">Price waterfall</div>
-                {(reverseResult.priceBreakdown || []).map((row, i) => (
-                  <div key={i} className={`waterfall-row ${row.sign === '=' ? 'total' : ''}`}>
-                    <span>{row.label}</span>
-                    <strong>{row.sign === '-' ? '−' : ''}{formatINR(row.value)}</strong>
+              {/* Price Waterfall */}
+              <div className="card">
+                <div className="label-xs" style={{ marginBottom: 12 }}>Cost Deductions Waterfall</div>
+                
+                <div className="waterfall">
+                  {(reverseResult.priceBreakdown || []).map((row, i) => {
+                    const isTotal = row.sign === '=';
+                    const isDeduct = row.sign === '-';
+                    const valPct = (Math.abs(row.value) / Number(expectedSellPrice || 1)) * 100;
+                    return (
+                      <div key={i} className="waterfall-row" style={isTotal ? { borderTop: '2px solid var(--border)', paddingTop: 10, marginTop: 6 } : {}}>
+                        <div className="waterfall-label" style={isTotal ? { fontWeight: 700 } : {}}>{row.label}</div>
+                        {!isTotal && (
+                          <div className="waterfall-bar-track">
+                            <div
+                              className={`waterfall-bar-fill ${isDeduct ? 'red' : 'green'}`}
+                              style={{ width: `${Math.min(100, Math.max(2, valPct))}%` }}
+                            />
+                          </div>
+                        )}
+                        {isTotal && <div style={{ flex: 1 }} />}
+                        <div className="waterfall-val" style={isTotal ? { fontSize: 16, fontWeight: 800 } : isDeduct ? { color: 'var(--danger)' } : { color: 'var(--success)' }}>
+                          {isDeduct ? '−' : ''}{formatINR(row.value)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    borderTop: '2px solid var(--border)', paddingTop: 14, marginTop: 12
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Acquisition Ceiling (Max Offer)</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-0.5px' }}>
+                    {formatINR(reverseResult.maxBuyPrice)}
                   </div>
-                ))}
-                <div className="waterfall-max">
-                  Max buy price: {formatINR(reverseResult.maxBuyPrice)}
                 </div>
               </div>
 
-              <div className="cd-card">
+              {/* Negotiation Playbook */}
+              <div className="card" style={{ padding: '20px' }}>
                 <NegotiationPlaybook negotiation={reverseResult.negotiation} variant="reverse" />
               </div>
             </>
           ) : (
-            <div className="cd-card empty-panel">
-              <p className="helper-text">Enter details and calculate to see the price waterfall and negotiation playbook.</p>
+            <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div className="home-empty-icon" style={{ marginBottom: 12 }}>
+                <Icon name="arrowLeftRight" size={24} color="var(--text-3)" strokeWidth={1.8} />
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                Fill in the details on the left and click <strong>Calculate Max Buy Price</strong> to visualize the pricing waterfall and generate a negotiation playbook.
+              </p>
             </div>
           )}
         </div>

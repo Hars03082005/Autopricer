@@ -6,9 +6,10 @@ import { NegotiationPlaybook, ExpandableBreakdownTable } from '../components/Whe
 import Icon from '../components/Icon.jsx';
 
 function actionClass(action) {
-  if (action === 'BUY') return 'buy';
-  if (action === 'NEGOTIATE') return 'negotiate';
-  if (action === 'REJECT') return 'reject';
+  const a = String(action || '').toUpperCase();
+  if (a === 'BUY') return 'buy';
+  if (a === 'NEGOTIATE') return 'negotiate';
+  if (a === 'REJECT' || a === 'PASS') return 'reject';
   return 'review';
 }
 
@@ -21,30 +22,30 @@ function IDVBanner({ idvAnalysis }) {
   if (!idvAnalysis) return null;
   const { idv_value, ml_value, idv_gap_pct, flag, flag_type } = idvAnalysis;
   const sign = idv_gap_pct >= 0 ? '+' : '';
-  const bgColor = flag_type === 'warning' ? '#fff3e0' : flag_type === 'positive' ? '#e8f5e9' : '#f5f5f5';
-  const borderColor = flag_type === 'warning' ? '#f7941d' : flag_type === 'positive' ? '#00a651' : '#ccc';
-  const textColor = flag_type === 'warning' ? '#b45309' : flag_type === 'positive' ? '#15803d' : '#555';
-  const icon = flag_type === 'warning' ? '⚠️' : flag_type === 'positive' ? '✅' : 'ℹ️';
+
+  let bannerClass = 'neutral';
+  if (flag_type === 'warning') bannerClass = 'warning';
+  else if (flag_type === 'positive') bannerClass = 'positive';
 
   return (
-    <div style={{
-      background: bgColor,
-      border: `1.5px solid ${borderColor}`,
-      borderRadius: 12,
-      padding: '12px 14px',
-      marginBottom: 12,
-    }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 6 }}>
+    <div className={`idv-banner ${bannerClass}`}>
+      <div className="label-xs" style={{ marginBottom: 6 }}>
         IDV vs ML Valuation
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>
-        IDV: {formatINR(idv_value)} &nbsp;|&nbsp; ML Value: {formatINR(ml_value)} &nbsp;|&nbsp;
-        <span style={{ color: flag_type === 'warning' ? '#b45309' : flag_type === 'positive' ? '#15803d' : '#555', fontWeight: 700 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>
+        IDV: {formatINR(idv_value)} &nbsp;·&nbsp; ML Value: {formatINR(ml_value)} &nbsp;·&nbsp;
+        <span style={{ color: flag_type === 'warning' ? 'var(--warning)' : flag_type === 'positive' ? 'var(--success)' : 'var(--text-2)', fontWeight: 800 }}>
           Gap: {sign}{idv_gap_pct}%
         </span>
       </div>
-      <div style={{ fontSize: 12, color: textColor, fontWeight: 500 }}>
-        {icon} {flag}
+      <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+        <Icon
+          name={flag_type === 'warning' ? 'warning' : flag_type === 'positive' ? 'check' : 'clipboard'}
+          size={14}
+          color={flag_type === 'warning' ? 'var(--warning)' : flag_type === 'positive' ? 'var(--success)' : 'var(--text-3)'}
+          strokeWidth={2.2}
+        />
+        {flag}
       </div>
       {flag_type === 'warning' && (
         <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
@@ -64,11 +65,13 @@ function PipelineArrow() {
   );
 }
 
-// ─── Single pipeline step — simplified (numbers only, no verbose descriptions) ──
+// ─── Single pipeline step ──────────────────
 function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, barPct, barClass, subRows }) {
   return (
     <div className="pipeline-step">
-      <div className={`pipeline-icon ${iconClass}`}>{icon}</div>
+      <div className={`pipeline-icon ${iconClass}`}>
+        {icon}
+      </div>
       <div className={`pipeline-body ${bodyClass || ''}`}>
         <div className="pipeline-step-top">
           <div className="pipeline-step-label">{label}</div>
@@ -106,14 +109,12 @@ function RuleBasedPricingPipeline({ result, inputs }) {
     expectedMarginPct,
     targetMarginPct,
     riskScore,
-    riskLevel,
     recon,
     wheelrRisk,
     holdingCost,
     riskBuffer,
     repairBuffer,
     dealHealth,
-    confidenceScore,
   } = result;
 
   const mlBasePrice = predictedPrice || 0;
@@ -128,40 +129,44 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   const targetMPct = targetMarginPct || 15;
 
   const healthColor = dealHealth === 'green' ? 'green' : dealHealth === 'yellow' ? 'yellow' : 'red';
-  const healthIcon = dealHealth === 'green' ? '✅' : dealHealth === 'yellow' ? '⚠️' : '🔴';
   const healthMsg = DEAL_HEALTH_META[dealHealth]?.title || 'Deal health unknown';
 
   const reconBreakdown = recon?.breakdown || {};
   const reconSubRows = [
-    reconBreakdown.engine > 0 && { label: '🔧 Engine', value: formatINR(reconBreakdown.engine), color: 'var(--red)' },
-    reconBreakdown.tyres > 0 && { label: '🔄 Tyres', value: formatINR(reconBreakdown.tyres), color: 'var(--red)' },
-    reconBreakdown.body_paint > 0 && { label: '🎨 Body & Paint', value: formatINR(reconBreakdown.body_paint), color: 'var(--red)' },
-    reconBreakdown.interior > 0 && { label: '🪑 Interior', value: formatINR(reconBreakdown.interior), color: 'var(--red)' },
-    reconBreakdown.electricals > 0 && { label: '⚡ Electricals', value: formatINR(reconBreakdown.electricals), color: 'var(--red)' },
+    reconBreakdown.engine > 0 && { label: '🔧 Engine', value: formatINR(reconBreakdown.engine), color: 'var(--danger)' },
+    reconBreakdown.tyres > 0 && { label: '🔄 Tyres', value: formatINR(reconBreakdown.tyres), color: 'var(--danger)' },
+    reconBreakdown.body_paint > 0 && { label: '🎨 Body & Paint', value: formatINR(reconBreakdown.body_paint), color: 'var(--danger)' },
+    reconBreakdown.interior > 0 && { label: '🪑 Interior', value: formatINR(reconBreakdown.interior), color: 'var(--danger)' },
+    reconBreakdown.electricals > 0 && { label: '⚡ Electricals', value: formatINR(reconBreakdown.electricals), color: 'var(--danger)' },
     { label: '📋 RC + detailing + ops', value: formatINR(recon?.rc_transfer_cost != null ? reconBreakdown.fixed : (reconBreakdown.fixed || 8000)), color: 'var(--text-3)' },
   ].filter(Boolean);
 
   const riskBreakdown = wheelrRisk?.breakdown || {};
   const riskSubRows = [
-    riskBreakdown.owner_deduction > 0 && { label: `👤 Owner #${inputs.ownerCount}`, value: `−${formatINR(riskBreakdown.owner_deduction)}`, color: 'var(--red)' },
-    riskBreakdown.km_deduction > 0 && { label: '🛣️ High odometer', value: `−${formatINR(riskBreakdown.km_deduction)}`, color: 'var(--red)' },
-    riskBreakdown.accident_deduction > 0 && { label: '💥 Accident history', value: `−${formatINR(riskBreakdown.accident_deduction)}`, color: 'var(--red)' },
-    riskBreakdown.state_deduction > 0 && { label: '🗺️ Out-of-state', value: `−${formatINR(riskBreakdown.state_deduction)}`, color: 'var(--red)' },
-    riskBreakdown.loan_deduction > 0 && { label: '🏦 Loan outstanding', value: `−${formatINR(riskBreakdown.loan_deduction)}`, color: 'var(--red)' },
+    riskBreakdown.owner_deduction > 0 && { label: `👤 Owner #${inputs.ownerCount}`, value: `−${formatINR(riskBreakdown.owner_deduction)}`, color: 'var(--danger)' },
+    riskBreakdown.km_deduction > 0 && { label: '🛣️ High odometer', value: `−${formatINR(riskBreakdown.km_deduction)}`, color: 'var(--danger)' },
+    riskBreakdown.accident_deduction > 0 && { label: '💥 Accident history', value: `−${formatINR(riskBreakdown.accident_deduction)}`, color: 'var(--danger)' },
+    riskBreakdown.state_deduction > 0 && { label: '🗺️ Out-of-state', value: `−${formatINR(riskBreakdown.state_deduction)}`, color: 'var(--danger)' },
+    riskBreakdown.loan_deduction > 0 && { label: '🏦 Loan outstanding', value: `−${formatINR(riskBreakdown.loan_deduction)}`, color: 'var(--danger)' },
   ].filter(Boolean);
-  if (riskSubRows.length === 0) riskSubRows.push({ label: '✔ No risk deductions', value: '₹0', color: 'var(--green)' });
+  if (riskSubRows.length === 0) riskSubRows.push({ label: '✔ No risk deductions', value: '₹0', color: 'var(--success)' });
 
   return (
-    <div className="cd-card" style={{ padding: '16px', marginBottom: 12 }}>
+    <div className="card" style={{ marginBottom: 16 }}>
       <div className="pipeline-section-head">
         <div>
           <div className="pipeline-section-title">Pricing Pipeline</div>
-          <div className="pipeline-section-sub">How the ML price flows to your buy price</div>
+          <div className="pipeline-section-sub">Detailed breakdown of rule-based adjustments</div>
         </div>
       </div>
 
       <div className={`pipeline-health-row ${healthColor}`} style={{ marginBottom: 14 }}>
-        <span>{healthIcon}</span>
+        <Icon
+          name={dealHealth === 'red' ? 'warning' : 'check'}
+          size={14}
+          color={dealHealth === 'red' ? 'var(--danger)' : dealHealth === 'yellow' ? 'var(--warning)' : 'var(--success)'}
+          strokeWidth={2.2}
+        />
         <span>{healthMsg}</span>
       </div>
 
@@ -209,21 +214,21 @@ function RuleBasedPricingPipeline({ result, inputs }) {
           amount={`−${formatINR(targetProfit)}`} amountClass="amber"
           barPct={targetMPct} barClass="amber"
           subRows={[
-            { label: '💵 Profit at sell', value: formatINR(expectedProfit || targetProfit), color: 'var(--green)' },
-            { label: '📈 Actual margin', value: `${marginPct.toFixed(1)}%`, color: marginPct >= targetMPct ? 'var(--green)' : 'var(--red)' },
+            { label: '💵 Profit at sell', value: formatINR(expectedProfit || targetProfit), color: 'var(--success)' },
+            { label: '📈 Actual margin', value: `${marginPct.toFixed(1)}%`, color: marginPct >= targetMPct ? 'var(--success)' : 'var(--danger)' },
           ]}
         />
       </div>
 
       <div className="pipeline-final-box">
         <div className="pipeline-final-left">
-          <div className="pipeline-final-label">✅ Recommended Buy Price</div>
+          <div className="pipeline-final-label">Recommended Buy Price</div>
           <div className="pipeline-final-price">{formatINR(finalBuyPrice)}</div>
           <div className="pipeline-final-sub">Sell at {formatINR(sellPrice)} · Net profit {formatINR(expectedProfit)}</div>
         </div>
         <div className="pipeline-final-right">
           <div className="pipeline-final-margin-label">Actual Margin</div>
-          <div className="pipeline-final-margin-pct">{marginPct.toFixed(1)}%</div>
+          <div className="pipeline-final-margin-pct" style={{ color: 'var(--success)' }}>{marginPct.toFixed(1)}%</div>
           <div className="pipeline-final-margin-tag">Target: {targetMPct}%</div>
         </div>
       </div>
@@ -239,6 +244,7 @@ export default function EnhancedResultScreen() {
   if (isLoading) {
     return (
       <div className="screen loading-screen">
+        <div className="loading-spinner" />
         <div className="loading-label">Running enhanced evaluation…</div>
       </div>
     );
@@ -247,10 +253,10 @@ export default function EnhancedResultScreen() {
   if (!enhancedResult) {
     return (
       <div className="screen empty-screen">
-        <img src={carImage} alt="Car" style={{ width: '60%', opacity: 0.5, margin: '0 auto 16px', display: 'block' }} />
+        <img src={carImage} alt="Car" style={{ width: '50%', opacity: 0.25, margin: '0 auto 16px', display: 'block' }} />
         <h2 className="empty-title">No enhanced result yet</h2>
-        <p className="empty-sub">Run enhanced valuation with inspection details</p>
-        <button className="cd-btn-orange" onClick={() => setActiveScreen('enhanced-input')}>
+        <p className="empty-sub">Run enhanced valuation with detailed multi-point inspection checks to see the premium breakdown.</p>
+        <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('enhanced-input')}>
           <Icon name="zap" size={16} color="white" strokeWidth={2} />
           Enhanced Valuation
         </button>
@@ -260,8 +266,8 @@ export default function EnhancedResultScreen() {
 
   const {
     predictedPrice, recommendedBuyPrice, action, confidenceScore,
-    enhancedMaxBuyPrice, recon, wheelrRisk, negotiation, dealHealth,
-    idvAnalysis,
+    enhancedMaxBuyPrice, recon, wheelrRisk, negotiation,
+    idvAnalysis, segmentClass, routingNote,
   } = enhancedResult;
 
   const inspection = enhancedResult.inspection || {};
@@ -282,84 +288,104 @@ export default function EnhancedResultScreen() {
     { Factor: 'Loan', Value: inspection.loanOutstanding ? 'Yes' : 'No', Deduction: wheelrRisk?.breakdown?.loan_deduction || 0 },
   ];
 
-  const actionColors = { buy: '#00a651', negotiate: '#f7941d', reject: '#e02020', review: '#888' };
   const aClass = actionClass(action);
-  const actionColor = actionColors[aClass] || '#888';
+  const actionColor = aClass === 'buy' ? 'var(--success)' : aClass === 'negotiate' ? 'var(--warning)' : aClass === 'reject' ? 'var(--danger)' : 'var(--text-3)';
 
   return (
     <div className="screen enhanced-screen">
+      <div className="page-header">
+        <div>
+          <div className="page-title">Enhanced Evaluation Results</div>
+          <div className="page-subtitle">Detailed multi-point risk and cost assessment</div>
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('enhanced-input')}>
+          ← Back
+        </button>
+      </div>
+
       {/* ── IDV Banner (only when IDV was provided) ── */}
       <IDVBanner idvAnalysis={idvAnalysis} />
 
       {/* ── Action + Key Numbers ── */}
-      <div className="cd-card" style={{
-        background: `linear-gradient(135deg, ${actionColor}18 0%, ${actionColor}08 100%)`,
-        border: `2px solid ${actionColor}40`,
-        padding: '16px 18px',
-        marginBottom: 12,
+      <div className="card" style={{
+        background: `linear-gradient(135deg, ${actionColor}0a 0%, ${actionColor}03 100%)`,
+        border: `2px solid ${actionColor}30`,
+        padding: '20px',
+        marginBottom: 16,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>
-              Recommendation
+            <div className="label-xs" style={{ marginBottom: 6 }}>
+              Dealer Recommendation
             </div>
-            <div className={`action-badge ${aClass}`}>{action}</div>
+            <div className={`action-badge ${aClass}`} style={{ fontSize: 16, padding: '8px 16px' }}>{action}</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Confidence</div>
-            <span className={`confidence-pill ${confidenceScore >= 75 ? 'good' : confidenceScore >= 55 ? 'medium' : 'bad'}`}>
-              {confidenceScore}%
-            </span>
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <div className="label-xs">Confidence & Routing</div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {segmentClass && (
+                <span className={`segment-badge ${segmentClass}`}>
+                  {segmentClass.toUpperCase()}
+                </span>
+              )}
+              <span className={`confidence-pill ${confidenceScore >= 75 ? 'good' : confidenceScore >= 55 ? 'medium' : 'bad'}`}>
+                {confidenceScore}%
+              </span>
+            </div>
+            {routingNote && (
+              <div style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic', marginTop: 2 }}>
+                {routingNote}
+              </div>
+            )}
           </div>
         </div>
+
         {/* ML value row */}
-        <div style={{ background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>ML Market Value</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#007be5' }}>{formatINR(predictedPrice)}</div>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+          <div className="label-xs" style={{ marginBottom: 4 }}>ML Market Value</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--info)' }}>{formatINR(predictedPrice)}</div>
         </div>
 
         {/* Buy range row */}
-        <div style={{ background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '12px 12px' }}>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontSize: 12 }}>💰</span> Buy Price Range
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px' }}>
+          <div className="label-xs" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Icon name="tag" size={12} color="var(--accent)" strokeWidth={2.2} />
+            Negotiation Window
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 3 }}>Open at</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#00a651' }}>{formatINR(negotiation?.opening_offer || Math.round((enhancedMaxBuyPrice || recommendedBuyPrice) * 0.95))}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Opening Offer</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--success)' }}>{formatINR(negotiation?.opening_offer || Math.round((enhancedMaxBuyPrice || recommendedBuyPrice) * 0.95))}</div>
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '100%', height: 5, borderRadius: 3, background: 'linear-gradient(90deg, #00a651 0%, #f7941d 100%)', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 9, height: 9, borderRadius: '50%', background: '#00a651', border: '2px solid white' }} />
-                <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 9, height: 9, borderRadius: '50%', background: '#f7941d', border: '2px solid white' }} />
+              <div style={{ width: '100%', height: 4, borderRadius: 2, background: 'linear-gradient(90deg, var(--success) 0%, var(--warning) 100%)', position: 'relative' }}>
+                <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', border: '1.5px solid white' }} />
+                <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)', border: '1.5px solid white' }} />
               </div>
-              <div style={{ fontSize: 8, color: 'var(--text-3)', marginTop: 4 }}>window</div>
+              <div style={{ fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>spread</div>
             </div>
             <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 3 }}>Walk away</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#f7941d' }}>{formatINR(enhancedMaxBuyPrice)}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Walk Away</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--warning)' }}>{formatINR(enhancedMaxBuyPrice)}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Inspection Deductions breakdown ── */}
-      <div className="enhanced-result-cards" style={{ marginBottom: 12 }}>
-        <div className="cd-card" style={{ borderLeft: '3px solid #f7941d' }}>
-          <div className="cd-section-label">Inspection Deductions</div>
-          <div className="result-metric-row">
-            <span>Recon cost</span>
-            <strong>{formatINR(recon?.total)}</strong>
-          </div>
-          <div className="result-metric-row">
-            <span>Risk deductions</span>
-            <strong>{formatINR(wheelrRisk?.total)}</strong>
-          </div>
+      {/* ── Inspection Deductions summary cards ── */}
+      <div className="enhanced-result-cards" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div className="card" style={{ borderLeft: '3px solid var(--warning)' }}>
+          <div className="label-xs" style={{ marginBottom: 8 }}>Reconditioning Cost</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>{formatINR(recon?.total)}</div>
+        </div>
+        <div className="card" style={{ borderLeft: '3px solid var(--danger)' }}>
+          <div className="label-xs" style={{ marginBottom: 8 }}>Risk Deductions</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>{formatINR(wheelrRisk?.total)}</div>
         </div>
       </div>
 
       {/* ── Negotiation Playbook ── */}
-      <div className="cd-card" style={{ marginBottom: 12 }}>
+      <div className="card" style={{ marginBottom: 16, padding: '20px' }}>
         <NegotiationPlaybook negotiation={negotiation} confidenceScore={confidenceScore} />
       </div>
 
@@ -367,14 +393,16 @@ export default function EnhancedResultScreen() {
       <RuleBasedPricingPipeline result={enhancedResult} inputs={inputs} />
 
       {/* ── Expandable breakdown tables ── */}
-      <div className="cd-card" style={{ marginBottom: 12 }}>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="label-xs" style={{ marginBottom: 12 }}>Detailed Breakdowns</div>
         <ExpandableBreakdownTable title="View reconditioning breakdown" rows={reconRows} totalLabel="Total" totalValue={recon?.total} />
+        <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
         <ExpandableBreakdownTable title="View risk breakdown" rows={riskRows} totalLabel="Total" totalValue={wheelrRisk?.total} />
       </div>
 
-      <button className="cd-btn-outline cd-btn-full" onClick={() => setActiveScreen('enhanced-input')}>
-        <Icon name="arrowLeft" size={16} color="#f75d34" strokeWidth={2} />
-        Back to Enhanced Valuation
+      <button className="btn btn-secondary btn-full btn-lg" onClick={() => setActiveScreen('enhanced-input')}>
+        <Icon name="arrowLeft" size={16} color="var(--text-2)" strokeWidth={2.2} />
+        Back to Valuation Setup
       </button>
     </div>
   );
