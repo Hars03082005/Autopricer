@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -11,34 +11,34 @@ void main() {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  runApp(const PricerPointApp());
+  runApp(const PriceRefApp());
 }
 
-class PricerPointApp extends StatelessWidget {
-  const PricerPointApp({super.key});
+class PriceRefApp extends StatelessWidget {
+  const PriceRefApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PricerPoint',
+      title: 'PriceRef',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFF75D34)),
         useMaterial3: true,
       ),
-      home: const PricerPointWebShell(),
+      home: const PriceRefWebShell(),
     );
   }
 }
 
-class PricerPointWebShell extends StatefulWidget {
-  const PricerPointWebShell({super.key});
+class PriceRefWebShell extends StatefulWidget {
+  const PriceRefWebShell({super.key});
 
   @override
-  State<PricerPointWebShell> createState() => _PricerPointWebShellState();
+  State<PriceRefWebShell> createState() => _PriceRefWebShellState();
 }
 
-class _PricerPointWebShellState extends State<PricerPointWebShell> {
+class _PriceRefWebShellState extends State<PriceRefWebShell> {
   late final WebViewController _controller;
   var _loading = true;
   var _loadError = '';
@@ -101,7 +101,7 @@ class _PricerPointWebShellState extends State<PricerPointWebShell> {
   Future<void> _injectRuntimeConfig() async {
     final apiBase = AppConfig.apiBaseUrl.replaceAll("'", "\\'");
     await _controller.runJavaScript(
-      "window.PRICERPOINT_API_URL = '$apiBase';",
+      "window.PriceRef_API_URL = '$apiBase';",
     );
     if (mounted) {
       setState(() => _loading = false);
@@ -144,7 +144,7 @@ class _PricerPointWebShellState extends State<PricerPointWebShell> {
                       Icon(Icons.directions_car, size: 48, color: Color(0xFFF75D34)),
                       SizedBox(height: 16),
                       Text(
-                        'PricerPoint',
+                        'PriceRef',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -169,7 +169,7 @@ class _PricerPointWebShellState extends State<PricerPointWebShell> {
                         const Icon(Icons.wifi_off, size: 40, color: Color(0xFFE02020)),
                         const SizedBox(height: 12),
                         const Text(
-                          'Could not load PricerPoint',
+                          'Could not load PriceRef',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 8),

@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+﻿/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
@@ -33,7 +33,7 @@ const DEFAULT_INSPECTION = {
   },
 };
 
-const HISTORY_KEY = 'pricerpoint_ml_evaluation_history_v1';
+const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1';
 const AppContext = createContext(null);
 
 function toNumber(value, fallback = 0) {

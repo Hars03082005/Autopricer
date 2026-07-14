@@ -1,15 +1,15 @@
-/* eslint-disable react-refresh/only-export-components */
+﻿/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback } from 'react';
 
 const AuthContext = createContext(null);
 
 // ── Seed demo accounts ──────────────────────────────────────
 const DEMO_ACCOUNTS = {
-  'dealer@pricerpoint.ai': { password: 'dealer123', name: 'Ramesh Sharma', role: 'Dealer', avatar: 'RS' },
+  'dealer@PriceRef.ai': { password: 'dealer123', name: 'Ramesh Sharma', role: 'Dealer', avatar: 'RS' },
 };
 
-const STORAGE_KEY = 'pricerpoint_auth';
-const USERS_KEY   = 'pricerpoint_users';
+const STORAGE_KEY = 'PriceRef_auth';
+const USERS_KEY   = 'PriceRef_users';
 
 function loadUsers() {
   try {

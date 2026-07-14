@@ -1,9 +1,9 @@
-# PricerPoint — Dealership ML Valuation System
+﻿# PriceRef — Dealership ML Valuation System
 
 > **Scope:** Dealership / manager internal portal only.  
 > Seller portal · Buyer portal · Computer vision — all on hold.
 
-PricerPoint automates used-car acquisition decisions for dealerships. A dealer enters vehicle details, the system predicts the market value using an ML ensemble, applies a condition calibration, runs a rule-based dealer decision engine, and returns a complete acquisition recommendation — buy price, sell price, profit, risk score, and BUY / NEGOTIATE / REJECT action — in under a second.
+PriceRef automates used-car acquisition decisions for dealerships. A dealer enters vehicle details, the system predicts the market value using an ML ensemble, applies a condition calibration, runs a rule-based dealer decision engine, and returns a complete acquisition recommendation — buy price, sell price, profit, risk score, and BUY / NEGOTIATE / REJECT action — in under a second.
 
 ---
 
@@ -30,7 +30,7 @@ PricerPoint automates used-car acquisition decisions for dealerships. A dealer e
 
 Used-car dealerships must quote a competitive acquisition price the moment a seller walks in. The manual process — market lookup, negotiation experience, rough estimation — is slow, inconsistent, and risky. A competing dealership can win the deal simply by quoting faster.
 
-PricerPoint solves this by:
+PriceRef solves this by:
 - Predicting market value from vehicle features using a trained ML ensemble
 - Routing predictions to brand-class-specific models for accuracy
 - Generating a complete dealer decision (price, profit, risk, action) instantly
@@ -400,7 +400,7 @@ Action thresholds:
 
 | Screen | Purpose |
 |---|---|
-| `AuthScreen` | Demo login (`dealer@pricerpoint.ai / dealer123`) |
+| `AuthScreen` | Demo login (`dealer@PriceRef.ai / dealer123`) |
 | `HomeScreen` | Live dashboard with recent evaluations |
 | `InputScreen` | Vehicle details form (brand, model, specs, condition) |
 | `ResultScreen` | Market value + BUY/NEGOTIATE/REJECT result |
@@ -460,7 +460,7 @@ See `mobile/README.md` for device-specific instructions.
 ## 12. Demo Login
 
 ```
-Email:    dealer@pricerpoint.ai
+Email:    dealer@PriceRef.ai
 Password: dealer123
 ```
 
@@ -501,5 +501,5 @@ Password: dealer123
 
 ---
 
-*PricerPoint is a dealership-internal prototype. All predictions are ML estimates and should be reviewed by an experienced dealer before finalising any acquisition.*
+*PriceRef is a dealership-internal prototype. All predictions are ML estimates and should be reviewed by an experienced dealer before finalising any acquisition.*
 

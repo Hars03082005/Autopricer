@@ -1,6 +1,6 @@
-{
-    "name": "pricerpoint_mobile",
-    "short_name": "pricerpoint_mobile",
+﻿{
+    "name": "PriceRef_mobile",
+    "short_name": "PriceRef_mobile",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

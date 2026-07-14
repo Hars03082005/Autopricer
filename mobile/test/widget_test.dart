@@ -1,10 +1,10 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pricerpoint_mobile/main.dart';
+import 'package:PriceRef_mobile/main.dart';
 
 void main() {
-  testWidgets('PricerPoint app loads', (WidgetTester tester) async {
-    await tester.pumpWidget(const PricerPointApp());
-    expect(find.text('PricerPoint'), findsOneWidget);
+  testWidgets('PriceRef app loads', (WidgetTester tester) async {
+    await tester.pumpWidget(const PriceRefApp());
+    expect(find.text('PriceRef'), findsOneWidget);
   });
 }

@@ -1,4 +1,4 @@
-# PricerPoint Mobile (Flutter)
+﻿# PriceRef Mobile (Flutter)
 
 The mobile app is a **Flutter shell** that wraps the existing React web UI in a WebView. The UI, screens, and ML workflow stay the same — only the deployment layer changes so you can ship Android and iOS builds.
 
@@ -22,7 +22,7 @@ Flutter App (mobile/)
 From the project root:
 
 ```powershell
-cd pricerpoint-v2
+cd PriceRef-v2
 npm install
 npm run build:mobile
 ```
@@ -88,10 +88,10 @@ flutter build ios
 | `API_URL` | FastAPI backend base URL | `http://10.0.2.2:8000` (Android) / `http://localhost:8000` (iOS) |
 | `WEB_URL` | Dev server URL; leave empty to use bundled assets | bundled `assets/web/` |
 
-The Flutter shell injects `window.PRICERPOINT_API_URL` into the WebView so the React app can call your ML backend from mobile.
+The Flutter shell injects `window.PriceRef_API_URL` into the WebView so the React app can call your ML backend from mobile.
 
 ## Demo login
 
 ```text
-dealer@pricerpoint.ai / dealer123
+dealer@PriceRef.ai / dealer123
 ```

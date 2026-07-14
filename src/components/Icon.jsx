@@ -1,5 +1,5 @@
-/**
- * PricerPoint — SVG Icon Library
+﻿/**
+ * PriceRef — SVG Icon Library
  * All icons are 2D line-art SVGs, consistent style:
  *   strokeWidth=1.8, strokeLinecap="round", strokeLinejoin="round"
  * Usage: <Icon name="car" size={20} color="#f75d34" />

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import Icon from '../components/Icon.jsx';
 
 const DEMO_ACCOUNTS = [
   {
     label: 'Dealer Manager',
-    email: 'dealer@pricerpoint.ai',
+    email: 'dealer@PriceRef.ai',
     password: 'dealer123',
     role: 'Dealer Account',
     avatar: 'D',
@@ -160,7 +160,7 @@ export default function AuthScreen() {
                 </>
               ) : (
                 <>
-                  Sign in to PricerPoint
+                  Sign in to PriceRef
                   <Icon name="arrowRight" size={16} color="white" strokeWidth={2.2} />
                 </>
               )}
@@ -168,7 +168,7 @@ export default function AuthScreen() {
           </form>
 
           <div className="auth-terms">
-            Demo account · <strong>dealer@pricerpoint.ai</strong> / dealer123
+            Demo account · <strong>dealer@PriceRef.ai</strong> / dealer123
           </div>
         </div>
       </div>

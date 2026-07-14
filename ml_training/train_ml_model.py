@@ -1,4 +1,4 @@
-"""Train the PricerPoint ML valuation model (v5.0).
+﻿"""Train the PriceRef ML valuation model (v5.0).
 
 Dataset : ml_training/data/cleaned_used_car_dataset.csv  (213,820 rows, 26 cols)
 Pipeline :

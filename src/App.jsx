@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { AppProvider, useApp }   from './context/AppContext.jsx';
 import Icon          from './components/Icon.jsx';
@@ -128,7 +128,7 @@ function AppShell() {
             <Icon name="car" size={18} color="white" strokeWidth={2} />
           </div>
           <div>
-            <div className="sidebar-brand-name">PricerPoint</div>
+            <div className="sidebar-brand-name">PriceRef</div>
             <div className="sidebar-brand-sub">Dealer OS</div>
           </div>
         </div>

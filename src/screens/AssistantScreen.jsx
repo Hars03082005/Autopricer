@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
 
@@ -18,7 +18,7 @@ const SUGGESTIONS = [
 ];
 
 function buildContext(valuationResult, inputs) {
-  if (!valuationResult) return 'No vehicle has been evaluated yet. Ask me to explain PricerPoint features.';
+  if (!valuationResult) return 'No vehicle has been evaluated yet. Ask me to explain PriceRef features.';
   return `
 Vehicle: ${inputs?.year} ${inputs?.brand} ${inputs?.model} (${inputs?.variant || 'base'})
 Fuel: ${inputs?.fuel} · Transmission: ${inputs?.transmission}
@@ -75,7 +75,7 @@ function generateResponse(question, context, result, inputs) {
   }
 
   // Default helpful response
-  return `I'm your PricerPoint dealer assistant. I can help you with:\n\n• **Interpreting** the ML valuation result\n• **Buy/sell decision** analysis\n• **Risk factor** breakdown\n• **Profit and margin** estimates\n• **Depreciation** context\n\nFor this vehicle (${inputs?.brand} ${inputs?.model}): **${fmtL(result?.predictedPrice)}** market value · **${result?.action}** recommendation.\n\nWhat would you like to know?`;
+  return `I'm your PriceRef dealer assistant. I can help you with:\n\n• **Interpreting** the ML valuation result\n• **Buy/sell decision** analysis\n• **Risk factor** breakdown\n• **Profit and margin** estimates\n• **Depreciation** context\n\nFor this vehicle (${inputs?.brand} ${inputs?.model}): **${fmtL(result?.predictedPrice)}** market value · **${result?.action}** recommendation.\n\nWhat would you like to know?`;
 }
 
 export default function AssistantScreen() {
@@ -84,8 +84,8 @@ export default function AssistantScreen() {
     {
       role: 'ai',
       text: valuationResult
-        ? `Hello! I'm your PricerPoint assistant. I've analysed the **${inputs?.year} ${inputs?.brand} ${inputs?.model}** — market value **${fmtL(valuationResult?.predictedPrice)}**, recommendation: **${valuationResult?.action}**. What would you like to know?`
-        : `Hello! I'm your PricerPoint dealer assistant. Run a vehicle valuation first, then I can answer detailed questions about the ML result, risk factors, and dealer margin. What can I help with?`,
+        ? `Hello! I'm your PriceRef assistant. I've analysed the **${inputs?.year} ${inputs?.brand} ${inputs?.model}** — market value **${fmtL(valuationResult?.predictedPrice)}**, recommendation: **${valuationResult?.action}**. What would you like to know?`
+        : `Hello! I'm your PriceRef dealer assistant. Run a vehicle valuation first, then I can answer detailed questions about the ML result, risk factors, and dealer margin. What can I help with?`,
     },
   ]);
   const [input, setInput]     = useState('');

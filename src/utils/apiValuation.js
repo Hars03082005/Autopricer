@@ -1,9 +1,9 @@
-// Lazy getter — evaluated at call time so the Flutter WebView shell's
-// window.PRICERPOINT_API_URL injection (fired after onPageFinished) is
+﻿// Lazy getter — evaluated at call time so the Flutter WebView shell's
+// window.PriceRef_API_URL injection (fired after onPageFinished) is
 // always picked up, even though it arrives after module initialisation.
 function getApiBase() {
   return (
-    (typeof window !== 'undefined' && window.PRICERPOINT_API_URL) ||
+    (typeof window !== 'undefined' && window.PriceRef_API_URL) ||
     import.meta.env.VITE_ML_API_URL ||
     'http://localhost:9000'
   );

@@ -1,6 +1,6 @@
-import 'dart:io';
+﻿import 'dart:io';
 
-/// Runtime configuration for the PricerPoint mobile shell.
+/// Runtime configuration for the PriceRef mobile shell.
 ///
 /// Override at build/run time with dart-define:
 ///   flutter run --dart-define=API_URL=http://192.168.1.10:8000

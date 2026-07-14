@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import math
@@ -85,7 +85,7 @@ BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
 })
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
-app = FastAPI(title="PricerPoint ML API", version="1.0.0")
+app = FastAPI(title="PriceRef ML API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

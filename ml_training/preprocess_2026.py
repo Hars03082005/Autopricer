@@ -1,8 +1,8 @@
-
+﻿
 """
 preprocess_2026.py
 ==============================================================================
-Production-grade preprocessing pipeline for PricerPoint used-car dataset.
+Production-grade preprocessing pipeline for PriceRef used-car dataset.
 Input  : ml_training/data/combined_2026.csv  (pipe-delimited, multi-schema)
 Outputs:
   ml_training/data/cleaned_used_car_dataset.csv           <- full dataset
@@ -864,7 +864,7 @@ def phase10_final_report_and_save(df: pd.DataFrame) -> None:
 
 def main() -> None:
     print(DIV)
-    print("PricerPoint -- Used Car Dataset Preprocessing Pipeline (2026)")
+    print("PriceRef -- Used Car Dataset Preprocessing Pipeline (2026)")
     print(f"Input  : {RAW_CSV}")
     print(f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(DIV)

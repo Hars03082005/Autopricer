@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 
 /**
- * PricerPoint — Premium Searchable Dropdown
+ * PriceRef — Premium Searchable Dropdown
  * Linear × Stripe × Vercel style — no emojis, keyboard nav, smooth animations
  */
 export default function SearchableDropdown({

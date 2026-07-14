@@ -1,5 +1,5 @@
-"""
-clean_data.py  —  PricerPoint multi-schema dataset cleaner
+﻿"""
+clean_data.py  —  PriceRef multi-schema dataset cleaner
 Reads combined_2026.csv (pipe-delimited, ~35 MB, 7 schema variants) and writes cleaned.csv.
 
 Detected schemas (by pipe/field count):
