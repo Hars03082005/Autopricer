@@ -41,9 +41,13 @@ with open(METADATA_PATH, "r", encoding="utf-8") as f:
 FEATURES           = METADATA["features"]
 CAT_FEATURES       = METADATA["categorical_features"]
 CURRENT_YEAR       = METADATA.get("current_year_used_for_age", datetime.now().year)
-CONDITION_MULTIPLIERS = METADATA.get("condition_handling", {}).get(
-    "condition_multipliers", {"excellent": 1.035, "good": 1.0, "average": 0.94, "poor": 0.86}
-)
+CONDITION_MULTIPLIERS = {
+    # v9.0 — Improvement #8: stronger condition impact for realistic valuation
+    "excellent": 1.05,   # +5%  — near showroom condition
+    "good":      1.00,   # baseline
+    "average":   0.92,   # -8%  — noticeable wear, refurb needed
+    "poor":      0.82,   # -18% — major reconditioning required
+}
 
 predictor    = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
 BRAND_CATALOG = build_brand_catalog()
