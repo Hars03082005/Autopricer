@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import math
@@ -348,7 +348,8 @@ def predict_market_value(vehicle: VehicleInput) -> dict:
 
     # Apply market sanity clamp AFTER condition adjustment
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
-        vehicle.model, seg_class, age, float(adjusted)
+        vehicle.model, seg_class, age, float(adjusted),
+        city=str(vehicle.city or ""),
     )
     final_value = int(round(clamped_value / 500) * 500)
 
@@ -368,8 +369,9 @@ def predict_market_value(vehicle: VehicleInput) -> dict:
 
 def shap_like_explanation(vehicle: VehicleInput, market_value: int) -> list[dict]:
     """Delegate to the monetary SHAP function in decision_engine."""
-    age = max(0, CURRENT_YEAR - int(vehicle.year))
-    km  = max(0, int(vehicle.odometer_reading or 0))
+    age       = max(0, CURRENT_YEAR - int(vehicle.year))
+    km        = max(0, int(vehicle.odometer_reading or 0))
+    seg_class = get_segment_class(vehicle.brand)
     return shap_explanation(
         market_value    = float(market_value),
         vehicle_age     = age,
@@ -381,6 +383,8 @@ def shap_like_explanation(vehicle: VehicleInput, market_value: int) -> list[dict
         city            = str(vehicle.city or ""),
         inspected       = bool(getattr(vehicle, "inspected", False)),
         fuel_efficiency = float(vehicle.fuel_efficiency or 0),
+        brand           = str(vehicle.brand or ""),
+        segment         = seg_class,
     )
 
 

@@ -1,4 +1,4 @@
-﻿
+
 """
 preprocess_2026.py
 ==============================================================================
@@ -641,21 +641,24 @@ def phase6_dedup(df: pd.DataFrame) -> pd.DataFrame:
 # ===========================================================================
 # PHASE 7 -- Feature Engineering
 # ===========================================================================
-
 def phase7_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     """
     Derive new predictive features:
 
-    Vehicle_Age           = CURRENT_YEAR - YEAR
-    Annual_Mileage        = ODOMETER / Vehicle_Age  (div-by-zero safe)
-    Negotiation_Margin    = LIST_PRICE - PRICE       (NaN where LIST_PRICE absent)
-    Negotiation_Percentage= Margin / LIST_PRICE      (NaN where LIST_PRICE absent)
-    High_Mileage          = 1 if ODOMETER > 75th percentile of ODOMETER
-    Luxury_Brand          = 1 if MAKE is in the luxury brand set
+    Original:
+        Vehicle_Age, Annual_Mileage, Negotiation_Margin,
+        Negotiation_Percentage, High_Mileage, Luxury_Brand
+
+    New enriched features (analytical / business logic):
+        Km_Per_Year, Depreciation_Bucket, Mileage_Tier,
+        Brand_Tier, Ownership_Category, Price_Segment,
+        Is_Recent_Model, Seller_Type_Clean
     """
     print(DIV)
     print("PHASE 7 -- FEATURE ENGINEERING")
     print(DIV)
+
+    # ── Original Features ────────────────────────────────────────────────────
 
     # Vehicle_Age
     df["Vehicle_Age"] = (CURRENT_YEAR - df["YEAR"]).clip(lower=0)
@@ -687,19 +690,108 @@ def phase7_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     luxury_lower = {b.lower() for b in LUXURY_BRANDS}
     df["Luxury_Brand"] = df["MAKE"].str.strip().str.lower().isin(luxury_lower).astype(int)
 
-    engineered = [
+    # ── New Enriched Features ────────────────────────────────────────────────
+
+    # Km_Per_Year — usage intensity (capped at 100,000 km/year)
+    df["Km_Per_Year"] = np.where(
+        df["Vehicle_Age"] > 0,
+        (df["ODOMETER"] / df["Vehicle_Age"]).clip(0, 100_000),
+        df["ODOMETER"].clip(0, 100_000),
+    ).round(1)
+
+    # Depreciation_Bucket — age category for risk/recon grouping
+    def _dep_bucket(age: float) -> str:
+        if age <= 2:  return "new"
+        if age <= 5:  return "recent"
+        if age <= 9:  return "mid"
+        if age <= 12: return "old"
+        return "very_old"
+
+    df["Depreciation_Bucket"] = df["Vehicle_Age"].apply(_dep_bucket)
+
+    # Mileage_Tier — usage intensity tier for recon cost estimation
+    def _mileage_tier(km: float) -> str:
+        if km < 30_000:  return "low"
+        if km < 70_000:  return "moderate"
+        if km < 120_000: return "high"
+        return "very_high"
+
+    df["Mileage_Tier"] = df["ODOMETER"].apply(_mileage_tier)
+
+    # Brand_Tier — budget / mid / premium / luxury (maps MAKE to tier)
+    _BRAND_TIER: dict[str, str] = {
+        **{b: "budget"  for b in {"maruti", "maruti suzuki", "datsun", "bajaj", "chevrolet",
+                                   "fiat", "opel", "premier", "hindustan motors", "icml",
+                                   "force", "ashok leyland", "ambassador"}},
+        **{b: "mid"     for b in {"hyundai", "honda", "tata", "renault", "nissan", "ford",
+                                   "mahindra", "mitsubishi", "isuzu", "citroen", "dc"}},
+        **{b: "premium" for b in {"volkswagen", "skoda", "toyota", "mg", "jeep", "kia",
+                                   "mini", "volvo", "lexus"}},
+        **{b: "luxury"  for b in {"bmw", "mercedes-benz", "audi", "jaguar", "land rover",
+                                   "porsche", "maserati", "aston martin", "bentley",
+                                   "rolls-royce", "ferrari", "lamborghini", "hummer"}},
+    }
+    df["Brand_Tier"] = (
+        df["MAKE"].str.strip().str.lower()
+        .map(_BRAND_TIER)
+        .fillna("mid")
+    )
+
+    # Ownership_Category — owner tier label for risk segmentation
+    def _owner_cat(owner_raw) -> str:
+        try:
+            n = int(float(str(owner_raw)))
+        except (ValueError, TypeError):
+            return "unknown"
+        if n == 1:  return "single"
+        if n == 2:  return "two_owner"
+        if n == 3:  return "three_owner"
+        return "four_plus"
+
+    owner_col = "OWNER" if "OWNER" in df.columns else None
+    df["Ownership_Category"] = (
+        df[owner_col].apply(_owner_cat) if owner_col else "unknown"
+    )
+
+    # Price_Segment — actual transaction price tier
+    def _price_seg(price: float) -> str:
+        if price < 300_000:   return "budget"
+        if price < 800_000:   return "mid"
+        if price < 1_500_000: return "premium"
+        return "luxury"
+
+    df["Price_Segment"] = df["PRICE"].apply(_price_seg)
+
+    # Is_Recent_Model — binary: age <= 3 years
+    df["Is_Recent_Model"] = (df["Vehicle_Age"] <= 3).astype(int)
+
+    # Seller_Type_Clean — normalised to dealer / individual / unknown
+    def _seller_clean(v) -> str:
+        if pd.isna(v):
+            return "unknown"
+        s = str(v).strip().lower()
+        if "dealer" in s:                          return "dealer"
+        if "individual" in s or "private" in s:    return "individual"
+        return "unknown"
+
+    seller_col = "SELLER_TYPE" if "SELLER_TYPE" in df.columns else None
+    df["Seller_Type_Clean"] = (
+        df[seller_col].apply(_seller_clean) if seller_col else "unknown"
+    )
+
+    all_engineered = [
         "Vehicle_Age", "Annual_Mileage",
         "Negotiation_Margin", "Negotiation_Percentage",
         "High_Mileage", "Luxury_Brand",
+        "Km_Per_Year", "Depreciation_Bucket", "Mileage_Tier",
+        "Brand_Tier", "Ownership_Category", "Price_Segment",
+        "Is_Recent_Model", "Seller_Type_Clean",
     ]
-    print(f"\n  Engineered features ({len(engineered)}):")
-    for feat in engineered:
+    print(f"\n  Engineered features ({len(all_engineered)}):")
+    for feat in all_engineered:
         non_null = df[feat].notna().sum()
         print(f"    {feat:<30} -> {non_null:,} non-null values")
     print(f"\n  ODOMETER 75th percentile (High_Mileage threshold): {odo_q75:,.0f} km\n")
-    return df
-
-
 # ===========================================================================
 # PHASE 8 -- Outlier Detection (IQR, report only)
 # ===========================================================================
