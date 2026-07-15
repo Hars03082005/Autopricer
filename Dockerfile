@@ -4,19 +4,22 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Stage 2: Development (with hot-reload)
+# Stage 2: Development (with hot-reload via volume mounts)
 FROM base AS development
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # Stage 3: Builder (for production bundle)
 FROM base AS builder
+# Accept the API URL at build time (baked into static bundle)
+ARG VITE_API_URL=http://localhost:9000
+ENV VITE_API_URL=$VITE_API_URL
 COPY . .
 RUN npm run build
 
 # Stage 4: Production (serve with Nginx)
 FROM nginx:alpine AS production
-# Configure Nginx to serve on 5173 to match host port mapping
+# Patch Nginx to listen on 5173 to match host port mapping
 RUN sed -i 's/listen       80;/listen       5173;/g' /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 5173

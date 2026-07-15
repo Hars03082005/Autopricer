@@ -12,6 +12,12 @@ services:
       - ./backend:/app/backend
       - ./model_artifacts:/app/model_artifacts
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 5
     networks:
       - price-prediction-network
 
@@ -21,13 +27,18 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        VITE_API_URL: http://localhost:9000
     ports:
       - "5173:5173"
-    volumes:
-      - .:/app
-      - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:9000
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.js:/app/vite.config.js
+      - /app/node_modules
     restart: unless-stopped
     depends_on:
       backend:
