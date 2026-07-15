@@ -74,12 +74,13 @@ BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
     "ashok leyland": "economy", "ambassador": "economy",
     "hyundai": "economy", "honda": "economy", "tata": "economy",
     "renault": "economy", "nissan": "economy", "ford": "economy",
-    "mahindra": "economy", "mitsubishi": "economy",
-    "isuzu": "economy", "citroen": "economy", "dc": "economy",
+    "mitsubishi": "economy", "isuzu": "economy", "citroen": "economy", "dc": "economy",
     # Premium
     "volkswagen": "premium", "skoda": "premium", "toyota": "premium",
     "mg": "premium", "jeep": "premium", "kia": "premium",
     "mini": "premium", "volvo": "premium", "lexus": "premium",
+    "mahindra": "premium",
+
     # Luxury
     "bmw": "luxury", "mercedes-benz": "luxury", "audi": "luxury",
     "jaguar": "luxury", "land rover": "luxury", "porsche": "luxury",
@@ -172,9 +173,48 @@ def clean_text(value: object, default: str = "unknown") -> str:
     return text if text else default
 
 
-def normalize_model_name(brand: str, model_name: str) -> str:
+# ── Model-year alias map ─────────────────────────────────────────────────────
+# When a user types a generic model name that maps to a more specific generation
+# depending on the year, resolve it here BEFORE building features and before
+# looking up the sanity-clamp band.
+# Format: { clean_model: [ (min_year, max_year, canonical_model), ... ] }
+MODEL_YEAR_ALIASES: dict[str, list[tuple[int, int, str]]] = {
+    # Innova Crysta launched in 2016 — anything from 2016 onwards is Crysta
+    "innova":        [(2016, 9999, "innova crysta")],
+    # Creta gen-2 (2020+) has significantly higher resale vs gen-1
+    "creta":         [(2020, 9999, "creta")],
+    # Nexon EV (2020+) is a separate product from ICE Nexon
+    "nexon":         [(2020, 9999, "nexon")],
+    # Brezza (2022+ facelift has substantially higher value)
+    "vitara brezza": [(2022, 9999, "brezza")],
+    "brezza":        [(2022, 9999, "brezza")],
+    # Scorpio N (2022+) is a new platform, separate from old Scorpio Classic
+    "scorpio":       [(2022, 9999, "scorpio n")],
+    # Safari (2021+ is monocoque premium crossover, pre-2021 is body-on-frame Storme/Dicor)
+    "safari":        [(1900, 2020, "safari classic")],
+    # Thar (2020+ is lifestyle SUV, pre-2020 is old rugged off-roader)
+    "thar":          [(1900, 2019, "thar gen1")],
+}
+
+
+def _resolve_model_alias(model: str, year: int) -> str:
+    """
+    Return the canonical model name for a given year.
+    Falls back to the original model string if no alias applies.
+    """
+    model_key = clean_text(model)
+    rules = MODEL_YEAR_ALIASES.get(model_key)
+    if rules:
+        for min_yr, max_yr, canonical in rules:
+            if min_yr <= year <= max_yr:
+                return canonical
+    return model_key
+
+
+def normalize_model_name(brand: str, model_name: str, year: int = 0) -> str:
     brand_clean = clean_text(brand)
-    model_clean = clean_text(model_name)
+    # Resolve generation alias first (e.g. Innova 2019 -> innova crysta)
+    model_clean = _resolve_model_alias(model_name, year)
     if brand_clean != "unknown" and brand_clean not in model_clean:
         return f"{brand_clean} {model_clean}"
     return model_clean
@@ -211,7 +251,7 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     row = {
         # Categorical
         "brand":         clean_text(vehicle.brand),
-        "model":         normalize_model_name(vehicle.brand, vehicle.model),
+        "model":         normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
         "variant":       clean_text(vehicle.variant or "unknown"),
         "city":          clean_text(vehicle.city),
         "rto_state":     "unknown",   # not collected at basic input
@@ -318,20 +358,24 @@ def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
     Brand is always known at input time — O(1) dict lookup.
     Falls back to global ensemble if segment model file is missing.
     """
+    # Resolve year-based model alias BEFORE building features
+    resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
     artifact  = SEGMENT_MODELS.get(seg_class)
 
-    if artifact:
+    # Hybrid routing: only use segment model for 'economy' (which is highly optimized on volume).
+    # For 'premium' or 'luxury', route to the global model to prevent target shrinkage / underprediction.
+    if seg_class == "economy" and artifact:
         try:
             log_price    = _run_class_model(features, artifact)
-            routing_note = f"{seg_class} segment model used"
+            routing_note = "economy segment model used"
         except Exception:
             log_price    = predictor.predict_log_price(features)
-            routing_note = f"{seg_class} segment model error — fell back to global"
+            routing_note = "economy segment model error — fell back to global"
     else:
         log_price    = predictor.predict_log_price(features)
-        routing_note = "global model used (segment model not found)"
+        routing_note = f"global model used ({seg_class} segment routed)"
 
     market_value = float(np.expm1(log_price))
     if not math.isfinite(market_value):
@@ -342,6 +386,7 @@ def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
 
 def predict_market_value(vehicle: VehicleInput) -> dict:
     """Return base ML value and final condition-calibrated, sanity-clamped market value."""
+    resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
     base_value, routing_note = predict_base_market_value(vehicle)
     seg_class = get_segment_class(vehicle.brand)
     age       = max(0, CURRENT_YEAR - int(vehicle.year))
@@ -350,9 +395,11 @@ def predict_market_value(vehicle: VehicleInput) -> dict:
     adjusted = max(50_000, min(base_value * mult, 20_000_000))
     adjusted = int(round(adjusted / 500) * 500)
 
-    # Apply market sanity clamp AFTER condition adjustment
+    # Apply market sanity clamp AFTER condition adjustment.
+    # Use the resolved (alias-corrected) model name so Innova 2019
+    # gets the Innova Crysta band instead of the generic Innova band.
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
-        vehicle.model, seg_class, age, float(adjusted),
+        resolved_model, seg_class, age, float(adjusted),
         city=str(vehicle.city or ""),
     )
     final_value = int(round(clamped_value / 500) * 500)
@@ -368,6 +415,7 @@ def predict_market_value(vehicle: VehicleInput) -> dict:
         "routing_note":          routing_note,
         "sanity_clamped":        sanity_clamped,
         "sanity_note":           sanity_note,
+        "resolved_model":        resolved_model,   # surfaced for debugging
     }
 
 

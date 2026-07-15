@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { AppProvider, useApp }   from './context/AppContext.jsx';
 import Icon          from './components/Icon.jsx';
@@ -27,7 +27,6 @@ const NAV_SECTIONS = [
   {
     title: 'Analysis',
     items: [
-      { id: 'explain',         label: 'AI Explain',       icon: 'brain'        },
       { id: 'pricing',         label: 'Pricing',           icon: 'coins'        },
       { id: 'dashboard',       label: 'Analytics',         icon: 'chart'        },
       { id: 'enhanced-input',  label: 'Enhanced',          icon: 'zap'          },
@@ -172,7 +171,7 @@ function AppShell() {
               <Icon name="car" size={18} color="white" strokeWidth={2} />
             </div>
             <div>
-              <div className="header-name">Pricer<span className="header-ai">Point</span></div>
+              <div className="header-name">Price<span className="header-ai">Ref</span></div>
               <div className="header-tagline">Dealer Decision Engine</div>
             </div>
           </div>
@@ -232,7 +231,7 @@ function Root() {
         <div className="splash-logo">
           <Icon name="car" size={28} color="white" strokeWidth={2} />
         </div>
-        <div className="splash-name">Pricer<span style={{ color:'#f75d34', fontStyle:'italic' }}>Point</span></div>
+        <div className="splash-name">Price<span style={{ color:'#f75d34', fontStyle:'italic' }}>Ref</span></div>
         <div className="splash-dots">
           <span /><span /><span />
         </div>

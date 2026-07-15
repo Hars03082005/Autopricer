@@ -342,7 +342,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df["vehicle_age"] = (CURRENT_YEAR - year).clip(lower=0)
 
     df["km_per_year"] = np.where(
-        df["vehicle_age"] > 0,
+        df["vehicle_age"] > 0,2
         (km / df["vehicle_age"]).clip(0, 100_000),
         km.clip(0, 100_000),
     ).round(1)

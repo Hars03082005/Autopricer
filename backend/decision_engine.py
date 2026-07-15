@@ -81,19 +81,37 @@ _MARKET_BANDS: dict[str, tuple[float, float]] = {
     "compass":       (1_400_000, 2_500_000),
     "harrier":       (1_300_000, 2_400_000),
     "safari":        (1_500_000, 2_800_000),
+    "safari classic": (800_000,  1_500_000),  # pre-2021 old Tata Safari/Storme
     "ertiga":        (850_000,  1_500_000),
     "carens":        (1_000_000, 1_900_000),
     "city":          (850_000,  1_700_000),
+    "verna":         (850_000,  1_600_000),  # mid-size sedan
     "ciaz":          (700_000,  1_300_000),
     "vento":         (750_000,  1_250_000),
     "rapid":         (700_000,  1_200_000),
+    "slavia":        (1_100_000, 1_850_000), # modern Skoda sedan
+    "virtus":        (1_150_000, 1_900_000), # modern VW sedan
     "innova crysta": (1_500_000, 2_800_000),
     "innova":        (1_400_000, 2_600_000),
     "scorpio":       (1_000_000, 2_000_000),
     "scorpio n":     (1_400_000, 2_600_000),
     "thar":          (1_500_000, 2_800_000),
+    "thar gen1":     (900_000,  1_400_000),  # pre-2020 old Thar
     "xuv700":        (1_800_000, 3_500_000),
+    "xuv500":        (1_000_000, 1_900_000), # popular mid SUV
     "xuv300":        (800_000,  1_400_000),
+    "kushaq":        (1_100_000, 1_800_000), # Skoda compact SUV
+    "taigun":        (1_150_000, 1_850_000), # VW compact SUV
+    "xl6":           (950_000,  1_450_000),  # Maruti 6-seater
+    "triber":        (550_000,   850_000),   # Renault 7-seater
+    "jazz":          (650_000,  1_050_000),  # Honda premium hatch
+    "dzire":         (600_000,  1_050_000),  # compact sedan
+    "amaze":         (600_000,  1_000_000),  # compact sedan
+    "xcent":         (500_000,   850_000),   # Hyundai compact sedan
+    "aura":          (600_000,   950_000),   # Hyundai sedan replacement
+    "brio":          (350_000,   600_000),   # Honda hatch
+    "ritz":          (350_000,   600_000),   # Maruti hatch
+    "nano":          (100_000,   250_000),   # Tata ultra-budget
     # Premium / Luxury
     "octavia":       (1_800_000, 3_200_000),
     "superb":        (2_500_000, 4_500_000),
