@@ -240,13 +240,13 @@ _BRAND_POPULARITY: dict[str, float] = {
 
 # ── Dealer profit limits (min, max) per vehicle category
 # Based on real-world Indian used car dealer margins:
-# Economy cars: ₹8k–₹25k net, Mid SUVs: ₹15k–₹45k, Luxury: ₹40k–₹100k
+# Economy cars: ₹4k–₹12k net, Mid SUVs: ₹10k–₹22k, Luxury: ₹20k–₹45k
 _PROFIT_LIMITS: dict[str, tuple[int, int]] = {
-    "economy":       (8_000,    25_000),
-    "premium_hatch": (10_000,   30_000),
-    "compact_suv":   (12_000,   35_000),
-    "mid_suv":       (15_000,   45_000),
-    "luxury":        (40_000,  100_000),
+    "economy":       (4_000,    12_000),
+    "premium_hatch": (6_000,    15_000),
+    "compact_suv":   (8_000,    18_000),
+    "mid_suv":       (10_000,   22_000),
+    "luxury":        (20_000,   45_000),
 }
 
 # ── City demand premium (fraction of market value uplift)
@@ -260,40 +260,40 @@ _CITY_DEMAND: dict[str, float] = {
 
 # ── Holding cost parameters by segment (base; adjusted by brand popularity)
 _HOLDING: dict[str, dict] = {
-    "economy": {"rate_pct": 1.5, "days": 25},
-    "premium": {"rate_pct": 2.0, "days": 40},
-    "luxury":  {"rate_pct": 2.8, "days": 65},
+    "economy": {"rate_pct": 0.5, "days": 20},
+    "premium": {"rate_pct": 0.6, "days": 25},
+    "luxury":  {"rate_pct": 0.8, "days": 35},
 }
 
 # ── Reconditioning base cost by segment
 _RECON_BASE: dict[str, int] = {
-    "economy": 12_000,
-    "premium": 20_000,
-    "luxury":  40_000,
+    "economy": 5_000,
+    "premium": 8_000,
+    "luxury":  15_000,
 }
 
 # ── Documentation cost components (actual charges)
 _DOC = {
-    "rc_transfer":   3_500,   # Always charged
+    "rc_transfer":   1_500,   # Always charged
     "noc":             500,   # Always charged
-    "insurance":     1_200,   # Always charged
-    "hypothecation": 2_000,   # Only when loan_outstanding=True
-    "state_transfer": 8_000,  # Only when registration_state ≠ sale_state
+    "insurance":       500,   # Always charged
+    "hypothecation": 1_000,   # Only when loan_outstanding=True
+    "state_transfer": 3_000,  # Only when registration_state ≠ sale_state
 }
 
 # ── Segment margin base rates (%) — realistic used car dealer net margins in India
 # Real-world: dealers net 3–6% after all costs (recon, holding, docs, risk)
 _MARGIN_BASE: dict[str, float] = {
-    "economy": 4.0,
-    "premium": 5.0,
-    "luxury":  6.0,
+    "economy": 2.0,
+    "premium": 2.5,
+    "luxury":  3.0,
 }
 
 # ── Segment margin caps [min%, max%]
 _MARGIN_CAPS: dict[str, tuple[float, float]] = {
-    "economy": (2.5,  6.5),
-    "premium": (3.0,  8.0),
-    "luxury":  (4.0, 10.0),
+    "economy": (1.5,  3.5),
+    "premium": (2.0,  4.5),
+    "luxury":  (2.5,  6.0),
 }
 
 # ── Per-segment adaptive sanity tolerance at full confidence (100%)
@@ -699,42 +699,42 @@ def compute_risk_buffer(
     This prevents the system from assuming best-case when data is missing.
     """
     seg_factor  = {"economy": 0.80, "premium": 1.00, "luxury": 1.40}.get(segment, 1.00)
-    base_buffer = market_value * risk_score * 0.0004 * seg_factor
+    base_buffer = market_value * risk_score * 0.0001 * seg_factor
 
     # Age-based additive
     age_add = (
         0       if age < 3 else
-        5_000   if age < 6 else
-        12_000  if age < 9 else
-        22_000
+        1_500   if age < 6 else
+        3_000   if age < 9 else
+        6_000
     )
 
     # Annual mileage intensity additive (Improvement #10)
     ann_km  = _annual_km(km, age)
     km_add  = (
         0       if ann_km < _ANNUAL_KM_TIERS["moderate"] else
-        5_000   if ann_km < _ANNUAL_KM_TIERS["high"]     else
-        12_000  if ann_km < _ANNUAL_KM_TIERS["very_high"] else
-        20_000
+        1_500   if ann_km < _ANNUAL_KM_TIERS["high"]     else
+        3_000   if ann_km < _ANNUAL_KM_TIERS["very_high"] else
+        5_000
     )
 
-    owner_add = {1: 0, 2: 3_000, 3: 10_000}.get(min(owner_count, 3), 22_000)
-    insp_add  = 0 if inspected else 5_000
-    cond_add  = {"poor": 18_000, "average": 7_000}.get(condition.lower(), 0)
+    owner_add = {1: 0, 2: 1_000, 3: 3_000}.get(min(owner_count, 3), 5_000)
+    insp_add  = 0 if inspected else 1_500
+    cond_add  = {"poor": 5_000, "average": 2_000}.get(condition.lower(), 0)
 
     # Unknown field penalties (Improvement #4) — rupee impact per missing field
     missing_penalties = 0
-    if not variant_known:         missing_penalties += 5_000   # trim unknown
-    if not owner_known:           missing_penalties += 8_000   # owner count unknown
-    if not service_hist_known:    missing_penalties += 6_000   # service records missing
-    if not accident_hist_known:   missing_penalties += 10_000  # could be hiding damage
-    if not reg_state_known:       missing_penalties += 3_000   # RTO unknown
-    if not color_known:           missing_penalties += 1_000   # minor resale impact
+    if not variant_known:         missing_penalties += 1_500
+    if not owner_known:           missing_penalties += 2_000
+    if not service_hist_known:    missing_penalties += 1_500
+    if not accident_hist_known:   missing_penalties += 3_000
+    if not reg_state_known:       missing_penalties += 1_000
+    if not color_known:           missing_penalties += 500
 
     total = int(base_buffer + age_add + km_add + owner_add + insp_add
                 + cond_add + missing_penalties)
-    # Floor ₹5k, cap at 12% of market value
-    return int(_clamp(total, 5_000, market_value * 0.12))
+    # Floor ₹2k, cap at 5% of market value
+    return int(_clamp(total, 2_000, market_value * 0.05))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1237,9 +1237,9 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # ── Buy Price ─────────────────────────────────────────────────────────────
     total_deductions      = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
     recommended_buy_price = market_value - total_deductions
-    # Floor: dealer must pay at least 82% of market value to be competitive
-    # (sellers will reject offers below ~80-83% in a normal market)
-    recommended_buy_price = max(market_value * 0.82, recommended_buy_price)
+    # Floor: dealer must pay at least 88% of market value to be competitive
+    # (sellers will reject offers below ~86-88% in a normal market)
+    recommended_buy_price = max(market_value * 0.88, recommended_buy_price)
     recommended_buy_price = _round500(recommended_buy_price)
 
     # ── Sell price ────────────────────────────────────────────────────────────
