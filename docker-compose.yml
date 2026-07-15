@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  backend:
+    container_name: price-prediction-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./backend:/app/backend
+      - ./model_artifacts:/app/model_artifacts
+    restart: unless-stopped
+    networks:
+      - price-prediction-network
+
+  frontend:
+    container_name: price-prediction-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:9000
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - price-prediction-network
+
+networks:
+  price-prediction-network:
+    driver: bridge
