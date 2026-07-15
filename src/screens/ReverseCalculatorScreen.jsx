@@ -124,20 +124,22 @@ export default function ReverseCalculatorScreen() {
             </div>
           </div>
 
-          {/* Target Margin Slider */}
+          {/* Target Margin Input */}
           <div className="card">
-            <div className="label-xs" style={{ marginBottom: 12 }}>
-              Target Margin: <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{targetMarginPct}%</span>
+            <div className="label-xs" style={{ marginBottom: 12 }}>Target Margin %</div>
+            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="number"
+                min="5"
+                max="30"
+                className="field-input"
+                value={targetMarginPct}
+                onChange={e => setTargetMarginPct(Number(e.target.value))}
+                placeholder="15"
+                style={{ width: '100%', paddingRight: '24px' }}
+              />
+              <span style={{ position: 'absolute', right: '12px', fontSize: '13px', fontWeight: 'bold', color: 'var(--text-3)' }}>%</span>
             </div>
-            <input
-              type="range"
-              min="10"
-              max="25"
-              step="1"
-              value={targetMarginPct}
-              onChange={e => setTargetMarginPct(Number(e.target.value))}
-              style={{ width: '100%', accentColor: 'var(--accent)' }}
-            />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-3)', marginTop: 6 }}>
               <span>Conservative profit (10%)</span>
               <span>Target Profit: <strong>{formatINR(profitPreview)}</strong></span>

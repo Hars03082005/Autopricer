@@ -99,13 +99,14 @@ function getValidFuels(brand, model) {
   return FUELS;
 }
 
+/* ─── Sub-components ────────────────────────────────────────────── */
 function SectionHeader({ n, title, sub }) {
   return (
-    <div className="vws-head" style={{ marginBottom: 16 }}>
+    <div className="vws-head">
       <div className="vws-num">{n}</div>
       <div>
-        <div className="vws-title" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{title}</div>
-        {sub && <div className="vws-sub" style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{sub}</div>}
+        <div className="vws-title">{title}</div>
+        {sub && <div className="vws-sub">{sub}</div>}
       </div>
     </div>
   );
@@ -113,9 +114,9 @@ function SectionHeader({ n, title, sub }) {
 
 function FieldLabel({ children, required }) {
   return (
-    <label className="vws-label" style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--text-1)', marginBottom: 6 }}>
+    <label className="vws-label">
       {children}
-      {required && <span className="vws-req" style={{ color: '#dc2626', marginLeft: 3 }}>*</span>}
+      {required && <span className="vws-req" aria-hidden>*</span>}
     </label>
   );
 }
@@ -149,34 +150,33 @@ export default function InputScreen() {
   const required = [inputs.brand, inputs.model, inputs.year, inputs.mileage, inputs.fuel, inputs.city].filter(Boolean).length;
   const isReady  = required === 6;
 
-  /* Fetch brands seed */
+  /* Load brands */
   useEffect(() => {
-    let active = true;
+    let alive = true;
     fetchBrands()
-      .then(data => { if (active) { setBrandCatalog(data); setLoading(false); } })
-      .catch(() => { if (active) { setLoading(false); setError('Failed to load manufacturers catalogue.'); } });
-    return () => { active = false; };
+      .then(b => { if (alive) setBrandCatalog(b); })
+      .catch(() => { if (alive) setError('Backend unavailable — run: uvicorn backend.main:app --reload'); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, []);
 
-  /* Route triggers */
+  /* Handlers */
   const onBrand = (b) => {
     updateInput('brand', b);
-    updateInput('model', '');
+    const models = brandCatalog[b] || [];
+    updateInput('model', models[0] || '');
     updateInput('variant', '');
   };
 
   const onModel = (m) => {
     updateInput('model', m);
     updateInput('variant', '');
-    // Auto preset fuel and trans defaults if match found
-    const f = getValidFuels(inputs.brand, m);
-    if (f.length === 1) updateInput('fuel', f[0]);
   };
 
   const onSubmit = async () => {
-    if (!isReady || submitting) return;
-    setSubmitting(true);
+    if (!isReady) return;
     setError('');
+    setSubmitting(true);
     setIsLoading(true);
     setValuationResult(null);
     setActiveScreen('result');
@@ -197,152 +197,183 @@ export default function InputScreen() {
     }
   };
 
+  /* ── Render ─────────────────────────────────────────────────── */
   return (
     <div className="vws-root">
 
       {/* ══════════════ LEFT: FORM ═══════════════════════════ */}
       <div className="vws-form">
 
-        {/* ── § 1 Vehicle Identity & Specs (Dense Row-by-Row Layout) ── */}
-        <section className="vws-section">
-          <SectionHeader n="1" title="Vehicle Identity & Specifications" sub="Configure vehicle tags, options, and model credentials" />
+        {/* Compact Form Header */}
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Vehicle Valuation Parameters</h2>
+          <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Configure all inputs side-by-side to estimate buy and sell pricing bands.</p>
+        </div>
 
-          {/* Row 1: Brand, Model, Variant */}
-          <div className="vws-row-3">
-            <div className="vws-field">
-              <FieldLabel required>Brand</FieldLabel>
-              {loading ? (
-                <div className="vws-skeleton" style={{ height: 38 }} />
-              ) : (
-                <SearchableDropdown
-                  options={brandList}
-                  value={inputs.brand}
-                  onChange={onBrand}
-                  placeholder="Select manufacturer"
-                  searchPlaceholder="Search brands…"
-                />
-              )}
-            </div>
-            <div className="vws-field">
-              <FieldLabel required>Model</FieldLabel>
+        {/* Row 1: Brand, Model, Year, Variant */}
+        <div className="vws-row-4">
+          <div className="vws-field">
+            <FieldLabel required>Brand</FieldLabel>
+            {loading ? (
+              <div className="vws-skeleton" style={{ height: 38 }} />
+            ) : (
               <SearchableDropdown
-                options={modelList}
-                value={inputs.model}
-                onChange={onModel}
-                placeholder={inputs.brand ? 'Select model' : 'Select brand first'}
-                disabled={!inputs.brand || modelList.length === 0}
-                searchPlaceholder="Search models…"
+                options={brandList}
+                value={inputs.brand}
+                onChange={onBrand}
+                placeholder="Brand"
+                searchPlaceholder="Search brands…"
               />
-            </div>
-            <div className="vws-field">
-              <FieldLabel>Variant</FieldLabel>
-              <SearchableDropdown
-                options={variantList}
-                value={inputs.variant}
-                onChange={v => updateInput('variant', v)}
-                placeholder={inputs.model ? 'Select variant' : '—'}
-                disabled={!inputs.model || variantList.length === 0}
-                searchPlaceholder="Search variants…"
-              />
-            </div>
+            )}
           </div>
-
-          {/* Row 2: Year, Reg No, City */}
-          <div className="vws-row-3">
-            <div className="vws-field">
-              <FieldLabel required>Year</FieldLabel>
-              <SearchableDropdown
-                options={YEARS}
-                value={inputs.year}
-                onChange={v => updateInput('year', v)}
-                placeholder="Select year"
-              />
-            </div>
-            <div className="vws-field">
-              <FieldLabel>Registration No.</FieldLabel>
-              <input
-                className="vws-input vws-mono"
-                type="text"
-                value={inputs.vin || ''}
-                onChange={e => updateInput('vin', formatReg(e.target.value))}
-                placeholder="MH 01 AB 1234"
-                maxLength={11}
-              />
-            </div>
-            <div className="vws-field">
-              <FieldLabel required>City</FieldLabel>
-              <SearchableDropdown
-                options={CITIES}
-                value={inputs.city}
-                onChange={v => updateInput('city', v)}
-                placeholder="Select city"
-                searchPlaceholder="Search cities…"
-              />
-            </div>
+          <div className="vws-field">
+            <FieldLabel required>Model</FieldLabel>
+            <SearchableDropdown
+              options={modelList}
+              value={inputs.model}
+              onChange={onModel}
+              placeholder="Model"
+              disabled={!inputs.brand || modelList.length === 0}
+              searchPlaceholder="Search models…"
+            />
           </div>
+          <div className="vws-field">
+            <FieldLabel required>Year</FieldLabel>
+            <SearchableDropdown
+              options={YEARS}
+              value={inputs.year}
+              onChange={v => updateInput('year', v)}
+              placeholder="Year"
+            />
+          </div>
+          <div className="vws-field">
+            <FieldLabel>Variant</FieldLabel>
+            <SearchableDropdown
+              options={variantList}
+              value={inputs.variant}
+              onChange={v => updateInput('variant', v)}
+              placeholder="Variant"
+              disabled={!inputs.model || variantList.length === 0}
+              searchPlaceholder="Search variants…"
+            />
+          </div>
+        </div>
 
-          {/* Row 3: Odometer, Fuel Type, Transmission */}
-          <div className="vws-row-3">
-            <div className="vws-field">
-              <FieldLabel required>Odometer Reading (km)</FieldLabel>
+        {/* Row 2: Registration No., City, Odometer */}
+        <div className="vws-row-3">
+          <div className="vws-field">
+            <FieldLabel>Registration No.</FieldLabel>
+            <input
+              className="vws-input vws-mono"
+              type="text"
+              value={inputs.vin || ''}
+              onChange={e => updateInput('vin', formatReg(e.target.value))}
+              placeholder="MH 01 AB 1234"
+              maxLength={11}
+            />
+          </div>
+          <div className="vws-field">
+            <FieldLabel required>City</FieldLabel>
+            <SearchableDropdown
+              options={CITIES}
+              value={inputs.city}
+              onChange={v => updateInput('city', v)}
+              placeholder="City"
+              searchPlaceholder="Search cities…"
+            />
+          </div>
+          <div className="vws-field">
+            <FieldLabel required>Odometer Reading</FieldLabel>
+            <div className="vws-odo-wrap" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
               <input
                 className="vws-input"
                 type="number"
                 value={inputs.mileage || ''}
                 onChange={e => updateInput('mileage', e.target.value)}
-                placeholder="Enter km reading…"
+                placeholder="Odometer"
                 min={0}
+                style={{ width: '100%', paddingRight: '36px' }}
               />
-            </div>
-            <div className="vws-field">
-              <FieldLabel required>Fuel Type</FieldLabel>
-              <select
-                className="vws-input"
-                value={inputs.fuel || ''}
-                onChange={e => updateInput('fuel', e.target.value)}
-              >
-                <option value="">Select fuel type</option>
-                {validFuels.map(f => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </div>
-            <div className="vws-field">
-              <FieldLabel>Transmission</FieldLabel>
-              <select
-                className="vws-input"
-                value={inputs.transmission || ''}
-                onChange={e => updateInput('transmission', e.target.value)}
-              >
-                <option value="">Select transmission</option>
-                {TRANSMISSIONS.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              <span className="vws-odo-unit" style={{ position: 'absolute', right: '12px', fontSize: '12px', color: 'var(--text-3)' }}>km</span>
             </div>
           </div>
+        </div>
 
-          {/* Row 4: Owners, Color, Physical Condition */}
-          <div className="vws-row-3">
-            <div className="vws-field">
-              <FieldLabel>Owners</FieldLabel>
+        {/* Row 3: Fuel Type, Transmission, Physical Condition */}
+        <div className="vws-row-3">
+          <div className="vws-field">
+            <FieldLabel required>Fuel Type</FieldLabel>
+            <select
+              className="vws-input field-select"
+              value={inputs.fuel || ''}
+              onChange={e => updateInput('fuel', e.target.value)}
+            >
+              <option value="">Select Fuel</option>
+              {validFuels.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+          <div className="vws-field">
+            <FieldLabel>Transmission</FieldLabel>
+            <select
+              className="vws-input field-select"
+              value={inputs.transmission || ''}
+              onChange={e => updateInput('transmission', e.target.value)}
+            >
+              <option value="">Select Transmission</option>
+              {TRANSMISSIONS.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div className="vws-field">
+            <FieldLabel>Physical Condition</FieldLabel>
+            <select
+              className="vws-input field-select"
+              value={inputs.condition || ''}
+              onChange={e => updateInput('condition', e.target.value)}
+            >
+              <option value="">Select Condition</option>
+              {CONDITIONS.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Row 4: Owners, Color, Seller Asking Price */}
+        <div className="vws-row-3">
+          <div className="vws-field">
+            <FieldLabel>Owners</FieldLabel>
+            <select
+              className="vws-input field-select"
+              value={inputs.ownerCount || ''}
+              onChange={e => updateInput('ownerCount', e.target.value)}
+            >
+              <option value="">Select Owners</option>
+              {OWNERS.map(o => (
+                <option key={o} value={o.replace('+','')}>{o}</option>
+              ))}
+            </select>
+          </div>
+          <div className="vws-field">
+            <FieldLabel>Color</FieldLabel>
+            <div style={{ position: 'relative' }}>
+              {inputs.color && (
+                <span style={{
+                  position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+                  width: 14, height: 14, borderRadius: '50%', pointerEvents: 'none',
+                  background: COLORS.find(c => c.name === inputs.color)?.hex || '#ccc',
+                  border: `1.5px solid ${COLORS.find(c => c.name === inputs.color)?.border || '#aaa'}`,
+                  zIndex: 1,
+                }} />
+              )}
               <select
-                className="vws-input"
-                value={inputs.ownerCount || ''}
-                onChange={e => updateInput('ownerCount', e.target.value)}
-              >
-                <option value="">Select owners</option>
-                {OWNERS.map(o => (
-                  <option key={o} value={o.replace('+','')}>{o} Owner{o !== '1' ? 's' : ''}</option>
-                ))}
-              </select>
-            </div>
-            <div className="vws-field">
-              <FieldLabel>Color</FieldLabel>
-              <select
-                className="vws-input"
+                className="vws-input field-select"
                 value={inputs.color || ''}
                 onChange={e => updateInput('color', e.target.value)}
+                style={{ paddingLeft: inputs.color ? 30 : 10 }}
               >
                 <option value="">Select color</option>
                 {COLORS.map(c => (
@@ -350,105 +381,74 @@ export default function InputScreen() {
                 ))}
               </select>
             </div>
-            <div className="vws-field">
-              <FieldLabel>Physical Condition</FieldLabel>
-              <select
+          </div>
+          <div className="vws-field">
+            <FieldLabel>Seller Asking Price</FieldLabel>
+            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <span style={{ position: 'absolute', left: 12, fontSize: 13, color: 'var(--text-3)' }}>₹</span>
+              <input
                 className="vws-input"
-                value={inputs.condition || ''}
-                onChange={e => updateInput('condition', e.target.value)}
-              >
-                <option value="">Select condition</option>
-                {CONDITIONS.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+                type="number"
+                value={inputs.sellerAskingPrice === '0' ? '' : inputs.sellerAskingPrice}
+                onChange={e => updateInput('sellerAskingPrice', e.target.value || '0')}
+                placeholder="0"
+                min={0}
+                style={{ paddingLeft: 24 }}
+              />
             </div>
           </div>
-        </section>
+        </div>
 
-        <div className="vws-divider" />
-
-        {/* ── § 2 Acquisition & Dealer Preferences ── */}
-        <section className="vws-section">
-          <SectionHeader n="2" title="Acquisition & Dealer Preferences" sub="Configure target dealer margins, inspection status, and repair budgets" />
-
-          {/* Row 5: Asking Price & Target Margin */}
-          <div className="vws-row-2">
-            <div className="vws-field">
-              <FieldLabel>Seller Asking Price (₹)</FieldLabel>
-              <div className="vws-money-wrap">
-                <span className="vws-money-pfx" style={{ fontSize: 14, fontWeight: 700 }}>₹</span>
-                <input
-                  className="vws-input vws-money"
-                  type="number"
-                  value={inputs.sellerAskingPrice === '0' ? '' : inputs.sellerAskingPrice}
-                  onChange={e => updateInput('sellerAskingPrice', e.target.value || '0')}
-                  placeholder="e.g. 550000"
-                  min={0}
-                />
-              </div>
-            </div>
-            <div className="vws-field">
-              <FieldLabel>Target Dealer Margin (%)</FieldLabel>
-              <div style={{ position: 'relative' }}>
-                <input
-                  className="vws-input"
-                  type="number"
-                  value={inputs.targetMarginPct || 15}
-                  onChange={e => updateInput('targetMarginPct', e.target.value)}
-                  placeholder="15"
-                  min={1}
-                  max={100}
-                  style={{ paddingRight: 32 }}
-                />
-                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-1)', fontSize: 13.5 }}>%</span>
-              </div>
+        {/* Row 5: Target Margin %, Repair Budget, Certified Inspection */}
+        <div className="vws-row-3">
+          <div className="vws-field">
+            <FieldLabel>Target Margin %</FieldLabel>
+            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                className="vws-input"
+                type="number"
+                min={8}
+                max={30}
+                step={1}
+                value={inputs.targetMarginPct || 15}
+                onChange={e => updateInput('targetMarginPct', e.target.value)}
+                placeholder="15"
+                style={{ paddingRight: 24 }}
+              />
+              <span style={{ position: 'absolute', right: 12, fontSize: 12, color: 'var(--text-3)' }}>%</span>
             </div>
           </div>
-
-          {/* Row 6: Repair Budget & Certified Inspection */}
-          <div className="vws-row-2">
-            <div className="vws-field">
-              <FieldLabel>Repair Budget Estimate (₹)</FieldLabel>
-              <div className="vws-money-wrap">
-                <span className="vws-money-pfx" style={{ fontSize: 14, fontWeight: 700 }}>₹</span>
-                <input
-                  className="vws-input vws-money"
-                  type="number"
-                  value={inputs.repairBuffer || '25000'}
-                  onChange={e => updateInput('repairBuffer', e.target.value)}
-                  placeholder="25000"
-                  min={0}
-                />
-              </div>
-            </div>
-            <div className="vws-field" style={{ justifyContent: 'center' }}>
-              <div
-                className={`vws-inspect${inputs.inspected ? ' vws-inspect-on' : ''}`}
-                onClick={() => updateInput('inspected', !inputs.inspected)}
-                role="checkbox"
-                aria-checked={!!inputs.inspected}
-                tabIndex={0}
-                onKeyDown={e => (e.key === ' ' || e.key === 'Enter') && updateInput('inspected', !inputs.inspected)}
-                style={{ marginTop: 12, height: 40 }}
-              >
-                <div className="vws-toggle">
-                  <div className="vws-toggle-knob" />
-                </div>
-                <div className="vws-inspect-body">
-                  <div className="vws-inspect-label" style={{ fontSize: 12.5, fontWeight: 700 }}>Certified Inspection</div>
-                </div>
-                {inputs.inspected && (
-                  <span className="vws-badge-verified" style={{ padding: '2px 8px', fontSize: 10.5 }}>Verified</span>
-                )}
-              </div>
+          <div className="vws-field">
+            <FieldLabel>Repair Budget Estimate</FieldLabel>
+            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <span style={{ position: 'absolute', left: 12, fontSize: 13, color: 'var(--text-3)' }}>₹</span>
+              <input
+                className="vws-input"
+                type="number"
+                value={inputs.repairBuffer || '25000'}
+                onChange={e => updateInput('repairBuffer', e.target.value)}
+                placeholder="25000"
+                min={0}
+                style={{ paddingLeft: 24 }}
+              />
             </div>
           </div>
-        </section>
+          <div className="vws-field" style={{ justifyContent: 'center', paddingTop: 18 }}>
+            <label className="vws-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={!!inputs.inspected}
+                onChange={e => updateInput('inspected', e.target.checked)}
+                style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Certified Inspection</span>
+            </label>
+          </div>
+        </div>
 
         {/* Error banner */}
         {error && (
-          <div className="vws-error" style={{ marginTop: 16 }}>
+          <div className="vws-error" style={{ marginTop: 12 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
               <path d="M12 9v4M12 17h.01"/>
@@ -501,7 +501,7 @@ export default function InputScreen() {
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 650, color: meta.color }}>{meta.label}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: meta.color }}>{meta.label}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{score}/100</span>
               </div>
             </div>
@@ -578,7 +578,7 @@ export default function InputScreen() {
               {submitting ? 'Analysing…' : 'Analyse with ML'}
             </button>
             <div className="vws-cta-sub">
-              PriceRef Advanced Machine Learning Valuation Engine
+              CatBoost · LightGBM · XGBoost ensemble
             </div>
           </div>
 

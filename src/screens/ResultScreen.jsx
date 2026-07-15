@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
 
-/* ─── helpers ──────────────────────────────────────────────── */
+/* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = (n) => {
   const v = Number(n || 0);
   if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
@@ -19,16 +19,17 @@ const fmtFull = (n) => {
 const pct = (n) => `${Number(n || 0).toFixed(1)}%`;
 
 const ACTION_CFG = {
-  BUY:       { color: '#16a34a', bg: '#f0fdf4', border: '#86efac', label: 'BUY', sub: 'Good Deal' },
-  NEGOTIATE: { color: '#d97706', bg: '#fffbeb', border: '#fcd34d', label: 'NEGOTIATE', sub: 'Review Terms' },
-  REJECT:    { color: '#dc2626', bg: '#fef2f2', border: '#fca5a5', label: 'REJECT', sub: 'High Risk' },
-  PASS:      { color: '#dc2626', bg: '#fef2f2', border: '#fca5a5', label: 'PASS', sub: 'High Risk' },
+  BUY:       { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'BUY', sub: 'Good Deal' },
+  NEGOTIATE: { color: '#ea580c', bg: '#fff7ed', border: '#ffedd5', label: 'NEGOTIATE', sub: 'Review Terms' },
+  REJECT:    { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'REJECT', sub: 'High Risk' },
+  PASS:      { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'PASS', sub: 'High Risk' },
 };
+
 const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
-  { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', label: String(a) || 'REVIEW', sub: 'Manual Check' };
+  { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
 
-/* ─── Loading ─────────────────────────────────────────────── */
+/* ─── Loading State ────────────────────────────────────────── */
 function LoadingState() {
   return (
     <div className="rs2-loading">
@@ -45,7 +46,7 @@ function LoadingState() {
   );
 }
 
-/* ─── Empty ───────────────────────────────────────────────── */
+/* ─── Empty State ──────────────────────────────────────────── */
 function EmptyState({ setActiveScreen }) {
   return (
     <div className="rs2-empty">
@@ -61,31 +62,7 @@ function EmptyState({ setActiveScreen }) {
   );
 }
 
-/* ─── Bold Price Range Display (no bar) ─────────────────────── */
-/* Mimics the ₹2,18,899 - ₹2,47,703 style from reference */
-function PriceRangeDisplay({ min, max, label, sublabel, color, confScore }) {
-  return (
-    <div className="rs2-prd-wrap">
-      <div className="rs2-prd-header">
-        <span className="rs2-prd-label">{label}</span>
-        {sublabel && <span className="rs2-prd-sub">{sublabel}</span>}
-      </div>
-      <div className="rs2-prd-numbers" style={{ color }}>
-        <span className="rs2-prd-min">{fmtFull(min)}</span>
-        <span className="rs2-prd-dash">—</span>
-        <span className="rs2-prd-max">{fmtFull(max)}</span>
-      </div>
-      {confScore !== undefined && (
-        <div className="rs2-prd-conf">
-          <span className="rs2-prd-conf-dot" style={{ background: color }} />
-          ML Confidence: <strong>{confScore}%</strong>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Car SVG Image ────────────────────────────────────────── */
+/* ─── Car Placeholder SVG ──────────────────────────────────── */
 function CarImage() {
   return (
     <div className="rs2-car-img-placeholder">
@@ -107,9 +84,86 @@ function CarImage() {
   );
 }
 
-/* ─── Similar Cars Section — Detailed Table ────────────────── */
+/* ─── Pricing Confidence Band card ───────────────────────────── */
+function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
+  return (
+    <div className="rs2-card rs2-range-card" style={{ padding: '18px 24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={icon} size={18} color={color} strokeWidth={2.2} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{title}</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-1)', marginTop: 2 }}>
+              {fmtFull(min)} – {fmtFull(max)}
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>Confidence Interval</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color, marginTop: 2 }}>
+            {confidenceScore}% Confidence
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Negotiation Strategy ──────────────────────────────────── */
+function NegotiationSection({ opening, ideal, walkAway }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rs2-card" style={{ padding: '20px 24px' }}>
+      <div className="rs2-neg-header" onClick={() => setExpanded(e => !e)}>
+        <div className="rs2-section-title" style={{ fontSize: '16px', fontWeight: '700' }}>
+          <Icon name="coins" size={17} color="#2563eb" strokeWidth={2} />
+          Negotiation Strategy
+          <Icon name="info" size={14} color="#64748b" className="rs2-section-hint" />
+        </div>
+        <button className="rs2-neg-toggle">
+          {expanded ? 'Hide Details' : 'View Strategy Details'}
+          <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} color="#2563eb" strokeWidth={2} />
+        </button>
+      </div>
+      {expanded && (
+        <div className="rs2-neg-body">
+          <div className="rs2-neg-cards">
+            <div className="rs2-neg-card rs2-neg-green">
+              <div className="rs2-neg-card-label">Opening Offer</div>
+              <div className="rs2-neg-card-value" style={{ color: '#16a34a' }}>{fmtFull(opening)}</div>
+              <div className="rs2-neg-card-tip">Start your negotiation here</div>
+            </div>
+            <div className="rs2-neg-arrow">
+              <Icon name="arrowRight" size={20} color="#cbd5e1" strokeWidth={2} />
+            </div>
+            <div className="rs2-neg-card rs2-neg-amber">
+              <div className="rs2-neg-card-label">Ideal Price</div>
+              <div className="rs2-neg-card-value" style={{ color: '#ea580c' }}>{fmtFull(ideal)}</div>
+              <div className="rs2-neg-card-tip">Target price to aim for</div>
+            </div>
+            <div className="rs2-neg-arrow">
+              <Icon name="arrowRight" size={20} color="#cbd5e1" strokeWidth={2} />
+            </div>
+            <div className="rs2-neg-card rs2-neg-red">
+              <div className="rs2-neg-card-label">Walk Away Price</div>
+              <div className="rs2-neg-card-value" style={{ color: '#dc2626' }}>{fmtFull(walkAway)}</div>
+              <div className="rs2-neg-card-tip">Do not exceed this price</div>
+            </div>
+          </div>
+          <div className="rs2-neg-note">
+            <Icon name="info" size={14} color="#2563eb" strokeWidth={2} />
+            These ranges are AI-powered recommendations based on market data, vehicle condition, and demand trends.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Similar Cars Section ──────────────────────────────────── */
 function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
-  // Fallback to local evaluation history if API returns no similar cars
   const raw = (cars && cars.length > 0)
     ? cars
     : (evaluations || [])
@@ -119,11 +173,10 @@ function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
             t.model === inputs.model &&
             t.marketValue === predictedPrice)
         )
-        .slice(0, 5);
+        .slice(0, 6);
 
   if (raw.length === 0) return null;
 
-  // Normalise so both API objects and history objects work
   const rows = raw.map(c => ({
     brand:        c.brand        || inputs.brand        || '',
     model:        c.model        || inputs.model        || '',
@@ -139,138 +192,81 @@ function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
   }));
 
   return (
-    <div className="rs2-card rs2-similar-table-card">
+    <div className="rs2-card" style={{ padding: '22px 24px' }}>
       <div className="rs2-similar-header">
         <div>
-          <div className="rs2-section-title">
-            <Icon name="search" size={17} color="#1e40af" strokeWidth={2.2} />
-            Similar Cars used for prediction
-          </div>
-          <div className="rs2-similar-sub">
-            Nearest neighbours from the dataset used to estimate this price
+          <div className="rs2-section-title" style={{ fontSize: '16px', fontWeight: '700' }}>
+            Similar Cars <span style={{ fontWeight: 'normal', color: '#64748b', fontSize: '14px', marginLeft: '4px' }}>(Based on listings in dataset)</span>
           </div>
         </div>
-        <button className="rs2-view-all">View All</button>
       </div>
 
-      <div className="rs2-similar-table-wrap">
-        <table className="rs2-similar-table">
-          <thead>
-            <tr>
-              <th>Vehicle Details</th>
-              <th>Specifications</th>
-              <th>Odometer</th>
-              <th>Dataset Value</th>
-              <th>vs Predicted</th>
-              <th>Similarity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((car, idx) => {
-              const isFirst  = idx === 0;
-              const diff     = car.marketValue - predictedPrice;
-              const diffPct  = predictedPrice ? ((diff / predictedPrice) * 100).toFixed(1) : '0.0';
-              const isPos    = diff >= 0;
-              return (
-                <tr key={idx} className={isFirst ? 'rs2-tr-featured' : ''}>
-                  <td>
-                    <div className="rs2-table-name">
-                      {car.brand} {car.model}
-                      {car.variant && car.variant !== '' && (
-                        <span className="rs2-table-var">{String(car.variant).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div className="rs2-table-meta">
-                      {car.city && <span>{car.city}</span>}
-                      {car.condition && <span> · {car.condition} Condition</span>}
-                      {car.segment && <span> · {car.segment}</span>}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="rs2-table-specs-primary">
-                      {car.year} · {car.fuel}
-                    </div>
-                    <div className="rs2-table-specs-secondary">
-                      {car.transmission}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="rs2-table-specs-primary">
-                      {car.odometer > 0
-                        ? `${Number(car.odometer).toLocaleString('en-IN')} km`
-                        : '—'}
-                    </div>
-                  </td>
-                  <td className="rs2-table-price">
-                    {fmtFull(car.marketValue)}
-                  </td>
-                  <td>
-                    <span className={`rs2-table-diff ${isPos ? 'rs2-diff-pos' : 'rs2-diff-neg'}`}>
-                      {isPos ? '+' : ''}{diffPct}%
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`rs2-table-sim-badge${isFirst ? ' featured' : ''}`}>
-                      {isFirst ? 'Most Similar' : idx === 1 ? 'High Match' : 'Good Match'}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Table header */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+        gap: 8,
+        padding: '8px 10px',
+        background: 'var(--surface-2)',
+        borderRadius: 8,
+        marginTop: 14,
+        marginBottom: 2,
+      }}>
+        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'CITY', 'LISTED PRICE'].map(h => (
+          <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px' }}>{h}</div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {rows.map((car, idx) => {
+          const diff    = car.marketValue - predictedPrice;
+          const diffPct = predictedPrice ? ((diff / predictedPrice) * 100).toFixed(1) : '0.0';
+          const isPos   = diff >= 0;
+          return (
+            <div key={idx} style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+              gap: 8,
+              padding: '11px 10px',
+              borderBottom: '1px solid var(--border)',
+              alignItems: 'center',
+            }}>
+              {/* Vehicle */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
+                  {car.brand} {car.model}{car.variant && car.variant !== 'unknown' ? ` ${car.variant}` : ''}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                  {car.year}{car.condition ? ` · ${car.condition}` : ''}{car.segment ? ` · ${car.segment.toUpperCase()}` : ''}
+                </div>
+              </div>
+              {/* Fuel / Trans */}
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                {car.fuel || '—'}{car.transmission ? ` / ${car.transmission}` : ''}
+              </div>
+              {/* Odometer */}
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                {car.odometer > 0 ? `${(car.odometer / 1000).toFixed(0)}k km` : '—'}
+              </div>
+              {/* City */}
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{car.city || '—'}</div>
+              {/* Price + diff */}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{fmtFull(car.marketValue)}</div>
+                <span style={{
+                  fontSize: 10.5, fontWeight: 700,
+                  color: isPos ? '#16a34a' : '#dc2626',
+                }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/* ─── Negotiation Collapsible ──────────────────────────────── */
-function NegotiationSection({ opening, ideal, walkAway }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div className="rs2-card">
-      <div className="rs2-neg-header" onClick={() => setExpanded(e => !e)}>
-        <div className="rs2-section-title">
-          <Icon name="coins" size={16} color="#1e40af" strokeWidth={2} />
-          Negotiation Strategy
-        </div>
-        <button className="rs2-neg-toggle">
-          {expanded ? 'Hide Details' : 'View Strategy Details'}
-          <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} color="#2563eb" strokeWidth={2} />
-        </button>
-      </div>
-      {expanded && (
-        <div className="rs2-neg-body">
-          <div className="rs2-neg-cards">
-            <div className="rs2-neg-card rs2-neg-green">
-              <div className="rs2-neg-card-label">OPENING OFFER</div>
-              <div className="rs2-neg-card-value" style={{ color: '#16a34a' }}>{fmt(opening)}</div>
-              <div className="rs2-neg-card-tip">Start your negotiation here</div>
-            </div>
-            <div className="rs2-neg-arrow">→</div>
-            <div className="rs2-neg-card rs2-neg-amber">
-              <div className="rs2-neg-card-label">IDEAL PRICE</div>
-              <div className="rs2-neg-card-value" style={{ color: '#d97706' }}>{fmt(ideal)}</div>
-              <div className="rs2-neg-card-tip">Target price to aim for</div>
-            </div>
-            <div className="rs2-neg-arrow">→</div>
-            <div className="rs2-neg-card rs2-neg-red">
-              <div className="rs2-neg-card-label">WALK AWAY PRICE</div>
-              <div className="rs2-neg-card-value" style={{ color: '#dc2626' }}>{fmt(walkAway)}</div>
-              <div className="rs2-neg-card-tip">Do not exceed this price</div>
-            </div>
-          </div>
-          <div className="rs2-neg-note">
-            <Icon name="bulb" size={13} color="#2563eb" strokeWidth={2} />
-            These ranges are AI-powered recommendations based on market data, vehicle condition, and demand trends.
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Main ──────────────────────────────────────────────────── */
+/* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
   const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
 
@@ -292,7 +288,6 @@ export default function ResultScreen() {
     action = 'BUY',
     segmentClass = 'economy',
     similarCars = [],
-    warnings = [],
   } = valuationResult;
 
   const ac = getAction(action);
@@ -317,26 +312,42 @@ export default function ResultScreen() {
     <div className="rs2-root">
 
       {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
-      <div className="rs2-card rs2-hero-card">
+      <div className="rs2-card rs2-hero-card" style={{ padding: '22px 26px' }}>
         <div className="rs2-hero-left">
           <CarImage />
           <div className="rs2-hero-info">
             <div className="rs2-vehicle-name">
               {inputs.brand} {inputs.model}
-              {inputs.variant && <span className="rs2-vehicle-var"> {inputs.variant}</span>}
+              {inputs.variant && inputs.variant !== 'unknown' && <span className="rs2-vehicle-var"> {inputs.variant}</span>}
             </div>
-            <div className="rs2-vehicle-meta">
-              {inputs.year} · {inputs.fuel || inputs.fuel_type} · {inputs.transmission} · {(km / 1000).toFixed(0)}k km · {inputs.city}
+            {/* Car details in a compact grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 12px', marginTop: 8 }}>
+              {[
+                { label: 'Year',  val: inputs.year },
+                { label: 'Fuel',  val: inputs.fuel || inputs.fuel_type },
+                { label: 'Trans', val: inputs.transmission },
+                { label: 'Odometer', val: km > 0 ? `${km.toLocaleString('en-IN')} km` : '—' },
+                { label: 'City',  val: inputs.city },
+                { label: 'Owners', val: inputs.ownerCount ? `${inputs.ownerCount} Owner${inputs.ownerCount !== '1' ? 's' : ''}` : '—' },
+              ].map(({ label, val }) => val ? (
+                <div key={label}>
+                  <div style={{ fontSize: 9.5, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-1)', marginTop: 1 }}>{val}</div>
+                </div>
+              ) : null)}
             </div>
-            <div className="rs2-hero-badges">
+            <div className="rs2-hero-badges" style={{ marginTop: '10px' }}>
               <span className="rs2-badge rs2-badge-seg">{(segmentClass || 'economy').toUpperCase()}</span>
-              {inputs.inspected && <span className="rs2-badge rs2-badge-ok">✓ Inspected</span>}
               <span className="rs2-badge rs2-badge-conf">ML Confidence: {confidenceScore}%</span>
-              <span className="rs2-decision-badge" style={{ background: ac.bg, color: ac.color, borderColor: ac.border }}>
-                ✓ {ac.label}
-                <span className="rs2-decision-sub">{ac.sub}</span>
-              </span>
             </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginLeft: 'auto' }}>
+            <span className="rs2-decision-badge" style={{ background: ac.bg, color: ac.color, borderColor: ac.border, padding: '10px 18px', borderRadius: '12px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Icon name="check" size={16} color={ac.color} strokeWidth={3} /> {ac.label}
+              </div>
+              <span className="rs2-decision-sub" style={{ fontSize: '11px', color: ac.color, fontWeight: '600', marginTop: '2px' }}>{ac.sub}</span>
+            </span>
           </div>
         </div>
 
@@ -344,22 +355,22 @@ export default function ResultScreen() {
         <div className="rs2-hero-stats">
           <div className="rs2-hero-stat">
             <div className="rs2-hero-stat-label">Market Selling Range</div>
-            <div className="rs2-hero-stat-value rs2-blue">{fmt(minP)} – {fmt(maxP)}</div>
+            <div className="rs2-hero-stat-value rs2-blue" style={{ fontSize: '15px' }}>{fmt(minP)} – {fmt(maxP)}</div>
             <div className="rs2-hero-stat-sub">Based on similar listings</div>
           </div>
           <div className="rs2-hero-stat">
-            <div className="rs2-hero-stat-label">Expected Selling Price</div>
-            <div className="rs2-hero-stat-value rs2-blue">{fmt(sellPrice)}</div>
+            <div className="rs2-hero-stat-label">Expected Sell Price</div>
+            <div className="rs2-hero-stat-value rs2-blue" style={{ fontSize: '15px' }}>{fmt(sellPrice)}</div>
             <div className="rs2-hero-stat-sub">After reconditioning</div>
           </div>
           <div className="rs2-hero-stat">
             <div className="rs2-hero-stat-label">Recommended Buy Range</div>
-            <div className="rs2-hero-stat-value rs2-orange">{fmt(minBuy)} – {fmt(maxBuy)}</div>
+            <div className="rs2-hero-stat-value rs2-orange" style={{ fontSize: '15px' }}>{fmt(minBuy)} – {fmt(maxBuy)}</div>
             <div className="rs2-hero-stat-sub">Ideal acquisition range</div>
           </div>
           <div className="rs2-hero-stat">
-            <div className="rs2-hero-stat-label">Expected Dealer Profit</div>
-            <div className="rs2-hero-stat-value" style={{ color: profit >= 0 ? '#16a34a' : '#dc2626' }}>
+            <div className="rs2-hero-stat-label">Expected Profit</div>
+            <div className="rs2-hero-stat-value" style={{ color: profit >= 0 ? '#16a34a' : '#dc2626', fontSize: '15px' }}>
               {fmt(profit)}
             </div>
             <div className="rs2-hero-stat-sub">ROI: {pct(roi)}</div>
@@ -368,38 +379,24 @@ export default function ResultScreen() {
       </div>
 
       {/* ── MARKET SELLING RANGE ─────────────────────────── */}
-      <div className="rs2-card rs2-range-card">
-        <div className="rs2-range-card-title">
-          <Icon name="chart" size={17} color="#1e40af" strokeWidth={2} />
-          Market Selling Range
-          <span className="rs2-range-card-sub">Based on similar car listings in the dataset</span>
-        </div>
-        <PriceRangeDisplay
-          min={minP}
-          max={maxP}
-          label="Sell Price Range"
-          sublabel={null}
-          color="#1d4ed8"
-          confScore={confidenceScore}
-        />
-      </div>
+      <PricingBandCard
+        title="Market Selling Range"
+        icon="chart"
+        color="#2563eb"
+        min={minP}
+        max={maxP}
+        confidenceScore={confidenceScore}
+      />
 
       {/* ── RECOMMENDED BUY RANGE ────────────────────────── */}
-      <div className="rs2-card rs2-range-card">
-        <div className="rs2-range-card-title">
-          <Icon name="coins" size={17} color="#1e40af" strokeWidth={2} />
-          Recommended Purchase Range
-          <span className="rs2-range-card-sub">Ideal acquisition range for maximum dealer profit</span>
-        </div>
-        <PriceRangeDisplay
-          min={minBuy}
-          max={maxBuy}
-          label="Buy Price Range"
-          sublabel={null}
-          color="#ea580c"
-          confScore={confidenceScore}
-        />
-      </div>
+      <PricingBandCard
+        title="Recommended Purchase Range"
+        icon="coins"
+        color="#ea580c"
+        min={minBuy}
+        max={maxBuy}
+        confidenceScore={confidenceScore}
+      />
 
       {/* ── NEGOTIATION COLLAPSIBLE ──────────────────────── */}
       <NegotiationSection opening={opening} ideal={ideal} walkAway={walkAway} />
@@ -412,26 +409,15 @@ export default function ResultScreen() {
         evaluations={evaluations}
       />
 
-      {/* ── WARNINGS ─────────────────────────────────────── */}
-      {warnings.length > 0 && (
-        <div className="rs2-warnings">
-          {warnings.slice(0, 2).map((w, i) => (
-            <div key={i} className="rs2-warning-row">
-              <Icon name="warning" size={13} color="#d97706" strokeWidth={2} /> {w}
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* ── BOTTOM ACTIONS ───────────────────────────────── */}
-      <div className="rs2-actions">
+      <div className="rs2-actions" style={{ justifyContent: 'center', marginTop: '16px' }}>
         <button className="rs2-btn-primary" onClick={() => setActiveScreen('pricing')}>
           <Icon name="coins" size={15} color="white" strokeWidth={2} />
           Full Pricing Breakdown
           <Icon name="chevronDown" size={13} color="white" strokeWidth={2} />
         </button>
-        <button className="rs2-btn-ghost" onClick={() => setActiveScreen('input')}>
-          <Icon name="refresh" size={15} color="#1e293b" strokeWidth={2} />
+        <button className="rs2-btn-ghost" onClick={() => setActiveScreen('input')} style={{ background: '#ffffff', borderColor: '#e2e8f0', color: '#1e293b' }}>
+          <Icon name="refresh" size={15} color="#475569" strokeWidth={2} />
           New Valuation
         </button>
       </div>

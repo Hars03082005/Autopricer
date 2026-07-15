@@ -95,6 +95,33 @@ function CostRow({ icon, label, amount, isDeduct = true, highlight = false }) {
   );
 }
 
+function FeatureBar({ feature, value, contribution, label, predictedPrice }) {
+  const positive = contribution >= 0;
+  // Calculate percentage bar width relative to predicted price, min 3% max 100%
+  const pct = Math.min(100, Math.max(3, (Math.abs(contribution) / (predictedPrice || 1000000)) * 100));
+
+  return (
+    <div className="shap-item" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
+      <div style={{ flex: '1 1 200px', minWidth: 160 }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-1)' }}>{feature}</div>
+        <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 2 }}>{label}</div>
+      </div>
+      <div style={{ flex: '0 0 80px', fontSize: '12.5px', color: 'var(--text-3)', fontWeight: 500, textAlign: 'right' }}>
+        {value}
+      </div>
+      <div className="shap-bar-area" style={{ flex: '1 1 120px', minWidth: 80, display: 'flex', alignItems: 'center' }}>
+        <div
+          className={`shap-bar ${positive ? 'pos' : 'neg'}`}
+          style={{ width: `${pct}%`, height: 8, borderRadius: 4, transition: 'width 0.8s ease' }}
+        />
+      </div>
+      <span className={`shap-bar-label ${positive ? 'pos' : 'neg'}`} style={{ flex: '0 0 85px', textAlign: 'right', fontWeight: 700, fontSize: '13px' }}>
+        {positive ? '+' : '−'}{fmtL(Math.abs(contribution))}
+      </span>
+    </div>
+  );
+}
+
 export default function PricingScreen() {
   const { valuationResult, inputs, setActiveScreen, evaluations } = useApp();
 
@@ -136,7 +163,10 @@ export default function PricingScreen() {
     target_offer,
     quoteMessage,
     action,
-    similarCars = []
+    similarCars = [],
+    positiveFactors = [],
+    negativeFactors = [],
+    shap = [],
   } = valuationResult;
 
   const finalBuyPrice  = recommendedBuyPrice;
@@ -171,11 +201,6 @@ export default function PricingScreen() {
         </button>
       </div>
 
-      {/* Dealer role notice */}
-      <div className="role-notice">
-        <Icon name="store" size={14} color="#f75d34" strokeWidth={1.8} />
-        Realistic dealer cost model · Target margins dynamically calibrated
-      </div>
 
       {/* Headline ROI cards */}
       <div className="kpi-grid" style={{ marginBottom:16 }}>
@@ -280,89 +305,8 @@ export default function PricingScreen() {
           </div>
         </div>
 
-        {/* Negotiation Strategy */}
-        <div className="card">
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)', marginBottom:4 }}>Negotiation Strategy</div>
-          <div style={{ fontSize:11, color:'var(--text-3)', marginBottom:0 }}>
-            Three-point offer framework based on city demand & condition
-          </div>
-          <div className="negotiation-trio">
-            <div className="neg-point opening">
-              <div className="neg-point-label">Opening Offer</div>
-              <div className="neg-point-price">{fmtL(opening_offer)}</div>
-              <div style={{ fontSize:10, color:'var(--text-3)', marginTop:4 }}>Start negotiation</div>
-            </div>
-            <div className="neg-point ideal">
-              <div className="neg-point-label">Ideal Offer</div>
-              <div className="neg-point-price">{fmtL(target_offer || finalBuyPrice)}</div>
-              <div style={{ fontSize:10, color:'var(--text-3)', marginTop:4 }}>Target buy outcome</div>
-            </div>
-            <div className="neg-point walkaway">
-              <div className="neg-point-label">Maximum Offer</div>
-              <div className="neg-point-price">{fmtL(max_offer)}</div>
-              <div style={{ fontSize:10, color:'var(--text-3)', marginTop:4 }}>Walk away limit</div>
-            </div>
-          </div>
-        </div>
 
-        {/* Seller script */}
-        {quoteMessage && (
-          <div className="seller-script-card">
-            <div className="seller-script-label">Seller Script</div>
-            <div className="seller-script-text">"{quoteMessage}"</div>
-          </div>
-        )}
 
-        {/* Confidence interval */}
-        <div className="card">
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)', marginBottom:14 }}>Price Confidence Band</div>
-          <div className="ci-row">
-            <div className="ci-box low">
-              <div className="ci-box-label">Floor</div>
-              <div className="ci-box-val">{fmtL(priceMin)}</div>
-            </div>
-            <Icon name="arrowRight" size={16} color="#cbd5e1" strokeWidth={2} />
-            <div className="ci-box mid">
-              <div className="ci-box-label">ML Estimate</div>
-              <div className="ci-box-val orange">{fmtL(predictedPrice)}</div>
-            </div>
-            <Icon name="arrowRight" size={16} color="#cbd5e1" strokeWidth={2} />
-            <div className="ci-box high">
-              <div className="ci-box-label">Ceiling</div>
-              <div className="ci-box-val">{fmtL(priceMax)}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Comparables */}
-        <div className="card">
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)', marginBottom:12 }}>
-            Comparable Market Vehicles
-          </div>
-          {comparables.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'20px 0', color:'var(--text-3)', fontSize:13 }}>
-              No similar vehicles available for comparables.
-            </div>
-          ) : (
-            <div className="comp-list">
-              {comparables.map((tx, idx) => (
-                <div key={idx} className="comp-item">
-                  <div className="comp-item-info">
-                    <div className="comp-item-name">{tx.year} {tx.brand} {tx.model}</div>
-                    <div className="comp-item-spec">
-                      <Icon name="mapPin" size={10} color="#94a3b8" strokeWidth={2} />
-                      {((tx.odometer || tx.kmDriven || 0)/1000).toFixed(0)}k km · {tx.city}
-                    </div>
-                    <span className="comp-cond cond-good" style={{ background: '#f1f5f9', color: '#475569' }}>
-                      {tx.condition || 'Good'}
-                    </span>
-                  </div>
-                  <div className="comp-item-price">{fmtL(tx.market_value || tx.marketValue || tx.predictedPrice)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       <div style={{ display:'flex', gap:10, marginTop:16 }}>

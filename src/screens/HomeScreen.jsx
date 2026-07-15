@@ -193,7 +193,7 @@ export default function HomeScreen() {
       ) : (
         <div className="home-main-grid">
           {/* Left column: Recent evaluations table */}
-          <div className="card card-analytics" style={{ padding: '0', overflow: 'hidden' }}>
+          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Recent Evaluations</div>
@@ -241,7 +241,7 @@ export default function HomeScreen() {
           {/* Right column: Top opportunities + chart */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Top opportunities */}
-            <div className="card card-profit">
+            <div className="card">
               <div className="card-header">
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Top Opportunities</div>
                 <button className="btn btn-ghost btn-sm" onClick={() => setActiveScreen('input')}>+ Evaluate</button>
@@ -268,7 +268,7 @@ export default function HomeScreen() {
 
             {/* Market pulse chart */}
             {data.marketPulse.length > 0 && (
-              <div className="card card-prediction">
+              <div className="card">
                 <div className="card-header">
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Brand Values (Avg ₹L)</div>
                 </div>

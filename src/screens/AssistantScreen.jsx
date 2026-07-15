@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
 
@@ -68,7 +68,7 @@ function generateResponse(question, context, result, inputs) {
     return `**Dealer profit analysis:**\n\n• Buy price: ${fmtL(result?.recommendedBuyPrice)}\n• Sell price: ${fmtL(result?.recommendedSellPrice)}\n• Expected profit: **${fmtL(result?.expectedProfit)}**\n• Margin: **${result?.expectedMarginPct}%**\n\nFor mass-market cars, a healthy dealer profit is ₹25,000–₹80,000. Go to **Pricing** tab for a full cost breakdown.`;
   }
   if (q.includes('compar') || q.includes('similar') || q.includes('alternative')) {
-    return `I can't fetch live market listings, but the **${result?.segmentClass?.toUpperCase()}** segment model was trained on Indian used car transactions. The ML confidence of **${result?.confidenceScore}%** indicates how representative this vehicle is within its segment.\n\nCheck the **Pricing** tab for comparables from your own evaluation history.`;
+    return `I can't fetch live market listings, but the **${result?.segmentClass?.toUpperCase()}** segment model was trained on 213,820 Indian used car transactions. The ML confidence of **${result?.confidenceScore}%** indicates how representative this vehicle is within its segment.\n\nCheck the **Pricing** tab for comparables from your own evaluation history.`;
   }
   if (q.includes('explain') || q.includes('how') || q.includes('why')) {
     return `The ML model used **${result?.segmentClass?.toUpperCase()}** segment-specific training to predict this price.\n\n**Top value drivers:**\n${(result?.positiveFactors||[]).slice(0,3).map(f=>`✓ ${f}`).join('\n') || '—'}\n\n**Risk factors:**\n${(result?.negativeFactors||[]).slice(0,3).map(f=>`✗ ${f}`).join('\n') || '—'}\n\nVisit **AI Explain** for a full SHAP-style feature impact analysis.`;

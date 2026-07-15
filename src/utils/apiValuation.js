@@ -1,4 +1,4 @@
-// Lazy getter — evaluated at call time so the Flutter WebView shell's
+﻿// Lazy getter — evaluated at call time so the Flutter WebView shell's
 // window.PriceRef_API_URL injection (fired after onPageFinished) is
 // always picked up, even though it arrives after module initialisation.
 function getApiBase() {
@@ -182,18 +182,18 @@ function normalizeApiResult(data, inputs) {
     counterfactuals: buildCounterfactuals(inputs),
     damageBoxes: [],
     models: [
-      { name: 'Ensemble Base Market Value', price: baseMarketValue, weight: 65 },
+      { name: 'CatBoost Base Market Value', price: baseMarketValue, weight: 65 },
       { name: 'Condition Calibration Layer', price: predictedPrice, weight: 15 },
       { name: 'Quote & Risk Decision Engine', price: recommendedBuyPrice, weight: 20 },
     ],
-    modelName: data.model_name || 'EnsembleRegressor',
+    modelName: data.model_name || 'CatBoostRegressor',
     isMLPowered: data.is_ml_powered ?? true,
     modelMetrics: data.metrics || {},
     trainMetrics: data.train_metrics || {},
     validationMetrics: data.validation_metrics || {},
     testMetrics: data.test_metrics || {},
     overfittingCheck: data.overfitting_check || {},
-    valuationSource: 'PriceRef ML Backend',
+    valuationSource: 'CatBoost ML Backend',
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     routingNote: data.routing_note ?? '',

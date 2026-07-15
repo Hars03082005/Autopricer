@@ -101,7 +101,7 @@ export const MODEL_COMPARISON = [
   { model: 'Ridge Regression', mae: 91000, rmse: 133000, mape: 13.6, r2: 0.81, speed: 'Fast', selected: false },
   { model: 'Random Forest', mae: 64000, rmse: 93000, mape: 9.4, r2: 0.91, speed: 'Medium', selected: false },
   { model: 'XGBoost', mae: 58000, rmse: 84000, mape: 8.7, r2: 0.93, speed: 'Fast', selected: false },
-  { model: 'PriceRef Model', mae: 52000, rmse: 79000, mape: 7.9, r2: 0.94, speed: 'Fast', selected: true },
+  { model: 'CatBoost', mae: 52000, rmse: 79000, mape: 7.9, r2: 0.94, speed: 'Fast', selected: true },
 ];
 
 export const BRAND_RETENTION = [

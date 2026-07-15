@@ -91,8 +91,9 @@ _MARKET_BANDS: dict[str, tuple[float, float]] = {
     "rapid":         (700_000,  1_200_000),
     "slavia":        (1_100_000, 1_850_000), # modern Skoda sedan
     "virtus":        (1_150_000, 1_900_000), # modern VW sedan
-    "innova crysta": (1_500_000, 2_800_000),
-    "innova":        (1_400_000, 2_600_000),
+    "innova crysta": (900_000, 2_400_000),   # 2014-2023 diesel/petrol — strong resale
+    "innova":        (700_000, 1_800_000),    # pre-2014 older generation
+    "toyota innova crysta": (900_000, 2_400_000),
     "scorpio":       (1_000_000, 2_000_000),
     "scorpio n":     (1_400_000, 2_600_000),
     "thar":          (1_500_000, 2_800_000),
@@ -144,6 +145,35 @@ _AGE_DEPRECIATION: dict[int, float] = {
     0: 1.00, 1: 0.86, 2: 0.78, 3: 0.71, 4: 0.65,
     5: 0.59, 6: 0.54, 7: 0.50, 8: 0.46, 9: 0.42,
     10: 0.38, 11: 0.35, 12: 0.32,
+}
+
+# ── Model-specific depreciation overrides
+# Some vehicles hold value much better (or worse) than the generic schedule.
+# Keys are normalised model names (lowercase, no brand prefix).
+_MODEL_DEPRECIATION_OVERRIDE: dict[str, dict[int, float]] = {
+    # Innova Crysta: legendary resale value in India — holds ~65-70% after 6 yrs
+    "innova crysta": {
+        0: 1.00, 1: 0.92, 2: 0.86, 3: 0.80, 4: 0.75,
+        5: 0.70, 6: 0.66, 7: 0.62, 8: 0.58, 9: 0.54,
+        10: 0.50, 11: 0.46, 12: 0.43,
+    },
+    "toyota innova crysta": {
+        0: 1.00, 1: 0.92, 2: 0.86, 3: 0.80, 4: 0.75,
+        5: 0.70, 6: 0.66, 7: 0.62, 8: 0.58, 9: 0.54,
+        10: 0.50, 11: 0.46, 12: 0.43,
+    },
+    # Fortuner: premium SUV, depreciates slowly
+    "fortuner": {
+        0: 1.00, 1: 0.91, 2: 0.84, 3: 0.78, 4: 0.73,
+        5: 0.68, 6: 0.64, 7: 0.60, 8: 0.57, 9: 0.53,
+        10: 0.50, 11: 0.47, 12: 0.44,
+    },
+    # Thar (2020+): cult off-roader, almost no depreciation
+    "thar": {
+        0: 1.00, 1: 0.95, 2: 0.90, 3: 0.86, 4: 0.82,
+        5: 0.78, 6: 0.74, 7: 0.70, 8: 0.66, 9: 0.62,
+        10: 0.58, 11: 0.54, 12: 0.50,
+    },
 }
 
 # ── Condition multipliers (Improvement #8 — meaningful impact)
@@ -208,14 +238,15 @@ _BRAND_POPULARITY: dict[str, float] = {
     "rolls-royce": 2.50, "ferrari": 2.50, "lamborghini": 2.50,
 }
 
-# ── Dealer profit limits (min, max) per vehicle category (Improvement #1)
-# Luxury max expanded to ₹4L, economy max to ₹80k
+# ── Dealer profit limits (min, max) per vehicle category
+# Based on real-world Indian used car dealer margins:
+# Economy cars: ₹8k–₹25k net, Mid SUVs: ₹15k–₹45k, Luxury: ₹40k–₹100k
 _PROFIT_LIMITS: dict[str, tuple[int, int]] = {
-    "economy":       (25_000,    80_000),
-    "premium_hatch": (40_000,   120_000),
-    "compact_suv":   (60_000,   150_000),
-    "mid_suv":       (80_000,   200_000),
-    "luxury":        (150_000,  400_000),
+    "economy":       (8_000,    25_000),
+    "premium_hatch": (10_000,   30_000),
+    "compact_suv":   (12_000,   35_000),
+    "mid_suv":       (15_000,   45_000),
+    "luxury":        (40_000,  100_000),
 }
 
 # ── City demand premium (fraction of market value uplift)
@@ -250,18 +281,19 @@ _DOC = {
     "state_transfer": 8_000,  # Only when registration_state ≠ sale_state
 }
 
-# ── Segment margin base rates (%)
+# ── Segment margin base rates (%) — realistic used car dealer net margins in India
+# Real-world: dealers net 3–6% after all costs (recon, holding, docs, risk)
 _MARGIN_BASE: dict[str, float] = {
-    "economy": 11.0,
-    "premium": 14.0,
-    "luxury":  17.0,
+    "economy": 4.0,
+    "premium": 5.0,
+    "luxury":  6.0,
 }
 
 # ── Segment margin caps [min%, max%]
 _MARGIN_CAPS: dict[str, tuple[float, float]] = {
-    "economy": (8.0,  16.0),
-    "premium": (10.0, 19.0),
-    "luxury":  (13.0, 23.0),
+    "economy": (2.5,  6.5),
+    "premium": (3.0,  8.0),
+    "luxury":  (4.0, 10.0),
 }
 
 # ── Per-segment adaptive sanity tolerance at full confidence (100%)
@@ -367,7 +399,13 @@ def apply_market_sanity_clamp(
     if band is None:
         band = _SEGMENT_BANDS.get(segment, (100_000, 20_000_000))
 
-    age_factor = _AGE_DEPRECIATION.get(min(vehicle_age, 12), 0.30)
+    # Use model-specific depreciation if available, else generic schedule
+    model_dep = _MODEL_DEPRECIATION_OVERRIDE.get(model_key)
+    age_factor = (
+        model_dep.get(min(vehicle_age, 12), 0.43)
+        if model_dep
+        else _AGE_DEPRECIATION.get(min(vehicle_age, 12), 0.30)
+    )
     city_adj   = _CITY_DEMAND.get(city.lower().strip(), 0.0)
     upper_adj  = 1.0 + (city_adj * 0.5)   # city premium increases upper band
 
@@ -540,27 +578,27 @@ def dynamic_target_margin(
     ann_km = _annual_km(km, vehicle_age)
 
     # Positive adjustments
-    if vehicle_age <= 2:             base += 2.5
-    elif vehicle_age <= 4:           base += 1.5
-    if ann_km < _ANNUAL_KM_TIERS["low"]:       base += 1.5   # very low usage
-    elif ann_km < _ANNUAL_KM_TIERS["moderate"]: base += 0.8
-    if owner_count == 1:             base += 1.2
-    if inspected:                    base += 1.5
-    if condition.lower() == "excellent": base += 1.2
-    if fuel.lower() in {"petrol", "hybrid"}: base += 0.5
+    if vehicle_age <= 2:             base += 0.8
+    elif vehicle_age <= 4:           base += 0.5
+    if ann_km < _ANNUAL_KM_TIERS["low"]:       base += 0.5   # very low usage
+    elif ann_km < _ANNUAL_KM_TIERS["moderate"]: base += 0.2
+    if owner_count == 1:             base += 0.4
+    if inspected:                    base += 0.3
+    if condition.lower() == "excellent": base += 0.4
+    if fuel.lower() in {"petrol", "hybrid"}: base += 0.2
 
     # Negative adjustments
-    if vehicle_age > 8:              base -= 2.5
-    elif vehicle_age > 6:            base -= 1.5
-    elif vehicle_age > 4:            base -= 0.5
-    if ann_km > _ANNUAL_KM_TIERS["very_high"]:  base -= 2.0
-    elif ann_km > _ANNUAL_KM_TIERS["high"]:     base -= 1.2
-    elif ann_km > _ANNUAL_KM_TIERS["moderate"]: base -= 0.5
-    if owner_count >= 4:             base -= 2.0
-    elif owner_count == 3:           base -= 1.5
-    elif owner_count == 2:           base -= 0.8
-    if condition.lower() == "poor":    base -= 2.0
-    elif condition.lower() == "average": base -= 1.0
+    if vehicle_age > 8:              base -= 1.0
+    elif vehicle_age > 6:            base -= 0.6
+    elif vehicle_age > 4:            base -= 0.2
+    if ann_km > _ANNUAL_KM_TIERS["very_high"]:  base -= 0.8
+    elif ann_km > _ANNUAL_KM_TIERS["high"]:     base -= 0.5
+    elif ann_km > _ANNUAL_KM_TIERS["moderate"]: base -= 0.2
+    if owner_count >= 4:             base -= 0.8
+    elif owner_count == 3:           base -= 0.6
+    elif owner_count == 2:           base -= 0.3
+    if condition.lower() == "poor":    base -= 0.8
+    elif condition.lower() == "average": base -= 0.4
 
     lo, hi    = _MARGIN_CAPS.get(segment, (8.0, 18.0))
     computed  = _clamp(base, lo, hi)
@@ -1199,13 +1237,17 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # ── Buy Price ─────────────────────────────────────────────────────────────
     total_deductions      = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
     recommended_buy_price = market_value - total_deductions
-    recommended_buy_price = max(market_value * 0.45, recommended_buy_price)
+    # Floor: dealer must pay at least 82% of market value to be competitive
+    # (sellers will reject offers below ~80-83% in a normal market)
+    recommended_buy_price = max(market_value * 0.82, recommended_buy_price)
     recommended_buy_price = _round500(recommended_buy_price)
 
     # ── Sell price ────────────────────────────────────────────────────────────
     city_premium           = _CITY_DEMAND.get(city, 0.015)
     recommended_sell_price = _round500(market_value * (1 + city_premium * 0.5))
-    expected_profit        = target_profit
+    # Net profit = sell price minus (buy price + all costs)
+    expected_profit        = int(recommended_sell_price - recommended_buy_price - recon_cost - holding_cost - doc_cost)
+    expected_profit        = max(expected_profit, target_profit)  # floor at computed target
     expected_margin_pct    = (expected_profit / max(recommended_buy_price, 1)) * 100
 
     # ── Inventory duration (used in recommendation logic)
@@ -1222,18 +1264,17 @@ def calculate_decision(vehicle, market_value: float) -> dict:
 
     if confidence_score < 52 or sanity_clamped:
         action = "MANUAL REVIEW"
-    elif roi >= 14 and risk_score <= 30 and confidence_score >= 72 and eff_days <= 45:
+    elif roi >= 4.5 and risk_score <= 30 and confidence_score >= 72 and eff_days <= 45:
         action = "BUY"
-    elif roi >= 12 and risk_score <= 45 and not inspected:
+    elif roi >= 3.5 and risk_score <= 45 and not inspected:
         action = "BUY AFTER INSPECTION"
-    elif roi >= 12 and risk_score <= 40 and confidence_score >= 65:
-        # Inspected, decent confidence — straight BUY even if ROI slightly lower
+    elif roi >= 3.5 and risk_score <= 40 and confidence_score >= 65:
         action = "BUY"
-    elif roi >= 9 and risk_score <= 55:
+    elif roi >= 2.5 and risk_score <= 55:
         action = "NEGOTIATE"
-    elif roi >= 6 and risk_score <= 70 and seller_reason.lower().strip() in flexible_reasons:
+    elif roi >= 1.5 and risk_score <= 70 and seller_reason.lower().strip() in flexible_reasons:
         action = "NEGOTIATE AGGRESSIVELY"
-    elif roi >= 6 and risk_score <= 65:
+    elif roi >= 1.5 and risk_score <= 65:
         action = "NEGOTIATE"
     else:
         action = "REJECT"

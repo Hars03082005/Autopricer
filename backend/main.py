@@ -179,8 +179,8 @@ def clean_text(value: object, default: str = "unknown") -> str:
 # looking up the sanity-clamp band.
 # Format: { clean_model: [ (min_year, max_year, canonical_model), ... ] }
 MODEL_YEAR_ALIASES: dict[str, list[tuple[int, int, str]]] = {
-    # Innova Crysta launched in 2016 — anything from 2016 onwards is Crysta
-    "innova":        [(2016, 9999, "innova crysta")],
+    # Innova Crysta launched in 2016 — anything from 2014 onwards is considered Crysta
+    "innova":        [(2014, 9999, "innova crysta")],
     # Creta gen-2 (2020+) has significantly higher resale vs gen-1
     "creta":         [(2020, 9999, "creta")],
     # Nexon EV (2020+) is a separate product from ICE Nexon

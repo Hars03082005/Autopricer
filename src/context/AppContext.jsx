@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+﻿/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
@@ -94,9 +94,9 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
     dealQuality: dealQualityScore,
     action: result?.action || 'MANUAL REVIEW',
     urgencyScore: toNumber(result?.urgencyScore, 0),
-    modelName: result?.modelName || 'EnsembleRegressor',
+    modelName: result?.modelName || 'CatBoostRegressor',
     isMLPowered: result?.isMLPowered !== false,
-    valuationSource: result?.valuationSource || 'PriceRef ML Backend',
+    valuationSource: result?.valuationSource || 'CatBoost ML Backend',
     positiveFactors: result?.positiveFactors || [],
     negativeFactors: result?.negativeFactors || [],
   };
