@@ -83,7 +83,6 @@ Price-Prediction/
 
 ## ML details
 
-**Dataset:** ~34,300 deduplicated rows from a ~212k row raw scrape (the rest are exact duplicates from listing loops).
 
 **Features:** 19 total — 9 categorical (`brand`, `model`, `variant`, `city`, `rto_state`, `color`, `segment_class`, `fuel_type`, `transmission`) and 10 numeric (`vehicle_age`, `odometer_reading`, `km_per_year`, `owner_count`, `ownership_trust_score`, `vehicle_health_score`, `inspected`, `high_mileage`, `luxury_brand`, `has_list_price`).
 
@@ -235,6 +234,4 @@ Password: dealer123
 | v8.0 | 34,266 | 7.43% | Phase 7 feature engineering, dynamic engine |
 | **v9.0** | **34,266** | **7.43%** | Dynamic engine specs, monetary SHAP, adaptive confidence |
 
----
 
-*Internal prototype. All predictions are ML estimates — a dealer should review before finalising any acquisition.*
