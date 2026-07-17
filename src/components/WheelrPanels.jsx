@@ -27,17 +27,12 @@ export function NegotiationPlaybook({ negotiation, variant = 'enhanced', confide
         Predicted acquisition price range based on ML valuation + rule engine adjustments
       </div>
 
-      {/* Three range cards */}
-      <div className="negotiation-trio">
+      {/* Two range cards — no middle value */}
+      <div className="negotiation-trio" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div className="negotiation-card opening">
           <div className="trio-label">RANGE FLOOR</div>
           <div className="trio-sublabel">(Open at)</div>
           <div className="trio-price">{formatINR(opening)}</div>
-        </div>
-        <div className="negotiation-card target">
-          <div className="trio-label">FAIR VALUE</div>
-          <div className="trio-sublabel">(Target)</div>
-          <div className="trio-price">{formatINR(target)}</div>
         </div>
         <div className="negotiation-card walk-away">
           <div className="trio-label">RANGE CEILING</div>

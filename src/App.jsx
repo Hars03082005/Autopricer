@@ -171,7 +171,7 @@ function AppShell() {
               <Icon name="car" size={18} color="white" strokeWidth={2} />
             </div>
             <div>
-              <div className="header-name">Pricer<span className="header-ai">Point</span></div>
+              <div className="header-name">Price<span className="header-ai">Ref</span></div>
               <div className="header-tagline">Dealer Decision Engine</div>
             </div>
           </div>
@@ -231,7 +231,7 @@ function Root() {
         <div className="splash-logo">
           <Icon name="car" size={28} color="white" strokeWidth={2} />
         </div>
-        <div className="splash-name">Pricer<span style={{ color:'#f75d34', fontStyle:'italic' }}>Point</span></div>
+        <div className="splash-name">Price<span style={{ color:'#f75d34', fontStyle:'italic' }}>Ref</span></div>
         <div className="splash-dots">
           <span /><span /><span />
         </div>

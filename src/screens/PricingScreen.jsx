@@ -191,9 +191,9 @@ export default function PricingScreen() {
     <div className="screen">
       <div className="page-header">
         <div>
-          <div className="page-title">Pricing Intelligence</div>
+          <div className="page-title">Deal Financials</div>
           <div className="page-subtitle">
-            {inputs.year} {inputs.brand} {inputs.model} · Dealer acquisition view
+            {inputs.year} {inputs.brand} {inputs.model} · Acquisition cost view
           </div>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('result')}>
@@ -271,16 +271,16 @@ export default function PricingScreen() {
 
           <div style={{ height:1, background:'var(--border)', margin:'6px 0' }} />
 
-          <CostRow icon="tool"    label="Expected Reconditioning Cost"   amount={recon_cost} />
-          <CostRow icon="clock"   label="Expected Holding Cost (30 days)" amount={holding_cost} />
-          <CostRow icon="document" label="RC Transfer & Documentation"   amount={doc_cost} />
-          <CostRow icon="shield"  label="Dynamic Risk Buffer"            amount={risk_buffer} />
-          <CostRow icon="coins"   label="Segment-capped Dealer Profit"   amount={target_profit} />
+          <CostRow icon="tool"    label="Reconditioning & Repairs"        amount={recon_cost} />
+          <CostRow icon="clock"   label="Holding Cost (30 days)"          amount={holding_cost} />
+          <CostRow icon="document" label="RC Transfer & Documentation"    amount={doc_cost} />
+          <CostRow icon="shield"  label="Risk & Repair Buffer"            amount={risk_buffer} />
+          <CostRow icon="coins"   label="Target Dealer Margin"            amount={target_profit} />
 
           <div style={{ height:2, background:'var(--border)', margin:'8px 0' }} />
 
           <div className="cost-total-row">
-            <div className="cost-total-label">Total Cost & Profit Deductions</div>
+            <div className="cost-total-label">Total Deductions</div>
             <div className="cost-total-amount" style={{ color:'var(--danger)' }}>
               {fmtL(totalOperatingCosts + target_profit)}
             </div>

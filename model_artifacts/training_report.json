@@ -1,264 +1,56 @@
 {
-  "model_name": "CatBoost+LightGBM+XGBoost Segment Ensemble",
-  "version": "5.0",
-  "trained_at": "2026-07-09T06:50:48.898981",
-  "target": "selling_price",
-  "target_transform": "log1p during training, expm1 during prediction",
-  "prediction_unit": "INR",
-  "dataset": "cleaned_used_car_dataset.csv",
-  "features": [
-    "brand",
-    "model",
-    "variant",
-    "city",
-    "rto_state",
-    "color",
-    "segment_class",
-    "fuel_type",
-    "transmission",
-    "vehicle_age",
-    "odometer_reading",
-    "km_per_year",
-    "owner_count",
-    "ownership_trust_score",
-    "vehicle_health_score",
-    "inspected",
-    "high_mileage",
-    "luxury_brand",
-    "has_list_price"
-  ],
-  "categorical_features": [
-    "brand",
-    "model",
-    "variant",
-    "city",
-    "rto_state",
-    "color",
-    "segment_class",
-    "fuel_type",
-    "transmission"
-  ],
-  "numeric_features": [
-    "vehicle_age",
-    "odometer_reading",
-    "km_per_year",
-    "owner_count",
-    "ownership_trust_score",
-    "vehicle_health_score",
-    "inspected",
-    "high_mileage",
-    "luxury_brand",
-    "has_list_price"
-  ],
-  "split_strategy": {
-    "train": 0.7,
-    "validation": 0.15,
-    "test": 0.15
-  },
-  "segment_map": {
-    "mass market": "economy",
-    "budget": "economy",
-    "unknown": "economy",
-    "assured": "economy",
-    "standard": "premium",
-    "luxury": "luxury",
-    "luxe": "luxury"
-  },
-  "segment_classes": [
-    "economy",
-    "premium",
-    "luxury"
-  ],
-  "ensemble": {
-    "enabled": true,
-    "strategy": "SLSQP-optimised weighted average on validation R²",
-    "weights": {
-      "catboost": 1.0,
-      "lightgbm": 0.0,
-      "xgboost": 0.0
+    "training_time": "2026-07-16T18:55:19.623718",
+    "best_model": "CatBoost",
+    "features": [
+        "brand",
+        "model",
+        "variant",
+        "color",
+        "segment_class",
+        "fuel_type",
+        "transmission",
+        "seller_type",
+        "vehicle_age",
+        "odometer_reading",
+        "km_per_year",
+        "owner_count",
+        "inspected"
+    ],
+    "categorical_features": [
+        "brand",
+        "model",
+        "variant",
+        "color",
+        "segment_class",
+        "fuel_type",
+        "transmission",
+        "seller_type"
+    ],
+    "numeric_features": [
+        "vehicle_age",
+        "odometer_reading",
+        "km_per_year",
+        "owner_count",
+        "inspected"
+    ],
+    "metrics": {
+        "CatBoost": {
+            "MAE": 48020.92,
+            "RMSE": 91714.07,
+            "R2": 0.9711,
+            "MAPE": 7.75
+        },
+        "LightGBM": {
+            "MAE": 151831.33,
+            "RMSE": 254059.64,
+            "R2": 0.7386,
+            "MAPE": 25.86
+        },
+        "XGBoost": {
+            "MAE": 138155.48,
+            "RMSE": 230715.88,
+            "R2": 0.7726,
+            "MAPE": 23.71
+        }
     }
-  },
-  "global_metrics": {
-    "train": {
-      "mae": 32228.67,
-      "rmse": 54621.36,
-      "r2": 0.9881,
-      "mape": 5.18
-    },
-    "validation": {
-      "mae": 33122.4,
-      "rmse": 54573.59,
-      "r2": 0.9874,
-      "mape": 5.33
-    },
-    "test": {
-      "mae": 33502.97,
-      "rmse": 56679.68,
-      "r2": 0.9871,
-      "mape": 5.36
-    }
-  },
-  "overfitting_check": {
-    "train_r2": 0.9881,
-    "validation_r2": 0.9874,
-    "test_r2": 0.9871,
-    "train_val_r2_gap": 0.001,
-    "status": "healthy_generalization"
-  },
-  "individual_base_models": {
-    "catboost": {
-      "train_metrics": {
-        "mae": 32228.67,
-        "rmse": 54621.36,
-        "r2": 0.9881,
-        "mape": 5.18
-      },
-      "validation_metrics": {
-        "mae": 33122.4,
-        "rmse": 54573.59,
-        "r2": 0.9874,
-        "mape": 5.33
-      },
-      "test_metrics": {
-        "mae": 33502.97,
-        "rmse": 56679.68,
-        "r2": 0.9871,
-        "mape": 5.36
-      }
-    },
-    "lightgbm": {
-      "train_metrics": {
-        "mae": 69886.26,
-        "rmse": 126271.73,
-        "r2": 0.9493,
-        "mape": 11.07
-      },
-      "validation_metrics": {
-        "mae": 131817.28,
-        "rmse": 207322.79,
-        "r2": 0.8072,
-        "mape": 20.84
-      },
-      "test_metrics": {
-        "mae": 130308.42,
-        "rmse": 195728.64,
-        "r2": 0.7992,
-        "mape": 23.99
-      }
-    },
-    "xgboost": {
-      "train_metrics": {
-        "mae": 42385.84,
-        "rmse": 67239.06,
-        "r2": 0.9779,
-        "mape": 7.11
-      },
-      "validation_metrics": {
-        "mae": 119219.52,
-        "rmse": 185123.68,
-        "r2": 0.8317,
-        "mape": 18.53
-      },
-      "test_metrics": {
-        "mae": 111299.95,
-        "rmse": 161149.5,
-        "r2": 0.8417,
-        "mape": 20.56
-      }
-    }
-  },
-  "segmented_models": {
-    "economy": {
-      "rows": 207135,
-      "test_r2": 0.9872,
-      "test_mae": 32503.19,
-      "test_mape": 5.26
-    },
-    "premium": {
-      "rows": 3301,
-      "test_r2": 0.9056,
-      "test_mae": 80437.96,
-      "test_mape": 15.29
-    },
-    "luxury": {
-      "rows": 3384,
-      "test_r2": 0.9976,
-      "test_mae": 13709.37,
-      "test_mape": 1.08
-    }
-  },
-  "feature_importance": {
-    "model": 30.8778,
-    "vehicle_age": 23.173,
-    "brand": 13.3962,
-    "fuel_type": 5.1959,
-    "transmission": 4.2264,
-    "odometer_reading": 4.1414,
-    "variant": 4.1304,
-    "ownership_trust_score": 3.1849,
-    "rto_state": 2.4181,
-    "km_per_year": 2.3516,
-    "vehicle_health_score": 2.0737,
-    "has_list_price": 1.341,
-    "luxury_brand": 1.2176,
-    "segment_class": 0.8882,
-    "high_mileage": 0.3979,
-    "owner_count": 0.3715,
-    "color": 0.3608,
-    "city": 0.2243,
-    "inspected": 0.0293
-  },
-  "condition_multipliers": {
-    "excellent": 1.035,
-    "good": 1.0,
-    "average": 0.94,
-    "poor": 0.86
-  },
-  "brand_segment_map": {
-    "maruti": "economy",
-    "maruti suzuki": "economy",
-    "datsun": "economy",
-    "bajaj": "economy",
-    "chevrolet": "economy",
-    "fiat": "economy",
-    "opel": "economy",
-    "premier": "economy",
-    "force": "economy",
-    "ashok leyland": "economy",
-    "ambassador": "economy",
-    "hindustan motors": "economy",
-    "hyundai": "economy",
-    "honda": "economy",
-    "tata": "economy",
-    "renault": "economy",
-    "nissan": "economy",
-    "ford": "economy",
-    "mahindra": "economy",
-    "mitsubishi": "economy",
-    "isuzu": "economy",
-    "citroen": "economy",
-    "dc": "economy",
-    "volkswagen": "premium",
-    "skoda": "premium",
-    "toyota": "premium",
-    "mg": "premium",
-    "jeep": "premium",
-    "kia": "premium",
-    "mini": "premium",
-    "volvo": "premium",
-    "lexus": "premium",
-    "bmw": "luxury",
-    "mercedes-benz": "luxury",
-    "audi": "luxury",
-    "jaguar": "luxury",
-    "land rover": "luxury",
-    "porsche": "luxury",
-    "maserati": "luxury",
-    "aston martin": "luxury",
-    "bentley": "luxury",
-    "rolls-royce": "luxury",
-    "ferrari": "luxury",
-    "lamborghini": "luxury",
-    "hummer": "luxury"
-  }
 }

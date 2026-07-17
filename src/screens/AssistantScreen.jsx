@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
 
@@ -9,12 +9,12 @@ const fmtL = (n) => {
 };
 
 const SUGGESTIONS = [
-  'What is the ML market value for this vehicle?',
-  'Should I buy this car at the asking price?',
-  'What are the biggest risk factors?',
-  'Explain the depreciation for this car',
-  'What is the realistic dealer profit?',
-  'Compare this to similar vehicles',
+  'Is this a good deal at the asking price?',
+  'What should I offer to buy this car?',
+  'What are the main risks I should watch out for?',
+  'How much profit can I realistically make?',
+  'Why is the price estimated at this level?',
+  'How does mileage affect the value here?',
 ];
 
 function buildContext(valuationResult, inputs) {
@@ -48,34 +48,34 @@ function generateResponse(question, context, result, inputs) {
   const q = question.toLowerCase();
 
   if (q.includes('market value') || q.includes('price') || q.includes('worth')) {
-    return `Based on the ML model, this **${inputs?.year} ${inputs?.brand} ${inputs?.model}** has a market value of **${fmtL(result?.predictedPrice)}** with ${result?.confidenceScore}% confidence. The price range is ${fmtL(result?.priceMin)} to ${fmtL(result?.priceMax)}.`;
+    return `The **${inputs?.year} ${inputs?.brand} ${inputs?.model}** is valued at **${fmtL(result?.predictedPrice)}** — model confidence is ${result?.confidenceScore}%. Realistic range is ${fmtL(result?.priceMin)} to ${fmtL(result?.priceMax)} depending on negotiation and condition on the day.`;
   }
-  if (q.includes('buy') || q.includes('should i') || q.includes('recommend')) {
+  if (q.includes('buy') || q.includes('should i') || q.includes('recommend') || q.includes('offer') || q.includes('deal')) {
     const action = result?.action || 'MANUAL REVIEW';
     const emoji = action === 'BUY' ? '✅' : action === 'NEGOTIATE' ? '🔶' : '❌';
-    return `${emoji} The ML engine recommends: **${action}**\n\nIdeal buy price: **${fmtL(result?.recommendedBuyPrice)}**. Expected dealer profit: **${fmtL(result?.expectedProfit)}** (${result?.expectedMarginPct}% margin).\n\n${action === 'BUY' ? 'This is a good opportunity — move quickly.' : action === 'NEGOTIATE' ? 'You can potentially close this deal if you negotiate the price down.' : 'This deal has too much risk or insufficient margin for a profitable flip.'}`;
+    return `${emoji} **${action}**\n\nTarget buy price: **${fmtL(result?.recommendedBuyPrice)}**. If you can get in at that number, you're looking at **${fmtL(result?.expectedProfit)}** profit (${result?.expectedMarginPct}% margin) once the car sells.\n\n${action === 'BUY' ? 'Numbers work. Worth moving on this one.' : action === 'NEGOTIATE' ? "There's room here, but you'll need to push the seller down. Don't pay asking." : "Margin is too thin or the risk is too high. Better to walk away."}`;
   }
-  if (q.includes('risk') || q.includes('danger') || q.includes('concern')) {
+  if (q.includes('risk') || q.includes('danger') || q.includes('concern') || q.includes('watch')) {
     const risks = result?.negativeFactors || [];
     const score = result?.riskScore || 0;
-    return `Risk score: **${score}/100** (${result?.riskLevel || 'Medium'})\n\n**Key risk factors:**\n${risks.map(r => `• ${r}`).join('\n') || '• No major risks identified'}\n\n${score > 65 ? '⚠️ High risk — ensure a thorough inspection before buying.' : score > 35 ? '🔶 Moderate risk — manageable with proper due diligence.' : '✅ Low risk — this vehicle has a clean profile.'}`;
+    return `Risk score is **${score}/100** (${result?.riskLevel || 'Medium'}).\n\n**Things to watch out for:**\n${risks.map(r => `• ${r}`).join('\n') || '• Nothing flagged as a major concern'}\n\n${score > 65 ? '⚠️ High risk — get a proper inspection done before committing.' : score > 35 ? '🔶 Moderate risk — manageable, but do your homework.' : '✅ Looks clean. Low-risk pick up if the price is right.'}`;
   }
   if (q.includes('depreciation') || q.includes('age') || q.includes('year')) {
     const age = new Date().getFullYear() - Number(inputs?.year || 2020);
-    return `This **${age}-year-old** ${inputs?.brand} ${inputs?.model} has depreciated from its original price. At **${(Number(inputs?.mileage||0)/1000).toFixed(0)}k km**, the vehicle has experienced ${age * 8}–${age * 12}% depreciation from showroom price.\n\nML Market Value: **${fmtL(result?.predictedPrice)}**`;
+    return `This **${age}-year-old** ${inputs?.brand} ${inputs?.model} has depreciated from its original price. At **${(Number(inputs?.mileage||0)/1000).toFixed(0)}k km**, the vehicle has experienced ${age * 8}–${age * 12}% depreciation from showroom price.\n\nMarket Value: **${fmtL(result?.predictedPrice)}**`;
   }
-  if (q.includes('profit') || q.includes('margin') || q.includes('earn')) {
-    return `**Dealer profit analysis:**\n\n• Buy price: ${fmtL(result?.recommendedBuyPrice)}\n• Sell price: ${fmtL(result?.recommendedSellPrice)}\n• Expected profit: **${fmtL(result?.expectedProfit)}**\n• Margin: **${result?.expectedMarginPct}%**\n\nFor mass-market cars, a healthy dealer profit is ₹25,000–₹80,000. Go to **Pricing** tab for a full cost breakdown.`;
+  if (q.includes('profit') || q.includes('margin') || q.includes('earn') || q.includes('make')) {
+    return `Here's the rough math:\n\n• Buy at: ${fmtL(result?.recommendedBuyPrice)}\n• Sell at: ${fmtL(result?.recommendedSellPrice)}\n• Walk away with: **${fmtL(result?.expectedProfit)}** (${result?.expectedMarginPct}% margin)\n\nFor most mass-market cars, anything between ₹25K–₹80K is a solid flip. Hit the **Pricing** tab for a full breakdown of recon, holding, and transfer costs.`;
   }
   if (q.includes('compar') || q.includes('similar') || q.includes('alternative')) {
-    return `I can't fetch live market listings, but the **${result?.segmentClass?.toUpperCase()}** segment model was trained on 213,820 Indian used car transactions. The ML confidence of **${result?.confidenceScore}%** indicates how representative this vehicle is within its segment.\n\nCheck the **Pricing** tab for comparables from your own evaluation history.`;
+    return `I can't fetch live market listings, but the **${result?.segmentClass?.toUpperCase()}** segment model was trained on 213,820 Indian used car transactions. The confidence of **${result?.confidenceScore}%** shows how well this vehicle fits its segment.\n\nCheck the **Pricing** tab for comparables from your own evaluation history.`;
   }
-  if (q.includes('explain') || q.includes('how') || q.includes('why')) {
-    return `The ML model used **${result?.segmentClass?.toUpperCase()}** segment-specific training to predict this price.\n\n**Top value drivers:**\n${(result?.positiveFactors||[]).slice(0,3).map(f=>`✓ ${f}`).join('\n') || '—'}\n\n**Risk factors:**\n${(result?.negativeFactors||[]).slice(0,3).map(f=>`✗ ${f}`).join('\n') || '—'}\n\nVisit **AI Explain** for a full SHAP-style feature impact analysis.`;
+  if (q.includes('explain') || q.includes('how') || q.includes('why') || q.includes('reason') || q.includes('mileage') || q.includes('age')) {
+    return `The price was calculated using the **${result?.segmentClass?.toUpperCase()}** segment model, which was trained on cars in a similar value range.\n\n**What's pushing the price up:**\n${(result?.positiveFactors||[]).slice(0,3).map(f=>`✓ ${f}`).join('\n') || '—'}\n\n**What's dragging it down:**\n${(result?.negativeFactors||[]).slice(0,3).map(f=>`✗ ${f}`).join('\n') || '—'}\n\nCheck the **Explain** tab for a full feature-by-feature breakdown.`;
   }
 
   // Default helpful response
-  return `I'm your PriceRef dealer assistant. I can help you with:\n\n• **Interpreting** the ML valuation result\n• **Buy/sell decision** analysis\n• **Risk factor** breakdown\n• **Profit and margin** estimates\n• **Depreciation** context\n\nFor this vehicle (${inputs?.brand} ${inputs?.model}): **${fmtL(result?.predictedPrice)}** market value · **${result?.action}** recommendation.\n\nWhat would you like to know?`;
+  return `Not sure what you're looking for — try asking about the offer price, risks, profit potential, or why the value came in where it did.\n\n${result ? `Quick summary for this **${inputs?.brand} ${inputs?.model}**: valued at **${fmtL(result?.predictedPrice)}**, call is **${result?.action}**.` : 'Run a valuation first and I can give you the full picture.'}`;
 }
 
 export default function AssistantScreen() {
@@ -84,8 +84,8 @@ export default function AssistantScreen() {
     {
       role: 'ai',
       text: valuationResult
-        ? `Hello! I'm your PriceRef assistant. I've analysed the **${inputs?.year} ${inputs?.brand} ${inputs?.model}** — market value **${fmtL(valuationResult?.predictedPrice)}**, recommendation: **${valuationResult?.action}**. What would you like to know?`
-        : `Hello! I'm your PriceRef dealer assistant. Run a vehicle valuation first, then I can answer detailed questions about the ML result, risk factors, and dealer margin. What can I help with?`,
+        ? `I've looked at the **${inputs?.year} ${inputs?.brand} ${inputs?.model}**. Market value comes to **${fmtL(valuationResult?.predictedPrice)}** and the call is **${valuationResult?.action}**. What do you want to dig into?`
+        : `Run a valuation first and I can walk you through the numbers — what to offer, what the risks are, and whether the deal makes sense. What's on your mind?`,
     },
   ]);
   const [input, setInput]     = useState('');
@@ -132,8 +132,8 @@ export default function AssistantScreen() {
     <div className="screen">
       <div className="page-header" style={{ marginBottom:16 }}>
         <div>
-          <div className="page-title">AI Assistant</div>
-          <div className="page-subtitle">Ask questions about the valuation, risk, or dealer strategy</div>
+          <div className="page-title">Deal Assistant</div>
+          <div className="page-subtitle">Ask anything about this vehicle — offer price, risks, or profit</div>
         </div>
         <span className="badge badge-info">Beta</span>
       </div>

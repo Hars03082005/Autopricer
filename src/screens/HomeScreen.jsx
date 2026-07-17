@@ -31,10 +31,10 @@ function EmptyHome({ setActiveScreen }) {
       <div className="home-empty-icon">
         <Icon name="car" size={28} color="#f75d34" strokeWidth={1.8} />
       </div>
-      <div className="home-empty-title">No evaluations yet</div>
+      <div className="home-empty-title">No valuations yet</div>
       <div className="home-empty-desc">
-        Run your first ML valuation to populate this dashboard with real data,
-        KPIs, and dealer insights.
+        Value your first vehicle and this dashboard will fill up with deal signals,
+        profit estimates, and brand trends from your own evaluations.
       </div>
       <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
         <Icon name="car" size={16} color="white" strokeWidth={2} />
@@ -147,7 +147,7 @@ export default function HomeScreen() {
             </div>
           </div>
           <div className="kpi-tile-value">{data.kpis.evaluations}</div>
-          <div className="kpi-tile-sub">ML-powered valuations</div>
+          <div className="kpi-tile-sub">Vehicles valued so far</div>
         </div>
 
         <div className="kpi-tile">
@@ -158,7 +158,7 @@ export default function HomeScreen() {
             </div>
           </div>
           <div className="kpi-tile-value" style={{ color: '#16a34a' }}>{data.kpis.buy}</div>
-          <div className="kpi-tile-sub">Recommended acquisitions</div>
+          <div className="kpi-tile-sub">Deals worth pursuing</div>
         </div>
 
         <div className="kpi-tile">
@@ -171,7 +171,7 @@ export default function HomeScreen() {
           <div className="kpi-tile-value" style={{ color: data.kpis.avgProfit > 0 ? '#16a34a' : '#0f172a' }}>
             {fmtL(data.kpis.avgProfit)}
           </div>
-          <div className="kpi-tile-sub">Per evaluated vehicle</div>
+          <div className="kpi-tile-sub">Per vehicle evaluated</div>
         </div>
 
         <div className="kpi-tile">
@@ -182,7 +182,7 @@ export default function HomeScreen() {
             </div>
           </div>
           <div className="kpi-tile-value">₹{data.kpis.pipelineL}L</div>
-          <div className="kpi-tile-sub">Total market values</div>
+          <div className="kpi-tile-sub">Combined market values</div>
         </div>
       </div>
 
@@ -197,7 +197,7 @@ export default function HomeScreen() {
             <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Recent Evaluations</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Your latest ML valuations</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Your last {data.recent.length} valuations</div>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setActiveScreen('dashboard')}>
                 View all

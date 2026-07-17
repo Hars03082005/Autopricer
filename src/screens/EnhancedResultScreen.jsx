@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { CAR_IMAGES } from '../utils/mockData.js';
 import { formatINR, getSeasonalContext } from '../utils/format.js';
@@ -239,6 +240,7 @@ function RuleBasedPricingPipeline({ result, inputs }) {
 // ─── Main Enhanced Result Screen ────────────────────────────
 export default function EnhancedResultScreen() {
   const { enhancedResult, inputs, setActiveScreen, isLoading } = useApp();
+  const [showNegotiation, setShowNegotiation] = useState(true);
   const carImage = CAR_IMAGES[`${inputs.brand} ${inputs.model}`] || '/cars/placeholder.png';
 
   if (isLoading) {
@@ -346,28 +348,64 @@ export default function EnhancedResultScreen() {
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--info)' }}>{formatINR(predictedPrice)}</div>
         </div>
 
-        {/* Buy range row */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px' }}>
-          <div className="label-xs" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Icon name="tag" size={12} color="var(--accent)" strokeWidth={2.2} />
-            Negotiation Window
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Opening Offer</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--success)' }}>{formatINR(negotiation?.opening_offer || Math.round((enhancedMaxBuyPrice || recommendedBuyPrice) * 0.95))}</div>
+        {/* Buy & Sell Range Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* Buy Range */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.03) 100%)',
+            border: '1.5px solid rgba(34,197,94,0.25)',
+            borderRadius: 10,
+            padding: '14px 12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }} />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--success)', textTransform: 'uppercase' }}>Buy Range</div>
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '100%', height: 4, borderRadius: 2, background: 'linear-gradient(90deg, var(--success) 0%, var(--warning) 100%)', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', border: '1.5px solid white' }} />
-                <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 8, borderRadius: '50%', background: 'var(--warning)', border: '1.5px solid white' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 2 }}>Open at</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--success)' }}>
+                  {formatINR(negotiation?.opening_offer || Math.round((enhancedMaxBuyPrice || recommendedBuyPrice) * 0.95))}
+                </div>
               </div>
-              <div style={{ fontSize: 9, color: 'var(--text-3)', marginTop: 4 }}>spread</div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', alignSelf: 'center', padding: '0 4px' }}>→</div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 2 }}>Max pay</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--warning)' }}>
+                  {formatINR(enhancedMaxBuyPrice || recommendedBuyPrice)}
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: 'center', flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Walk Away</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--warning)' }}>{formatINR(enhancedMaxBuyPrice)}</div>
+            <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: 'linear-gradient(90deg, var(--success), var(--warning))' }} />
+          </div>
+
+          {/* Sell Range */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(14,165,233,0.08) 0%, rgba(14,165,233,0.03) 100%)',
+            border: '1.5px solid rgba(14,165,233,0.25)',
+            borderRadius: 10,
+            padding: '14px 12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--info)' }} />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--info)', textTransform: 'uppercase' }}>Sell Range</div>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 2 }}>Min sell</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--info)' }}>
+                  {formatINR(enhancedResult.recommendedSellPrice || Math.round(predictedPrice * 1.03))}
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', alignSelf: 'center', padding: '0 4px' }}>→</div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 2 }}>Ideal sell</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent)' }}>
+                  {formatINR(Math.round((enhancedResult.recommendedSellPrice || predictedPrice) * 1.05))}
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: 'linear-gradient(90deg, var(--info), var(--accent))' }} />
           </div>
         </div>
       </div>
@@ -384,9 +422,40 @@ export default function EnhancedResultScreen() {
         </div>
       </div>
 
-      {/* ── Negotiation Playbook ── */}
-      <div className="card" style={{ marginBottom: 16, padding: '20px' }}>
-        <NegotiationPlaybook negotiation={negotiation} confidenceScore={confidenceScore} />
+      {/* ── Negotiation Playbook (collapsible) ── */}
+      <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
+        <div
+          style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '16px 20px',
+            cursor: 'pointer',
+            borderBottom: showNegotiation ? '1px solid var(--border)' : 'none',
+            transition: 'border-color 0.2s',
+          }}
+          onClick={() => setShowNegotiation(v => !v)}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="tag" size={13} color="var(--accent)" strokeWidth={2.2} />
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-1)', textTransform: 'uppercase' }}>
+              Negotiation Playbook
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{showNegotiation ? 'Hide' : 'Show'}</span>
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="var(--text-3)" strokeWidth="2.5" strokeLinecap="round"
+              style={{ transform: showNegotiation ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </div>
+        {showNegotiation && (
+          <div style={{ padding: '20px' }}>
+            <NegotiationPlaybook negotiation={negotiation} confidenceScore={confidenceScore} />
+          </div>
+        )}
       </div>
 
       {/* ── Rule-Based Pricing Pipeline ── */}

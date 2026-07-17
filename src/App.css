@@ -5850,3 +5850,106 @@ a { text-decoration: none; color: inherit; }
   .rs2-similar-table th:nth-child(n+5),
   .rs2-similar-table td:nth-child(n+5) { display: none; }
 }
+
+/* Restructured Result Screen Hero Card Layout */
+.rs2-hero-card {
+  flex-direction: column !important;
+  gap: 22px !important;
+  padding: 24px 26px !important;
+}
+
+.rs2-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+}
+
+.rs2-hero-top-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rs2-hero-info-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rs2-spec-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.rs2-spec-chip {
+  background: var(--surface-2, #f8fafc);
+  color: var(--text-2, #475569);
+  border: 1px solid var(--border, #e2e8f0);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.rs2-decision-badge-new {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid;
+  border-radius: 12px;
+  padding: 10px 20px;
+  text-align: center;
+  min-width: 160px;
+  line-height: 1.3;
+}
+
+.rs2-decision-title-new {
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rs2-decision-sub-new {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+.rs2-hero-stats-new {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  border-top: 1px solid var(--border, #cbd5e1);
+  padding-top: 20px;
+  width: 100%;
+}
+
+.rs2-hero-stat-new-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 6px 12px;
+  border-right: 1px solid var(--border, #f1f5f9);
+}
+
+.rs2-hero-stat-new-item:last-child {
+  border-right: none;
+}
+

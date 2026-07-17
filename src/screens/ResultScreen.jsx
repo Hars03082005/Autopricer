@@ -312,65 +312,64 @@ export default function ResultScreen() {
     <div className="rs2-root">
 
       {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
-      <div className="rs2-card rs2-hero-card" style={{ padding: '22px 26px' }}>
-        <div className="rs2-hero-left">
-          <CarImage />
-          <div className="rs2-hero-info">
-            <div className="rs2-vehicle-name">
-              {inputs.brand} {inputs.model}
-              {inputs.variant && inputs.variant !== 'unknown' && <span className="rs2-vehicle-var"> {inputs.variant}</span>}
-            </div>
-            {/* Car details in a compact grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 12px', marginTop: 8 }}>
-              {[
-                { label: 'Year',  val: inputs.year },
-                { label: 'Fuel',  val: inputs.fuel || inputs.fuel_type },
-                { label: 'Trans', val: inputs.transmission },
-                { label: 'Odometer', val: km > 0 ? `${km.toLocaleString('en-IN')} km` : '—' },
-                { label: 'City',  val: inputs.city },
-                { label: 'Owners', val: inputs.ownerCount ? `${inputs.ownerCount} Owner${inputs.ownerCount !== '1' ? 's' : ''}` : '—' },
-              ].map(({ label, val }) => val ? (
-                <div key={label}>
-                  <div style={{ fontSize: 9.5, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{label}</div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-1)', marginTop: 1 }}>{val}</div>
-                </div>
-              ) : null)}
-            </div>
-            <div className="rs2-hero-badges" style={{ marginTop: '10px' }}>
-              <span className="rs2-badge rs2-badge-seg">{(segmentClass || 'economy').toUpperCase()}</span>
-              <span className="rs2-badge rs2-badge-conf">ML Confidence: {confidenceScore}%</span>
+      <div className="rs2-card rs2-hero-card">
+        {/* Top Row: Info and Decision */}
+        <div className="rs2-hero-top">
+          <div className="rs2-hero-top-left">
+            <CarImage />
+            <div className="rs2-hero-info-new">
+              <div className="rs2-vehicle-name">
+                {inputs.brand} {inputs.model}
+                {inputs.variant && inputs.variant !== 'unknown' && <span className="rs2-vehicle-var"> {inputs.variant}</span>}
+              </div>
+              <div className="rs2-spec-row">
+                {[
+                  inputs.year,
+                  inputs.fuel || inputs.fuel_type,
+                  inputs.transmission,
+                  km > 0 ? `${km.toLocaleString('en-IN')} km` : null,
+                  inputs.city,
+                  inputs.ownerCount ? `${inputs.ownerCount} Owner${inputs.ownerCount !== '1' ? 's' : ''}` : null
+                ].filter(Boolean).map((val, idx) => (
+                  <span key={idx} className="rs2-spec-chip">{val}</span>
+                ))}
+              </div>
+              <div className="rs2-hero-badges" style={{ marginTop: '8px' }}>
+                <span className="rs2-badge rs2-badge-seg">{(segmentClass || 'economy').toUpperCase()}</span>
+                <span className="rs2-badge rs2-badge-conf">ML Confidence: {confidenceScore}%</span>
+              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginLeft: 'auto' }}>
-            <span className="rs2-decision-badge" style={{ background: ac.bg, color: ac.color, borderColor: ac.border, padding: '10px 18px', borderRadius: '12px' }}>
-              <div style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="rs2-hero-top-right">
+            <span className="rs2-decision-badge-new" style={{ background: ac.bg, color: ac.color, borderColor: ac.border }}>
+              <div className="rs2-decision-title-new">
                 <Icon name="check" size={16} color={ac.color} strokeWidth={3} /> {ac.label}
               </div>
-              <span className="rs2-decision-sub" style={{ fontSize: '11px', color: ac.color, fontWeight: '600', marginTop: '2px' }}>{ac.sub}</span>
+              <span className="rs2-decision-sub-new">{ac.sub}</span>
             </span>
           </div>
         </div>
 
-        {/* Right Stats grid */}
-        <div className="rs2-hero-stats">
-          <div className="rs2-hero-stat">
+        {/* Bottom Row: Stats grid */}
+        <div className="rs2-hero-stats-new">
+          <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Market Selling Range</div>
-            <div className="rs2-hero-stat-value rs2-blue" style={{ fontSize: '15px' }}>{fmt(minP)} – {fmt(maxP)}</div>
+            <div className="rs2-hero-stat-value rs2-blue">{fmt(minP)} – {fmt(maxP)}</div>
             <div className="rs2-hero-stat-sub">Based on similar listings</div>
           </div>
-          <div className="rs2-hero-stat">
+          <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Expected Sell Price</div>
-            <div className="rs2-hero-stat-value rs2-blue" style={{ fontSize: '15px' }}>{fmt(sellPrice)}</div>
+            <div className="rs2-hero-stat-value rs2-blue">{fmt(sellPrice)}</div>
             <div className="rs2-hero-stat-sub">After reconditioning</div>
           </div>
-          <div className="rs2-hero-stat">
+          <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Recommended Buy Range</div>
-            <div className="rs2-hero-stat-value rs2-orange" style={{ fontSize: '15px' }}>{fmt(minBuy)} – {fmt(maxBuy)}</div>
+            <div className="rs2-hero-stat-value rs2-orange">{fmt(minBuy)} – {fmt(maxBuy)}</div>
             <div className="rs2-hero-stat-sub">Ideal acquisition range</div>
           </div>
-          <div className="rs2-hero-stat">
+          <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Expected Profit</div>
-            <div className="rs2-hero-stat-value" style={{ color: profit >= 0 ? '#16a34a' : '#dc2626', fontSize: '15px' }}>
+            <div className="rs2-hero-stat-value" style={{ color: profit >= 0 ? '#16a34a' : '#dc2626' }}>
               {fmt(profit)}
             </div>
             <div className="rs2-hero-stat-sub">ROI: {pct(roi)}</div>

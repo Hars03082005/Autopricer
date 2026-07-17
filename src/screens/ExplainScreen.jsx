@@ -20,7 +20,7 @@ function FeatureBar({ feature, value, contribution, label, predictedPrice }) {
   const pct = Math.min(100, Math.max(3, (Math.abs(contribution) / (predictedPrice || 1000000)) * 100));
 
   return (
-    <div className="shap-item" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)', animationDelay: `${Math.random() * 0.2}s` }}>
+    <div className="shap-item" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
       <div style={{ flex: '1 1 200px', minWidth: 160 }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-1)' }}>{feature}</div>
         <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 2 }}>{label}</div>
@@ -109,27 +109,27 @@ export default function ExplainScreen() {
 
   const mileageNum = Number(inputs.mileage || 0);
   const ageYears   = new Date().getFullYear() - Number(inputs.year || 2020);
-
-  // Use dynamic shap list from backend payload
+  const kmK        = (mileageNum / 1000).toFixed(0);
   const shapFeatures = shap;
 
-  // Summary sentence
-  const summaryParts = [];
-  if (ageYears <= 3) summaryParts.push('relatively new vehicle');
-  if (mileageNum < 40000) summaryParts.push('low odometer reading');
-  if (inputs.ownerCount === '1') summaryParts.push('first-owner');
-  if (inputs.condition === 'Excellent') summaryParts.push('excellent condition');
-  if (inputs.transmission === 'Automatic') summaryParts.push('automatic transmission premium');
+  // Build a natural summary from what we actually know
+  const parts = [];
+  if (ageYears <= 3)                          parts.push(`a ${ageYears}-year-old car`);
+  if (mileageNum < 40000)                     parts.push('low mileage');
+  else if (mileageNum > 80000)                parts.push(`${kmK}k km on the clock`);
+  if (inputs.ownerCount === '1')              parts.push('single previous owner');
+  if (inputs.condition === 'Excellent')       parts.push('excellent condition');
+  if (inputs.transmission === 'Automatic')    parts.push('automatic gearbox');
 
-  const summary = summaryParts.length > 0
-    ? `This ${inputs.brand} ${inputs.model} benefits from ${summaryParts.slice(0,-1).join(', ')}${summaryParts.length > 1 ? ' and ' : ''}${summaryParts.slice(-1)[0]}, contributing to its ML-estimated market value of ${fmtL(predictedPrice)}.`
-    : `Based on the vehicle inputs, the model estimated a market value of ${fmtL(predictedPrice)} using the ${segmentClass} segment model with ${confidenceScore}% confidence.`;
+  const summary = parts.length > 0
+    ? `${inputs.brand} ${inputs.model} — ${parts.join(', ')}. The model put it at ${fmtL(predictedPrice)} using the ${segmentClass} segment (${confidenceScore}% confidence).`
+    : `The model priced this ${inputs.brand} ${inputs.model} at ${fmtL(predictedPrice)} using the ${segmentClass} segment with ${confidenceScore}% confidence. Check the feature breakdown below for what drove the number.`;
 
   return (
     <div className="screen">
       <div className="page-header">
         <div>
-          <div className="page-title">AI Explanation</div>
+          <div className="page-title">Price Breakdown</div>
           <div className="page-subtitle">
             {inputs.year} {inputs.brand} {inputs.model} · {(segmentClass||'economy').toUpperCase()} segment
           </div>
@@ -185,9 +185,9 @@ export default function ExplainScreen() {
       <div className="card">
         <div className="shap-header">
           <div>
-            <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)' }}>Feature Impact Analysis</div>
+            <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)' }}>What's Driving the Price</div>
             <div style={{ fontSize:11, color:'var(--text-3)' }}>
-              How each input factor influenced the ML prediction
+              How each input factor pushed the estimate up or down
             </div>
           </div>
           <div className="shap-legend-row">
@@ -214,7 +214,7 @@ export default function ExplainScreen() {
           </div>
           <div>
             <div style={{ fontSize:12, fontWeight:700, color:'var(--info)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:6 }}>
-              ML Model Summary
+              Valuation Summary
             </div>
             <div style={{ fontSize:13.5, color:'var(--text-2)', lineHeight:1.65 }}>
               {summary}
@@ -228,7 +228,7 @@ export default function ExplainScreen() {
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           {positiveFactors.length > 0 && (
             <div className="card">
-              <div style={{ fontSize:12, fontWeight:700, color:'#16a34a', marginBottom:10 }}>✓ Value Drivers</div>
+              <div style={{ fontSize:12, fontWeight:700, color:'#16a34a', marginBottom:10 }}>Increasing Factors</div>
               <div className="cf-list">
                 {positiveFactors.map((f, i) => (
                   <div key={i} className="cf-item cf-pos">
@@ -243,7 +243,7 @@ export default function ExplainScreen() {
           )}
           {negativeFactors.length > 0 && (
             <div className="card">
-              <div style={{ fontSize:12, fontWeight:700, color:'#dc2626', marginBottom:10 }}>✗ Value Detractors</div>
+              <div style={{ fontSize:12, fontWeight:700, color:'#dc2626', marginBottom:10 }}>Decreasing Factors</div>
               <div className="cf-list">
                 {negativeFactors.map((f, i) => (
                   <div key={i} className="cf-item cf-neg">
@@ -262,7 +262,7 @@ export default function ExplainScreen() {
       <div style={{ display:'flex', gap:10, marginTop:8 }}>
         <button className="btn btn-primary" onClick={() => setActiveScreen('pricing')}>
           <Icon name="coins" size={15} color="white" strokeWidth={2} />
-          Full Pricing Breakdown
+          View Cost Breakdown
         </button>
         <button className="btn btn-secondary" onClick={() => setActiveScreen('result')}>
           ← Back to Result

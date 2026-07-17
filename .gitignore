@@ -112,3 +112,16 @@ Desktop.ini
 
 # ── Temp / scratch files ──────────────────────────────────────────────────────
 ml_training/scratch_diff.txt
+
+# ── CatBoost training logs (auto-generated, not needed in source control) ─────
+catboost_info/
+ml_training/catboost_info/
+
+# ── Old / experimental model artifact folders (not used by backend) ────────────
+model_artifacts_cell7/
+model_artifacts_owner_assumed/
+model_artifacts_split_compare/
+
+# ── One-off exploration / data scripts ────────────────────────────────────────
+analyze_raw.py
+split_dataset.py
