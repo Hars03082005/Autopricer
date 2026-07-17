@@ -50,12 +50,22 @@ class EnsemblePredictor:
             self.xgboost.load_model(str(xgb_path))
 
     def _prepare_frame(self, features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        frame = features[self.features].copy()
+        # Use the model's own feature list as source of truth — avoids stale metadata mismatch
+        catboost_cols = self.catboost.feature_names_
+        # Start from the full incoming DataFrame so all derived features are available
+        frame = features.copy()
+
         catboost_frame = frame.copy()
         lgb_frame = frame.copy()
         xgb_frame = frame.copy()
 
         for col in self.cat_features:
+            if col not in frame.columns:
+                # Add missing categorical columns with default "unknown"
+                catboost_frame[col] = "unknown"
+                lgb_frame[col] = "unknown"
+                xgb_frame[col] = "unknown"
+                continue
             values = frame[col].astype(str)
             if self.category_levels.get(col):
                 values = values.where(values.isin(self.category_levels[col]), "unknown")
@@ -67,7 +77,23 @@ class EnsemblePredictor:
                 catboost_frame[col] = values.astype(str)
                 lgb_frame[col] = values.astype("category")
 
+        # Add any columns the CatBoost model expects but are missing (fill with 0 / "unknown")
+        for col in catboost_cols:
+            if col not in catboost_frame.columns:
+                catboost_frame[col] = "unknown" if col in self.cat_features else 0.0
+
+        # Reindex to exact model column order
+        catboost_frame = catboost_frame[catboost_cols]
+
+        if self.xgboost is not None:
+            xgb_cols = list(self.xgboost.feature_names_in_)
+            for col in xgb_cols:
+                if col not in xgb_frame.columns:
+                    xgb_frame[col] = 0.0
+            xgb_frame = xgb_frame[xgb_cols]
+
         return catboost_frame, lgb_frame, xgb_frame
+
 
     def predict_log_price(self, features: pd.DataFrame) -> float:
         catboost_frame, lgb_frame, xgb_frame = self._prepare_frame(features)

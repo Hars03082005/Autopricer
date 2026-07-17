@@ -33,6 +33,20 @@ from backend.brand_catalog import build_brand_catalog
 # ── Paths & startup ───────────────────────────────────────────────────────────
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
+
+# ── Brand → tier map (mirrors clean_data.py) ──────────────────────────────────
+# 0 = budget, 1 = economy, 2 = mid, 3 = premium, 4 = luxury
+_BRAND_TIER_MAP: dict[str, int] = {
+    "datsun":        0,
+    "maruti suzuki": 1, "renault": 1, "tata": 1, "chevrolet": 1,
+    "fiat":          1, "bajaj":   1,
+    "hyundai":       2, "honda":   2, "kia":  2, "ford":       2,
+    "volkswagen":    2, "skoda":   2, "nissan": 2, "mitsubishi": 2,
+    "mahindra":      2, "citroen": 2,
+    "toyota":        3, "mg":      3, "jeep":  3,
+    "bmw":           4, "mercedes-benz": 4, "audi":    4, "volvo": 4,
+    "mini":          4, "lexus":   4, "jaguar": 4, "land rover": 4,
+}
 METADATA_PATH = ARTIFACT_DIR / "model_metadata.json"
 
 with open(METADATA_PATH, "r", encoding="utf-8") as f:
@@ -51,6 +65,15 @@ CONDITION_MULTIPLIERS = {
 
 predictor    = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
 BRAND_CATALOG = build_brand_catalog()
+
+# ── Dataset-derived brand → model → variant catalog ───────────────────────────
+# Built from the processed training CSV by the training pipeline.
+# Falls back to empty dict if file not yet generated.
+_CATALOG_PATH = ARTIFACT_DIR / "dataset_catalog.json"
+DATASET_CATALOG: dict = {}
+if _CATALOG_PATH.exists():
+    with open(_CATALOG_PATH, "r", encoding="utf-8") as _f:
+        DATASET_CATALOG = json.load(_f)
 
 # ── Segment models (economy / premium / luxury) ──────────────────────────────
 SEGMENT_MODELS: dict = {}
@@ -248,9 +271,15 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     luxury_brand = 1 if seg_class == "luxury" else 0
     inspected    = 1 if getattr(vehicle, 'inspected', False) else 0
 
+    # Derived features required by the trained CatBoost/LGB/XGB models
+    brand_clean       = clean_text(vehicle.brand)
+    brand_tier        = _BRAND_TIER_MAP.get(brand_clean, 1)          # default economy
+    age_km_interaction = float(vehicle_age) * float(km)
+    is_high_mileage   = 1 if km_per_year > 15_000 else 0            # mirrors clean_data.py
+
     row = {
         # Categorical
-        "brand":         clean_text(vehicle.brand),
+        "brand":         brand_clean,
         "model":         normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
         "variant":       clean_text(vehicle.variant or "unknown"),
         "city":          clean_text(vehicle.city),
@@ -259,6 +288,7 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "segment_class": seg_class,
         "fuel_type":     clean_text(vehicle.fuel_type),
         "transmission":  clean_text(vehicle.transmission),
+        "seller_type":   "dealer",    # not collected at input; default to most common training value
         # Numeric
         "vehicle_age":           float(vehicle_age),
         "odometer_reading":      float(km),
@@ -266,15 +296,24 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "owner_count":           float(owner),
         "ownership_trust_score": float(ownership_trust_score),
         "vehicle_health_score":  float(vehicle_health_score),
+        # Derived numeric
+        "brand_tier":            float(brand_tier),
+        "age_km_interaction":    float(age_km_interaction),
+        "is_high_mileage":       float(is_high_mileage),
         # Binary
         "inspected":     float(inspected),
         "high_mileage":  float(high_mileage),
         "luxury_brand":  float(luxury_brand),
         "has_list_price": 0.0,   # not known at inference
     }
-    df = pd.DataFrame([row], columns=FEATURES)
+    # Build frame with all columns present; _prepare_frame will pick only model-required ones
+    df = pd.DataFrame([row])
     for col in CAT_FEATURES:
-        df[col] = df[col].astype(str)
+        if col in df.columns:
+            df[col] = df[col].astype(str)
+    # seller_type is categorical in the model but not in the metadata CAT_FEATURES list
+    if "seller_type" in df.columns:
+        df["seller_type"] = df["seller_type"].astype(str)
     return df
 
 
@@ -511,6 +550,36 @@ def metadata():
 @app.get("/api/brands")
 def get_brands():
     return {"brands": BRAND_CATALOG}
+
+
+@app.get("/api/catalog")
+def get_catalog():
+    """
+    Returns the full dataset-derived brand → model → variant tree.
+    Brands and models are the exact lowercase keys used in training.
+    Frontend should present them title-cased for display.
+    """
+    return {"catalog": DATASET_CATALOG}
+
+
+@app.get("/api/catalog/{brand}")
+def get_catalog_brand(brand: str):
+    """
+    Returns models and their variants for the given brand.
+    Brand lookup is case-insensitive.
+    """
+    key = brand.strip().lower()
+    # Try direct key first
+    models_map = DATASET_CATALOG.get(key)
+    # Fallback: try matching 'maruti' → 'maruti suzuki'
+    if models_map is None:
+        for cat_brand in DATASET_CATALOG:
+            if cat_brand.startswith(key) or key.startswith(cat_brand.split()[0]):
+                models_map = DATASET_CATALOG[cat_brand]
+                break
+    if models_map is None:
+        return {"brand": brand, "models": {}}
+    return {"brand": brand, "models": models_map}
 
 
 @app.post("/predict")

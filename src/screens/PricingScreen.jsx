@@ -176,13 +176,9 @@ export default function PricingScreen() {
 
   const totalOperatingCosts = recon_cost + holding_cost + doc_cost + risk_buffer;
 
-  // Use similarCars from backend. If empty, fallback to local evaluations history
-  const comparables = similarCars.length > 0
-    ? similarCars
-    : evaluations
-        .filter(t => t.brand === inputs.brand &&
-          !(t.year === Number(inputs.year) && t.model === inputs.model && t.marketValue === predictedPrice))
-        .slice(0, 5);
+  // Only show similar cars from the real dataset — never use evaluations history as fallback
+  const comparables = (similarCars || []).filter(c => c && (c.source === 'dataset' || c.market_value > 0));
+
 
   const actionLabel = String(action||'').toUpperCase();
   const profitColor = finalProfit > 50000 ? '#16a34a' : finalProfit > 25000 ? '#d97706' : '#dc2626';

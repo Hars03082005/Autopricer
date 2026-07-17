@@ -224,6 +224,28 @@ export async function fetchBrands() {
   return data.brands || {};
 }
 
+/** Fetch the full dataset catalog: brand → { model → [variants] } */
+export async function fetchCatalog() {
+  const response = await fetch(`${getApiBase()}/api/catalog`);
+  if (!response.ok) {
+    const message = await response.text().catch(() => '');
+    throw new Error(`Catalog API error ${response.status}${message ? `: ${message}` : ''}`);
+  }
+  const data = await response.json();
+  return data.catalog || {};
+}
+
+/** Fetch models+variants for a single brand from the dataset catalog */
+export async function fetchBrandModels(brand) {
+  const response = await fetch(`${getApiBase()}/api/catalog/${encodeURIComponent(brand)}`);
+  if (!response.ok) {
+    return { brand, models: {} };
+  }
+  const data = await response.json();
+  return data || { brand, models: {} };
+}
+
+
 export async function runMLValuation(inputs) {
   const data = await postJson('/evaluate', payloadFromInputs(inputs));
   return normalizeApiResult(data, inputs);

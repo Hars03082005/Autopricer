@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { BRANDS, CITY_DEMAND } from '../utils/mockData.js';
 import { formatINR, getSeasonalContext } from '../utils/format.js';
 import {
   INDIAN_STATES,
@@ -8,23 +7,30 @@ import {
   checkDisqualifier,
   getReconCost,
 } from '../utils/wheelrCosts.js';
-import { runEnhancedEvaluation } from '../utils/apiValuation.js';
+import { runEnhancedEvaluation, fetchCatalog } from '../utils/apiValuation.js';
 import { ConditionGradesSection } from '../components/ConditionGradeField.jsx';
 import Icon from '../components/Icon.jsx';
 
-const FUELS = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
+const FUELS         = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
 const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT'];
-const YEARS = Array.from({ length: 15 }, (_, i) => String(2025 - i));
-const CITIES = Object.keys(CITY_DEMAND).sort();
-const OWNER_COUNTS = ['1', '2', '3', '4'];
-const CONDITIONS = ['Excellent', 'Good', 'Average', 'Poor'];
+const YEARS         = Array.from({ length: 15 }, (_, i) => String(2025 - i));
+const OWNER_COUNTS  = ['1', '2', '3', '4'];
+const CONDITIONS    = ['Excellent', 'Good', 'Average', 'Poor'];
+
+/** Format a lowercase dataset key for display: "maruti suzuki swift" → "Maruti Suzuki Swift" */
+function titleCase(str) {
+  return String(str || '')
+    .split(' ')
+    .map(w => w ? w[0].toUpperCase() + w.slice(1) : '')
+    .join(' ');
+}
 
 function inspectionGrades(inspection) {
   return {
-    engine: inspection.engineGrade,
-    tyre: inspection.tyreGrade,
-    body: inspection.bodyGrade,
-    interior: inspection.interiorGrade,
+    engine:     inspection.engineGrade,
+    tyre:       inspection.tyreGrade,
+    body:       inspection.bodyGrade,
+    interior:   inspection.interiorGrade,
     electrical: inspection.electricalGrade,
   };
 }
@@ -36,30 +42,81 @@ export default function EnhancedValuationScreen() {
     setEnhancedResult, setActiveScreen, setIsLoading, addEvaluation,
   } = useApp();
 
-  const [error, setError] = useState('');
+  const [error,   setError]   = useState('');
+  // ── Dataset catalog state ───────────────────────────────────────────────────
+  const [catalog,       setCatalog]       = useState({});  // brand(lower) → { model(lower): [variants] }
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [catalogError,  setCatalogError]  = useState(false);
 
-  const brands = Object.keys(BRANDS).sort();
-  const models = BRANDS[inputs.brand] || [];
-  const vehicleAge = new Date().getFullYear() - Number(inputs.year || 2021);
-  const odometer = Number(inputs.mileage || 0);
-  const ownerCount = Number(inputs.ownerCount || 1);
-  const grades = inspectionGrades(enhancedInspection);
+  // Load catalog on mount
+  useEffect(() => {
+    fetchCatalog()
+      .then(data => {
+        setCatalog(data);
+        setCatalogLoaded(true);
+      })
+      .catch(() => {
+        setCatalogLoaded(true);
+        setCatalogError(true);
+      });
+  }, []);
+
+  // ── Derived dropdown options (all from dataset) ─────────────────────────────
+  const brandOptions = useMemo(() =>
+    Object.keys(catalog).sort(), [catalog]);
+
+  const selectedBrandKey = (inputs.brand || '').toLowerCase();
+
+  // For display we store the lowercase key in inputs.brand and show titleCased
+  const modelOptions = useMemo(() => {
+    const modelsMap = catalog[selectedBrandKey] || {};
+    return Object.keys(modelsMap).sort();
+  }, [catalog, selectedBrandKey]);
+
+  const selectedModelKey = (inputs.model || '').toLowerCase();
+
+  const variantOptions = useMemo(() => {
+    const modelsMap = catalog[selectedBrandKey] || {};
+    const variants  = modelsMap[selectedModelKey] || [];
+    return variants.sort();
+  }, [catalog, selectedBrandKey, selectedModelKey]);
+
+  // ── Handlers for cascading resets ──────────────────────────────────────────
+  function handleBrandChange(brandKey) {
+    updateInput('brand',   brandKey);
+    updateInput('model',   '');
+    updateInput('variant', '');
+  }
+
+  function handleModelChange(modelKey) {
+    updateInput('model',   modelKey);
+    updateInput('variant', '');
+  }
+
+  // ── Misc derived values for side panel ─────────────────────────────────────
+  const vehicleAge  = new Date().getFullYear() - Number(inputs.year || 2021);
+  const odometer    = Number(inputs.mileage || 0);
+  const ownerCount  = Number(inputs.ownerCount || 1);
+  const grades      = inspectionGrades(enhancedInspection);
+
   const recon = useMemo(
     () => getReconCost(grades, enhancedInspection.vendorType, enhancedInspection.rcTransferCost),
     [grades, enhancedInspection.vendorType, enhancedInspection.rcTransferCost],
   );
+
   const disqualifier = useMemo(
     () => checkDisqualifier(vehicleAge, odometer, ownerCount, enhancedInspection.accidentHistory),
     [vehicleAge, odometer, ownerCount, enhancedInspection.accidentHistory],
   );
+
   const seasonal = getSeasonalContext(new Date().getMonth() + 1);
 
   const handleGradeChange = (category, value) => {
     const map = {
-      engine: 'engineGrade',
-      tyre: 'tyreGrade',
-      body: 'bodyGrade',
-      interior: 'interiorGrade',
+      engine:     'engineGrade',
+      tyre:       'tyreGrade',
+      body:       'bodyGrade',
+      interior:   'interiorGrade',
       electrical: 'electricalGrade',
     };
     updateEnhancedInspection(map[category], value);
@@ -71,9 +128,11 @@ export default function EnhancedValuationScreen() {
     setEnhancedResult(null);
     setActiveScreen('enhanced-result');
     try {
-      const result = await runEnhancedEvaluation(inputs, enhancedInspection);
+      // Always send Bangalore as city — dataset is Bangalore-only
+      const inputsWithCity = { ...inputs, city: 'Bangalore' };
+      const result = await runEnhancedEvaluation(inputsWithCity, enhancedInspection);
       setEnhancedResult({ ...result, inspection: { ...enhancedInspection } });
-      addEvaluation({ ...inputs }, result, 'Enhanced Valuation');
+      addEvaluation({ ...inputsWithCity }, result, 'Enhanced Valuation');
     } catch (e) {
       console.error(e);
       setActiveScreen('enhanced-input');
@@ -90,7 +149,7 @@ export default function EnhancedValuationScreen() {
       <div className="page-header">
         <div>
           <div className="page-title">Enhanced Valuation Setup</div>
-          <div className="page-subtitle">Configure detailed multi-point inspection variables & cost parameters</div>
+          <div className="page-subtitle">Configure detailed multi-point inspection variables &amp; cost parameters</div>
         </div>
       </div>
 
@@ -101,24 +160,93 @@ export default function EnhancedValuationScreen() {
         </div>
       )}
 
+      {/* Catalog loading status */}
+      {!catalogLoaded && (
+        <div className="error-banner" style={{ marginBottom: 12, background: 'var(--info-light)', borderColor: 'var(--info)', color: 'var(--info)' }}>
+          <Icon name="spinner" size={14} color="var(--info)" strokeWidth={2} />
+          Loading vehicle catalog from dataset…
+        </div>
+      )}
+      {catalogError && (
+        <div className="error-banner" style={{ marginBottom: 12 }}>
+          <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
+          Could not load dataset catalog — start the FastAPI backend first.
+        </div>
+      )}
+
       {/* 3-Column layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
-        
+
         {/* Column 1: Vehicle Details */}
         <div className="card">
           <div className="label-xs" style={{ marginBottom: 16 }}>Vehicle Details</div>
-          
+
+          {/* Brand */}
           <div className="field-group">
-            <label className="field-label">Brand</label>
-            <select className="field-input field-select" value={inputs.brand} onChange={e => updateInput('brand', e.target.value)}>
-              {brands.map(b => <option key={b}>{b}</option>)}
+            <label className="field-label">
+              Brand
+              {catalogLoaded && !catalogError && (
+                <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>
+                  ({brandOptions.length} from dataset)
+                </span>
+              )}
+            </label>
+            <select
+              className="field-input field-select"
+              value={inputs.brand}
+              onChange={e => handleBrandChange(e.target.value)}
+              disabled={!catalogLoaded || catalogError}
+            >
+              <option value="">— Select brand —</option>
+              {brandOptions.map(b => (
+                <option key={b} value={b}>{titleCase(b)}</option>
+              ))}
             </select>
           </div>
 
+          {/* Model */}
           <div className="field-group">
-            <label className="field-label">Model</label>
-            <select className="field-input field-select" value={inputs.model} onChange={e => updateInput('model', e.target.value)}>
-              {models.map(m => <option key={m}>{m}</option>)}
+            <label className="field-label">
+              Model
+              {inputs.brand && modelOptions.length > 0 && (
+                <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>
+                  ({modelOptions.length} available)
+                </span>
+              )}
+            </label>
+            <select
+              className="field-input field-select"
+              value={inputs.model}
+              onChange={e => handleModelChange(e.target.value)}
+              disabled={!inputs.brand || modelOptions.length === 0}
+            >
+              <option value="">— Select model —</option>
+              {modelOptions.map(m => (
+                <option key={m} value={m}>{titleCase(m)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Variant */}
+          <div className="field-group">
+            <label className="field-label">
+              Variant
+              {inputs.model && variantOptions.length > 0 && (
+                <span style={{ fontSize: 10, color: 'var(--text-3)', marginLeft: 6 }}>
+                  ({variantOptions.length} available)
+                </span>
+              )}
+            </label>
+            <select
+              className="field-input field-select"
+              value={inputs.variant || ''}
+              onChange={e => updateInput('variant', e.target.value)}
+              disabled={!inputs.model || variantOptions.length === 0}
+            >
+              <option value="">— Select variant (optional) —</option>
+              {variantOptions.map(v => (
+                <option key={v} value={v}>{titleCase(v)}</option>
+              ))}
             </select>
           </div>
 
@@ -168,11 +296,19 @@ export default function EnhancedValuationScreen() {
               <label className="field-label">Engine CC</label>
               <input type="number" className="field-input" value={inputs.engineCc} onChange={e => updateInput('engineCc', e.target.value)} />
             </div>
+            {/* City removed — dataset is Bangalore-only */}
             <div className="field-group">
               <label className="field-label">City</label>
-              <select className="field-input field-select" value={inputs.city} onChange={e => updateInput('city', e.target.value)}>
-                {CITIES.map(c => <option key={c}>{c}</option>)}
-              </select>
+              <input
+                type="text"
+                className="field-input"
+                value="Bangalore"
+                disabled
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}
+              />
+              <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 4 }}>
+                Dataset covers Bangalore listings only
+              </div>
             </div>
           </div>
 
@@ -193,7 +329,7 @@ export default function EnhancedValuationScreen() {
         {/* Column 2: Inspection & Grading Details */}
         <div className="card">
           <div className="label-xs" style={{ marginBottom: 16 }}>Inspection Details</div>
-          
+
           <div className="field-group">
             <label className="field-label">Accident History</label>
             <div className="seg-control" style={{ display: 'flex', gap: 4 }}>
@@ -248,7 +384,7 @@ export default function EnhancedValuationScreen() {
 
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
           <div className="label-xs" style={{ marginBottom: 12 }}>Condition Grades</div>
-          
+
           <ConditionGradesSection
             grades={grades}
             vendorType={enhancedInspection.vendorType}
@@ -269,7 +405,7 @@ export default function EnhancedValuationScreen() {
 
         {/* Column 3: Live Cost Prescreening & Diagnostics */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          
+
           {/* Pre-screening status */}
           <div className={`card ${disqualifier.disqualified ? 'card-danger' : 'card-success'}`} style={{ borderLeft: '3px solid' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -313,12 +449,12 @@ export default function EnhancedValuationScreen() {
             <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', marginBottom: 14 }}>
               {formatINR(recon.total)}
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
-                { label: 'Category Repairs', val: recon.total - recon.fixed_cost },
-                { label: 'RC Transfer Cost', val: recon.rc_transfer_cost },
-                { label: 'Det.+Ops Fixed Costs', val: recon.fixed_cost - recon.rc_transfer_cost },
+                { label: 'Category Repairs',     val: recon.total - recon.fixed_cost },
+                { label: 'RC Transfer Cost',      val: recon.rc_transfer_cost },
+                { label: 'Det.+Ops Fixed Costs',  val: recon.fixed_cost - recon.rc_transfer_cost },
               ].map((r, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                   <span style={{ color: 'var(--text-3)' }}>{r.label}</span>
@@ -330,8 +466,8 @@ export default function EnhancedValuationScreen() {
 
           {/* RC & IDV overrides */}
           <div className="card">
-            <div className="label-xs" style={{ marginBottom: 12 }}>Overrides & Insurance</div>
-            
+            <div className="label-xs" style={{ marginBottom: 12 }}>Overrides &amp; Insurance</div>
+
             <div className="field-group">
               <label className="field-label">RC Transfer Cost (₹)</label>
               <input

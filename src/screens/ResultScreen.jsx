@@ -163,32 +163,26 @@ function NegotiationSection({ opening, ideal, walkAway }) {
 }
 
 /* ─── Similar Cars Section ──────────────────────────────────── */
-function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
-  const raw = (cars && cars.length > 0)
-    ? cars
-    : (evaluations || [])
-        .filter(t =>
-          t.brand === inputs.brand &&
-          !(t.year === Number(inputs.year) &&
-            t.model === inputs.model &&
-            t.marketValue === predictedPrice)
-        )
-        .slice(0, 6);
+function SimilarCarsSection({ cars, predictedPrice }) {
+  // Only display cars that came from the real dataset (source === 'dataset').
+  // Never fall back to the local evaluations history or fabricate entries.
+  const rows = (cars || []).filter(c => c && (c.source === 'dataset' || c.market_value > 0));
 
-  if (raw.length === 0) return null;
+  if (rows.length === 0) return null;
 
-  const rows = raw.map(c => ({
-    brand:        c.brand        || inputs.brand        || '',
-    model:        c.model        || inputs.model        || '',
-    year:         c.year         || inputs.year         || '',
-    fuel:         c.fuel         || c.fuel_type         || inputs.fuel         || '',
-    transmission: c.transmission || inputs.transmission || 'Manual',
-    variant:      c.variant      || inputs.variant      || '',
-    odometer:     Number(c.odometer || c.odometer_reading || c.kmDriven || 0),
-    city:         c.city         || inputs.city         || '',
-    marketValue:  Number(c.market_value || c.marketValue || c.predictedPrice || 0),
+  const displayRows = rows.map(c => ({
+    brand:        c.brand        || '',
+    model:        c.model        || '',
+    year:         c.year         || '',
+    fuel:         c.fuel         || c.fuel_type || '',
+    transmission: c.transmission || 'Manual',
+    variant:      c.variant      || '',
+    odometer:     Number(c.odometer || c.odometer_reading || 0),
+    city:         c.city         || 'Bangalore',
+    marketValue:  Number(c.market_value || c.marketValue || 0),
     condition:    c.condition    || 'Good',
     segment:      c.segment      || '',
+    ownerCount:   c.owner_count  || '',
   }));
 
   return (
@@ -212,13 +206,13 @@ function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
         marginTop: 14,
         marginBottom: 2,
       }}>
-        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'CITY', 'LISTED PRICE'].map(h => (
+        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'OWNERS', 'LISTED PRICE'].map(h => (
           <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px' }}>{h}</div>
         ))}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {rows.map((car, idx) => {
+        {displayRows.map((car, idx) => {
           const diff    = car.marketValue - predictedPrice;
           const diffPct = predictedPrice ? ((diff / predictedPrice) * 100).toFixed(1) : '0.0';
           const isPos   = diff >= 0;
@@ -234,7 +228,7 @@ function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
               {/* Vehicle */}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
-                  {car.brand} {car.model}{car.variant && car.variant !== 'unknown' ? ` ${car.variant}` : ''}
+                  {car.brand} {car.model}{car.variant && car.variant !== 'Unknown' && car.variant !== 'unknown' ? ` · ${car.variant}` : ''}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
                   {car.year}{car.condition ? ` · ${car.condition}` : ''}{car.segment ? ` · ${car.segment.toUpperCase()}` : ''}
@@ -248,8 +242,10 @@ function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.odometer > 0 ? `${(car.odometer / 1000).toFixed(0)}k km` : '—'}
               </div>
-              {/* City */}
-              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{car.city || '—'}</div>
+              {/* Owners */}
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                {car.ownerCount ? `${car.ownerCount} owner${car.ownerCount > 1 ? 's' : ''}` : '—'}
+              </div>
               {/* Price + diff */}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{fmtFull(car.marketValue)}</div>
@@ -265,6 +261,7 @@ function SimilarCarsSection({ cars, predictedPrice, inputs, evaluations }) {
     </div>
   );
 }
+
 
 /* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
@@ -404,9 +401,8 @@ export default function ResultScreen() {
       <SimilarCarsSection
         cars={similarCars}
         predictedPrice={predictedPrice}
-        inputs={inputs}
-        evaluations={evaluations}
       />
+
 
       {/* ── BOTTOM ACTIONS ───────────────────────────────── */}
       <div className="rs2-actions" style={{ justifyContent: 'center', marginTop: '16px' }}>

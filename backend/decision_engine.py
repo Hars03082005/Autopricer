@@ -1,23 +1,4 @@
-"""
-PriceRef — Dealer Decision Engine  v9.0
-==========================================
-Business logic layer on top of the ML prediction.
 
-All 13 production improvements:
- 1.  Dynamic dealer profit — segment + market-value proportional, wider luxury caps
- 2.  Brand repair multiplier in reconditioning (Toyota/Honda = low, Jaguar/LR = high)
- 3.  Brand-popularity-aware holding cost — slow-moving inventory costs more
- 4.  Unknown-field penalties in risk buffer (variant/owner/service/accident/reg/color)
- 5.  Two-component confidence — model_confidence × business_confidence
- 6.  Richer recommendation — ROI + risk + confidence + inventory duration + ownership
- 7.  Negotiation with negotiation_room, potential_savings, seller_gap
- 8.  Stronger condition multipliers (excellent +5%, average −8%, poor −18%)
- 9.  Adaptive sanity clamp — confidence-scaled band tolerance
-10.  Annual mileage used instead of raw odometer for intensity logic
-11.  Monetary SHAP explanation — "Vehicle age reduces value by ₹42,000"
-12.  Full cost waterfall with per-line notes
-13.  Config-driven magic numbers, no magic literals in logic functions
-"""
 
 from __future__ import annotations
 import math
@@ -1028,8 +1009,48 @@ def compute_negotiation_trio(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 11. MARKET-BAND SIMILAR VEHICLES
+# 11. DATASET-SOURCED SIMILAR VEHICLES
+# Searches actual dataset rows that match the same brand+model, within a
+# ±30% price band of the predicted market value.  Falls back to an empty
+# list if the dataset is not available or no matches exist.
 # ──────────────────────────────────────────────────────────────────────────────
+import json as _json
+import os as _os
+
+_DATASET_DF = None          # lazy-loaded pandas DataFrame
+_DATASET_LOAD_TRIED = False # guard — only attempt load once
+
+def _load_dataset_df():
+    """Lazy-load the processed dataset once and cache it in memory."""
+    global _DATASET_DF, _DATASET_LOAD_TRIED
+    if _DATASET_LOAD_TRIED:
+        return _DATASET_DF
+    _DATASET_LOAD_TRIED = True
+    try:
+        import pandas as _pd
+        # Resolve path relative to this file's location
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        _csv  = _os.path.normpath(_os.path.join(
+            _here, "..", "ml_training", "data", "processed_with owner filled.csv"
+        ))
+        if not _os.path.exists(_csv):
+            return None
+        cols = ["brand", "model", "variant", "fuel_type", "transmission",
+                "year", "odometer_reading", "owner_count", "selling_price"]
+        _df = _pd.read_csv(_csv, usecols=cols, low_memory=False)
+        _df = _df.dropna(subset=["brand", "model", "selling_price"])
+        for c in ["brand", "model", "variant", "fuel_type", "transmission"]:
+            _df[c] = _df[c].astype(str).str.strip().str.lower()
+        _df["selling_price"] = _pd.to_numeric(_df["selling_price"], errors="coerce")
+        _df["year"]          = _pd.to_numeric(_df["year"],          errors="coerce")
+        _df["odometer_reading"] = _pd.to_numeric(_df["odometer_reading"], errors="coerce")
+        _df = _df.dropna(subset=["selling_price", "year"])
+        _DATASET_DF = _df
+    except Exception as _e:
+        pass
+    return _DATASET_DF
+
+
 def generate_similar_cars(
     market_value: float,
     brand: str,
@@ -1039,45 +1060,68 @@ def generate_similar_cars(
     city: str,
     segment: str,
 ) -> list[dict]:
-    current_year = datetime.now().year
-    age          = max(0, current_year - year)
-    age_factor   = _AGE_DEPRECIATION.get(min(age, 12), 0.30)
+    """
+    Returns up to 5 real listing rows from the training dataset that are
+    similar to the queried vehicle (same brand+model, price within ±30%).
+    Returns an empty list if the dataset is unavailable or no match found.
+    """
+    df = _load_dataset_df()
+    if df is None or df.empty:
+        return []
 
-    model_key = _normalise_model(model)
-    band = None
-    for key in [model_key] + [" ".join(model_key.split()[:i])
-                               for i in range(len(model_key.split()), 0, -1)]:
-        if key in _MARKET_BANDS:
-            band = _MARKET_BANDS[key]
-            break
-    if band is None:
-        band = _SEGMENT_BANDS.get(segment, (200_000, 5_000_000))
+    brand_key = str(brand or "").strip().lower()
+    model_key = str(model or "").strip().lower()
+    fuel_key  = str(fuel  or "").strip().lower()
 
-    band_low  = band[0] * age_factor
-    band_high = band[1] * age_factor
-    band_med  = (band_low + band_high) / 2
+    # ── Step 1: strict match — same brand + model ─────────────────────────────
+    mask = (df["brand"] == brand_key) & (df["model"] == model_key)
+    subset = df[mask].copy()
 
-    comps = []
-    for b, m, y, f, val in [
-        (brand, model, year,      fuel, band_med),
-        (brand, model, year - 1,  fuel, band_low * 1.05),
-        (brand, model, year + 1,  fuel, band_high * 0.95),
-    ]:
-        if y < 2010 or y > current_year:
-            continue
-        comp_km = max(5_000, (current_year - y) * 12_000 + 8_000)
-        comp_km = (comp_km // 1_000) * 1_000
-        comps.append({
-            "brand": b, "model": m, "year": y, "fuel": f, "city": city,
-            "market_value":   _round500(val),
-            "lowest_price":   _round500(band_low),
-            "median_price":   _round500(band_med),
-            "highest_price":  _round500(band_high),
-            "odometer":       comp_km,
-            "condition":      "Good",
-            "segment":        segment,
+    # ── Step 2: if <3 rows, widen to same brand, any model ────────────────────
+    if len(subset) < 3:
+        subset = df[df["brand"] == brand_key].copy()
+
+    if subset.empty:
+        return []
+
+    # ── Step 3: filter by price band ±30% around predicted market value ───────
+    lo = market_value * 0.70
+    hi = market_value * 1.30
+    price_mask = subset["selling_price"].between(lo, hi)
+    filtered = subset[price_mask]
+
+    # If price filter leaves nothing, use the full brand+model subset
+    if filtered.empty:
+        filtered = subset
+
+    # ── Step 4: score rows by closeness to market_value + fuel preference ─────
+    filtered = filtered.copy()
+    filtered["_price_dist"] = (filtered["selling_price"] - market_value).abs()
+    filtered["_fuel_match"] = (filtered["fuel_type"] == fuel_key).astype(int)
+    filtered = filtered.sort_values(["_fuel_match", "_price_dist"],
+                                    ascending=[False, True])
+
+    # Drop rows with exactly identical (model, year, price) to avoid duplicates
+    filtered = filtered.drop_duplicates(subset=["model", "year", "selling_price"])
+
+    results = []
+    for _, row in filtered.head(5).iterrows():
+        results.append({
+            "brand":        str(row["brand"]).title(),
+            "model":        str(row["model"]).title(),
+            "variant":      str(row.get("variant", "")).title(),
+            "year":         int(row["year"])   if not math.isnan(float(row["year"]))   else year,
+            "fuel":         str(row["fuel_type"]).title(),
+            "transmission": str(row.get("transmission", "")).title(),
+            "odometer":     int(row["odometer_reading"]) if not math.isnan(float(row.get("odometer_reading", 0))) else 0,
+            "owner_count":  int(row["owner_count"])      if not math.isnan(float(row.get("owner_count", 1)))      else 1,
+            "market_value": int(round(float(row["selling_price"]) / 500) * 500),
+            "city":         "Bangalore",   # dataset is Bangalore listings
+            "condition":    "Good",
+            "segment":      segment,
+            "source":       "dataset",
         })
-    return comps[:3]
+    return results
 
 
 # ──────────────────────────────────────────────────────────────────────────────
