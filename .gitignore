@@ -125,3 +125,5 @@ model_artifacts_split_compare/
 # ── One-off exploration / data scripts ────────────────────────────────────────
 analyze_raw.py
 split_dataset.py
+ml_training/find_dropped.py
+
