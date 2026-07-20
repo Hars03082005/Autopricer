@@ -127,3 +127,17 @@ analyze_raw.py
 split_dataset.py
 ml_training/find_dropped.py
 
+# ── Experimental / iterative clean & train scripts (not canonical) ─────────────
+ml_training/clean_data.py
+ml_training/clean_data-1.py
+ml_training/clean-3.py
+ml_training/clean-4.py
+ml_training/clean-5.py
+ml_training/clean-6.py
+ml_training/train-1.py
+ml_training/train-1.0.py
+ml_training/train-3.py
+ml_training/train-4.py
+ml_training/train-5.py
+ml_training/train-6.py
+

@@ -84,30 +84,32 @@ Price-Prediction/
 ## ML details
 
 
-**Features:** 19 total — 9 categorical (`brand`, `model`, `variant`, `city`, `rto_state`, `color`, `segment_class`, `fuel_type`, `transmission`) and 10 numeric (`vehicle_age`, `odometer_reading`, `km_per_year`, `owner_count`, `ownership_trust_score`, `vehicle_health_score`, `inspected`, `high_mileage`, `luxury_brand`, `has_list_price`).
+**Features:** 21 total — 10 categorical (`brand`, `model`, `variant`, `city`, `locality`, `rto`, `segment_class`, `fuel_type`, `transmission`, `seller_type`) and 11 numeric (`vehicle_age`, `odometer_reading`, `km_per_year`, `brand_tier`, `age_km_interaction`, `vehicle_health_score`, `is_high_mileage`, `locality_tier`, `usage_category_num`, `locality_density_norm`, `popularity_score_log`).
 
-**Training split:** 70% train / 15% validation / 15% test.
+> `owner_count` removed — model trained on owner-agnostic data (`processed_widoutown-2.csv`, 34,425 Bangalore rows).
 
-**Ensemble weights (current):** XGBoost 98%, CatBoost 2%, LightGBM 0% — SLSQP optimised on validation R².
+**Training split:** 70% train / 30% validation.
+
+**Ensemble weights (current):** XGBoost 55.5%, LightGBM 44.5%, CatBoost 0% — SLSQP optimised on validation R².
 
 **Target transform:** `log1p(selling_price)` during training, `expm1()` at prediction time.
 
-### Model performance (test set)
+### Model performance (validation set)
 
-| Model | R² | MAE | MAPE |
-|---|---|---|---|
-| Ensemble | 0.9904 | ₹18,266 | 3.13% |
-| XGBoost | 0.9904 | ₹18,009 | 3.09% |
-| LightGBM | 0.9881 | ₹23,469 | 3.99% |
-| CatBoost | 0.9725 | ₹45,949 | 7.72% |
-
-### Segment model performance (v5.0 global model)
-
-| Segment | Rows | R² | MAE | MAPE |
+| Model | R² | MAE | RMSE | MAPE |
 |---|---|---|---|---|
-| Economy | 207,135 | 0.9872 | ₹32,503 | 5.26% |
-| Premium | 3,301 | 0.9056 | ₹80,438 | 15.29% |
-| Luxury | 3,384 | 0.9976 | ₹13,709 | 1.08% |
+| **XGBoost** | **0.9920** | **₹17,705** | ₹51,373 | **2.87%** |
+| Ensemble | 0.9918 | ₹19,006 | ₹51,391 | 3.09% |
+| LightGBM | 0.9910 | ₹21,335 | ₹52,741 | 3.48% |
+| CatBoost | 0.9794 | ₹40,904 | ₹78,266 | 6.61% |
+
+### Price-band segment routing (active segments)
+
+| Band | Rows | Active | MAPE | R² |
+|---|---|---|---|---|
+| ₹0–6L | 20,342 | global fallback | 5.96% | 0.9638 |
+| ₹6–12L | 11,095 | ✅ segment model | 4.56% | 0.9100 |
+| ₹12L+ | 3,251 | ✅ segment model | 3.38% | 0.9495 |
 
 ---
 
@@ -232,6 +234,7 @@ Password: dealer123
 | v4.0 | 214,825 | 4.82% | Combined 2026 dataset, luxury R² 0.9987 |
 | v5.0–v6.0 | 213,820 | 5.36% | UI overhaul, enterprise portal |
 | v8.0 | 34,266 | 7.43% | Phase 7 feature engineering, dynamic engine |
-| **v9.0** | **34,266** | **7.43%** | Dynamic engine specs, monetary SHAP, adaptive confidence |
+| v9.0 | 34,266 | 7.43% | Dynamic engine specs, monetary SHAP, adaptive confidence |
+| **v10.0** | **34,425** | **3.09%** | Owner-agnostic model, price-band routing (₹6–12L / ₹12L+), XGBoost best R² 0.9920 |
 
 
