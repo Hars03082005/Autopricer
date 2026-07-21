@@ -434,6 +434,17 @@ flutter pub get
 flutter run
 ```
 
+### Option 5 — Render (1-Click Deployment)
+
+This repository includes a pre-configured `render.yaml` blueprint.
+
+1. Go to [Render Dashboard](https://dashboard.render.com/) and click **New +** → **Blueprint**.
+2. Connect your GitHub repository: `https://github.com/Hars03082005/Pricerpoint`.
+3. Render will automatically detect `render.yaml` and provision both:
+   - **`price-prediction-backend`** (Python/FastAPI web service)
+   - **`price-prediction-frontend`** (Static site linked to backend)
+4. Click **Apply**. Render will build and deploy both services!
+
 ### Environment Variables
 
 Create `.env` in the project root (see `.env.example`):
