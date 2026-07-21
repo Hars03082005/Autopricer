@@ -1,0 +1,98 @@
+{
+    "training_time": "2026-07-21T17:12:02.768345",
+    "dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\processed_widoutown-2.csv",
+    "rows_used": 34425,
+    "features": [
+        "brand",
+        "model",
+        "variant",
+        "city",
+        "locality",
+        "rto",
+        "segment_class",
+        "fuel_type",
+        "transmission",
+        "seller_type",
+        "vehicle_age",
+        "odometer_reading",
+        "km_per_year",
+        "brand_tier",
+        "age_km_interaction",
+        "vehicle_health_score",
+        "is_high_mileage",
+        "locality_tier",
+        "usage_category_num",
+        "locality_density_norm",
+        "popularity_score_log"
+    ],
+    "cat_features": [
+        "brand",
+        "model",
+        "variant",
+        "city",
+        "locality",
+        "rto",
+        "segment_class",
+        "fuel_type",
+        "transmission",
+        "seller_type"
+    ],
+    "numeric_features": [
+        "vehicle_age",
+        "odometer_reading",
+        "km_per_year",
+        "brand_tier",
+        "age_km_interaction",
+        "vehicle_health_score",
+        "is_high_mileage",
+        "locality_tier",
+        "usage_category_num",
+        "locality_density_norm",
+        "popularity_score_log"
+    ],
+    "segment_definitions": {
+        "0_6_lakh": [
+            0,
+            600000
+        ],
+        "6_12_lakh": [
+            600000,
+            1200000
+        ],
+        "12_plus_lakh": [
+            1200000,
+            20000000
+        ]
+    },
+    "ensemble_weights": {
+        "catboost": 2.7755575615628914e-17,
+        "lightgbm": 0.44529441700081696,
+        "xgboost": 0.5547055829991832
+    },
+    "val_metrics": {
+        "CatBoost": {
+            "MAE": 40903.83,
+            "RMSE": 78266.47,
+            "R2": 0.9794,
+            "MAPE": 6.61
+        },
+        "LightGBM": {
+            "MAE": 21334.89,
+            "RMSE": 52741.19,
+            "R2": 0.991,
+            "MAPE": 3.48
+        },
+        "XGBoost": {
+            "MAE": 17704.62,
+            "RMSE": 51372.67,
+            "R2": 0.992,
+            "MAPE": 2.87
+        },
+        "Ensemble": {
+            "MAE": 19005.81,
+            "RMSE": 51390.65,
+            "R2": 0.9918,
+            "MAPE": 3.09
+        }
+    }
+}

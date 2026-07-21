@@ -18,7 +18,7 @@ const OWNER_COUNTS = ['1', '2', '3', '4'];
 export default function ReverseCalculatorScreen() {
   const { setReverseResult, reverseResult, inputs } = useApp();
   const [expectedSellPrice, setExpectedSellPrice] = useState('950000');
-  const [targetMarginPct, setTargetMarginPct] = useState(15);
+  const [targetMarginPct, setTargetMarginPct] = useState(10);
   const [ownerCount, setOwnerCount] = useState('1');
   const [odometer, setOdometer] = useState('28000');
   const [year, setYear] = useState(inputs.year || '2021');

@@ -123,11 +123,11 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   const wheelrRiskTotal = wheelrRisk?.total || 0;
   const hCost = holdingCost || Math.round(mlBasePrice * 0.025);
   const rBuf = riskBuffer || Math.round(mlBasePrice * (riskScore / 100) * 0.08);
-  const targetProfit = Math.round(mlBasePrice * ((targetMarginPct || 15) / 100));
+  const targetProfit = Math.round(mlBasePrice * ((targetMarginPct || 10) / 100));
   const finalBuyPrice = recommendedBuyPrice || 0;
   const sellPrice = recommendedSellPrice || Math.round(mlBasePrice * 1.05);
   const marginPct = expectedMarginPct || 0;
-  const targetMPct = targetMarginPct || 15;
+  const targetMPct = targetMarginPct || 10;
 
   const healthColor = dealHealth === 'green' ? 'green' : dealHealth === 'yellow' ? 'yellow' : 'red';
   const healthMsg = DEAL_HEALTH_META[dealHealth]?.title || 'Deal health unknown';

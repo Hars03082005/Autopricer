@@ -466,29 +466,8 @@ export default function InputScreen() {
           </div>
         </div>
 
-        {/* Row 2: Registration No., City, Odometer */}
-        <div className="vws-row-3">
-          <div className="vws-field">
-            <FieldLabel>Registration No.</FieldLabel>
-            <input
-              className="vws-input vws-mono"
-              type="text"
-              value={inputs.vin || ''}
-              onChange={e => updateInput('vin', formatReg(e.target.value))}
-              placeholder="MH 01 AB 1234"
-              maxLength={11}
-            />
-          </div>
-          <div className="vws-field">
-            <FieldLabel required>City</FieldLabel>
-            <SearchableDropdown
-              options={CITIES}
-              value={inputs.city}
-              onChange={v => updateInput('city', v)}
-              placeholder="City"
-              searchPlaceholder="Search cities…"
-            />
-          </div>
+        {/* Row 2: Odometer, Fuel Type, Transmission, Owners */}
+        <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel required>Odometer Reading</FieldLabel>
             <div className="vws-odo-wrap" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
@@ -504,10 +483,6 @@ export default function InputScreen() {
               <span className="vws-odo-unit" style={{ position: 'absolute', right: '12px', fontSize: '12px', color: 'var(--text-3)' }}>km</span>
             </div>
           </div>
-        </div>
-
-        {/* Row 3: Fuel Type, Transmission, Physical Condition */}
-        <div className="vws-row-3">
           <div className="vws-field">
             <FieldLabel required>Fuel Type</FieldLabel>
             <select
@@ -535,23 +510,6 @@ export default function InputScreen() {
             </select>
           </div>
           <div className="vws-field">
-            <FieldLabel>Physical Condition</FieldLabel>
-            <select
-              className="vws-input field-select"
-              value={inputs.condition || ''}
-              onChange={e => updateInput('condition', e.target.value)}
-            >
-              <option value="">Select Condition</option>
-              {CONDITIONS.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Row 4: Owners, Color, Seller Asking Price */}
-        <div className="vws-row-3">
-          <div className="vws-field">
             <FieldLabel>Owners</FieldLabel>
             <select
               className="vws-input field-select"
@@ -564,6 +522,10 @@ export default function InputScreen() {
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Row 3: Color, Target Margin %, Repair Budget, Registration No. */}
+        <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel>Color</FieldLabel>
             <div style={{ position: 'relative' }}>
@@ -590,25 +552,6 @@ export default function InputScreen() {
             </div>
           </div>
           <div className="vws-field">
-            <FieldLabel>Seller Asking Price</FieldLabel>
-            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <span style={{ position: 'absolute', left: 12, fontSize: 13, color: 'var(--text-3)' }}>₹</span>
-              <input
-                className="vws-input"
-                type="number"
-                value={inputs.sellerAskingPrice === '0' ? '' : inputs.sellerAskingPrice}
-                onChange={e => updateInput('sellerAskingPrice', e.target.value || '0')}
-                placeholder="0"
-                min={0}
-                style={{ paddingLeft: 24 }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Row 5: Target Margin %, Repair Budget, Certified Inspection */}
-        <div className="vws-row-3">
-          <div className="vws-field">
             <FieldLabel>Target Margin %</FieldLabel>
             <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input
@@ -617,9 +560,9 @@ export default function InputScreen() {
                 min={8}
                 max={30}
                 step={1}
-                value={inputs.targetMarginPct || 15}
+                value={inputs.targetMarginPct || 10}
                 onChange={e => updateInput('targetMarginPct', e.target.value)}
-                placeholder="15"
+                placeholder="10"
                 style={{ paddingRight: 24 }}
               />
               <span style={{ position: 'absolute', right: 12, fontSize: 12, color: 'var(--text-3)' }}>%</span>
@@ -640,16 +583,16 @@ export default function InputScreen() {
               />
             </div>
           </div>
-          <div className="vws-field" style={{ justifyContent: 'center', paddingTop: 18 }}>
-            <label className="vws-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={!!inputs.inspected}
-                onChange={e => updateInput('inspected', e.target.checked)}
-                style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Certified Inspection</span>
-            </label>
+          <div className="vws-field">
+            <FieldLabel>Registration No.</FieldLabel>
+            <input
+              className="vws-input vws-mono"
+              type="text"
+              value={inputs.vin || ''}
+              onChange={e => updateInput('vin', formatReg(e.target.value))}
+              placeholder="MH 01 AB 1234"
+              maxLength={11}
+            />
           </div>
         </div>
 
@@ -737,7 +680,7 @@ export default function InputScreen() {
               )}
               <div className="vwsp-stat">
                 <div className="vwsp-stat-label">Target Margin</div>
-                <div className="vwsp-stat-val">{inputs.targetMarginPct || 15}%</div>
+                <div className="vwsp-stat-val">{inputs.targetMarginPct || 10}%</div>
               </div>
             </div>
           )}

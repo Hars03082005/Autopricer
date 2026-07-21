@@ -59,23 +59,33 @@ class EnsemblePredictor:
         lgb_frame = frame.copy()
         xgb_frame = frame.copy()
 
+        has_lgb_cats = bool(getattr(self.lightgbm, "pandas_categorical", None)) if self.lightgbm is not None else False
+
         for col in self.cat_features:
             if col not in frame.columns:
                 # Add missing categorical columns with default "unknown"
                 catboost_frame[col] = "unknown"
-                lgb_frame[col] = "unknown"
-                xgb_frame[col] = "unknown"
+                lgb_frame[col] = pd.Categorical(["unknown"], categories=self.category_levels.get(col, ["unknown"])) if has_lgb_cats else 0
+                xgb_frame[col] = 0
                 continue
             values = frame[col].astype(str)
             if self.category_levels.get(col):
                 values = values.where(values.isin(self.category_levels[col]), "unknown")
                 catboost_frame[col] = values.astype(str)
-                lgb_frame[col] = pd.Categorical(values, categories=self.category_levels[col])
                 mapping = {category: idx for idx, category in enumerate(self.category_levels[col])}
-                xgb_frame[col] = values.map(mapping).astype(int)
+                encoded = values.map(mapping).fillna(0).astype(int)
+                if has_lgb_cats:
+                    lgb_frame[col] = pd.Categorical(values, categories=self.category_levels[col])
+                else:
+                    lgb_frame[col] = encoded
+                xgb_frame[col] = encoded
             else:
                 catboost_frame[col] = values.astype(str)
-                lgb_frame[col] = values.astype("category")
+                if has_lgb_cats:
+                    lgb_frame[col] = values.astype("category")
+                else:
+                    lgb_frame[col] = 0
+                xgb_frame[col] = 0
 
         # Add any columns the CatBoost model expects but are missing (fill with 0 / "unknown")
         for col in catboost_cols:
@@ -84,6 +94,13 @@ class EnsemblePredictor:
 
         # Reindex to exact model column order
         catboost_frame = catboost_frame[catboost_cols]
+
+        if self.lightgbm is not None:
+            lgb_cols = self.lightgbm.feature_name()
+            for col in lgb_cols:
+                if col not in lgb_frame.columns:
+                    lgb_frame[col] = 0.0
+            lgb_frame = lgb_frame[lgb_cols]
 
         if self.xgboost is not None:
             xgb_cols = list(self.xgboost.feature_names_in_)

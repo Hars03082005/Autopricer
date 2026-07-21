@@ -96,7 +96,7 @@ export function payloadFromInputs(inputs) {
     inspected: Boolean(inputs.inspected),
     condition: normalizeCondition(inputs.condition),
     seller_asking_price: 0,
-    target_margin_pct: toNumber(inputs.targetMarginPct ?? inputs.target_margin_pct, 15),
+    target_margin_pct: toNumber(inputs.targetMarginPct ?? inputs.target_margin_pct, 10),
     repair_buffer: toNumber(inputs.repairBuffer ?? inputs.repair_buffer, 25000),
     ...(inputs.modelVariant && inputs.modelVariant !== 'auto' ? { model_variant: inputs.modelVariant } : {}),
   };
@@ -133,8 +133,8 @@ function normalizeApiResult(data, inputs) {
   const recommendedSellPrice = data.recommended_sell_price ?? data.suggested_sell_price ?? 0;
   const expectedProfit = data.expected_profit ?? data.margin_amt ?? 0;
   const expectedMarginPct = data.expected_margin_pct ?? data.margin_pct ?? 0;
-  const priceMin = data.price_min ?? Math.round(predictedPrice * 0.93);
-  const priceMax = data.price_max ?? Math.round(predictedPrice * 1.07);
+  const priceMin = data.price_min ?? Math.round(predictedPrice - 10000);
+  const priceMax = data.price_max ?? Math.round(predictedPrice + 10000);
 
   return {
     predictedPrice,
@@ -157,7 +157,7 @@ function normalizeApiResult(data, inputs) {
     maxOffer: data.max_offer ?? Math.round(recommendedBuyPrice * 1.03),
     targetOffer: data.target_offer ?? recommendedBuyPrice,
     sellerGap: data.seller_gap ?? 0,
-    targetMarginPct: data.target_margin_pct ?? toNumber(inputs.targetMarginPct, 15),
+    targetMarginPct: data.target_margin_pct ?? toNumber(inputs.targetMarginPct, 10),
     repairBuffer: data.repair_buffer ?? toNumber(inputs.repairBuffer, 25000),
     recon_cost: data.recon_cost ?? 18000,
     holding_cost: data.holding_cost ?? 5000,

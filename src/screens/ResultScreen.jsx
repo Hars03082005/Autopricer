@@ -300,8 +300,8 @@ export default function ResultScreen() {
   const minP = Number(priceMin || predictedPrice * 0.88);
   const maxP = Number(priceMax || predictedPrice * 1.12);
 
-  const minBuy = Math.round(buyPrice * 0.95 / 500) * 500;
-  const maxBuy = Math.round(buyPrice * 1.03 / 500) * 500;
+  const minBuy = Math.round((buyPrice - 10000) / 500) * 500;
+  const maxBuy = Math.round((buyPrice + 10000) / 500) * 500;
 
   const km = Number(inputs.mileage || 0);
 

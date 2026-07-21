@@ -1133,7 +1133,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     def _g(attr, default):
         return getattr(vehicle, attr, default) or default
 
-    target_margin_pct  = float(_g("target_margin_pct", 15))
+    target_margin_pct  = float(_g("target_margin_pct", 10))
     repair_buffer      = float(_g("repair_buffer", 0))
     seller_asking      = float(_g("seller_asking_price", 0))
     age                = max(0, 2026 - int(_g("year", 2021)))
@@ -1354,8 +1354,8 @@ def calculate_decision(vehicle, market_value: float) -> dict:
 
     positive_factors.append("Market value predicted by CatBoost+LightGBM+XGBoost ensemble (R²=0.97)")
 
-    # Price confidence band
-    price_spread = market_value * (0.06 + risk_score * 0.0005)
+    # Price confidence band (Clean 20k range, i.e., ±10k)
+    price_spread = 10000
     price_min    = _round500(market_value - price_spread)
     price_max    = _round500(market_value + price_spread)
 

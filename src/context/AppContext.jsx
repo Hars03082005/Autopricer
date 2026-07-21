@@ -1,4 +1,4 @@
-﻿/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
@@ -6,10 +6,10 @@ import { useAuth } from './AuthContext.jsx';
 const DEFAULT_INPUTS = {
   brand: 'Honda', model: 'City', variant: '', year: '2021',
   fuel: 'Petrol', transmission: 'Manual', mileage: '28000', fuelEfficiency: '17.5',
-  city: 'Mumbai', vin: '',
+  city: 'Bangalore', vin: '',
   ownerCount: '1', engineCc: '1497', condition: 'Good',
   color: 'White', inspected: false,
-  sellerAskingPrice: '0', targetMarginPct: '15', repairBuffer: '25000',
+  sellerAskingPrice: '0', targetMarginPct: '10', repairBuffer: '25000',
 };
 
 const DEFAULT_INSPECTION = {
@@ -139,7 +139,7 @@ export function AppProvider({ children }) {
       transmission: vinData.transmission,
       mileage: String(vinData.mileage),
       fuelEfficiency: vinData.fuelEfficiency ? String(vinData.fuelEfficiency) : prev.fuelEfficiency,
-      city: vinData.city,
+      city: 'Bangalore',
       ownerCount: vinData.ownerCount ? String(vinData.ownerCount) : prev.ownerCount,
       engineCc: vinData.engineCc ? String(vinData.engineCc) : prev.engineCc,
       sellerAskingPrice: vinData.sellerAskingPrice ? String(vinData.sellerAskingPrice) : prev.sellerAskingPrice,

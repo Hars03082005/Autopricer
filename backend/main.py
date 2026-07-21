@@ -149,12 +149,12 @@ class VehicleInput(BaseModel):
     fuel_efficiency: float = 17.5
     owner_count: int = Field(1, ge=1)
     engine_cc: int = Field(1497, ge=0)
-    city: str = "Mumbai"
+    city: str = "Bangalore"
     color: str = "unknown"          # car colour — from dataset schema; improves accuracy
     inspected: bool = False         # inspection certificate present
     condition: str = "Good"
     seller_asking_price: float = 0
-    target_margin_pct: float = 15
+    target_margin_pct: float = 10
     repair_buffer: float = 25000
     model_variant: Optional[str] = None
 
@@ -200,7 +200,7 @@ class ReverseCalculateRequest(BaseModel):
     vendor_type: dict = Field(default_factory=lambda: dict(DEFAULT_VENDOR_TYPE))
     owner_count: int = Field(1, ge=1)
     odometer: int = Field(0, ge=0)
-    target_margin_pct: float = Field(0.15, ge=0, le=1)
+    target_margin_pct: float = Field(0.10, ge=0, le=1)
 
 
 # Helper functions

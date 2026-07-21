@@ -28,13 +28,34 @@ def _write_registry(data: dict) -> None:
         json.dump(data, f, indent=2)
 
 
-def next_variant_id() -> str:
-    """Return the next unused variant_N id."""
+def next_variant_id(dataset_name: str = "unknown") -> str:
+    """Return and immediately reserve the next unused variant_N id."""
     reg = _read_registry()
+    reg.setdefault("variants", {})
+    
     n = 1
-    while f"variant_{n}" in reg.get("variants", {}):
+    while True:
+        vid = f"variant_{n}"
+        dir_exists = (REGISTRY_DIR / vid).exists()
+        reg_exists = vid in reg["variants"]
+        if not dir_exists and not reg_exists:
+            break
         n += 1
-    return f"variant_{n}"
+
+    # Reserve immediately in registry.json and on disk
+    vid = f"variant_{n}"
+    dir_path = REGISTRY_DIR / vid
+    dir_path.mkdir(parents=True, exist_ok=True)
+    
+    reg["variants"][vid] = {
+        "dataset": dataset_name,
+        "trained_at": datetime.now().isoformat(),
+        "metrics": {"mape": 999.0, "rmse": 999999.0, "r2": -99.0},
+        "artifact_path": f"model_registry/{vid}",
+        "status": "training",
+    }
+    _write_registry(reg)
+    return vid
 
 
 def get_variant_dir(variant_id: str) -> Path:
@@ -42,6 +63,7 @@ def get_variant_dir(variant_id: str) -> Path:
     path = REGISTRY_DIR / variant_id
     path.mkdir(parents=True, exist_ok=True)
     return path
+
 
 
 def _best_variant_id(reg: dict) -> str | None:
