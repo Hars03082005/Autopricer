@@ -136,9 +136,10 @@ def evaluate(model, X, y_log, label):
     mae      = mean_absolute_error(actual, pred)
     rmse     = np.sqrt(mean_squared_error(actual, pred))
     r2       = r2_score(actual, pred)
-    mape     = float(np.mean(np.abs((actual - pred) / actual.clip(lower=1))) * 100)
+    mape     = float(np.mean(np.abs((actual - pred) / np.maximum(actual, 1.0))) * 100)
     print(f"  [{label}] MAE=₹{mae:,.0f}  RMSE=₹{rmse:,.0f}  R²={r2:.4f}  MAPE={mape:.2f}%")
     return {"mae": round(mae, 2), "rmse": round(rmse, 2), "r2": round(r2, 4), "mape": round(mape, 2)}
+
 
 
 def train():
