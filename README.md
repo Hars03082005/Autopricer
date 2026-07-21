@@ -40,37 +40,6 @@ It is designed for used-car dealers who need to make fast, data-driven acquisiti
 
 ---
 
-## Screenshots
-
-> 📸 Screenshots will be added here. Replace each placeholder with an actual image.
-
-### Login Page
-```
-[ screenshot: login_page.png ]
-```
-
-### Vehicle Valuation Form
-```
-[ screenshot: valuation_form.png ]
-```
-
-### Prediction Dashboard & Decision Summary
-```
-[ screenshot: result_dashboard.png ]
-```
-
-### Full Pricing Breakdown
-```
-[ screenshot: pricing_breakdown.png ]
-```
-
-### Model Variant Selector
-```
-[ screenshot: model_registry_ui.png ]
-```
-
----
-
 ## Quick Start
 
 Get PriceRef running locally in under 3 minutes.
@@ -497,12 +466,3 @@ VITE_API_URL=http://127.0.0.1:9000
 4. Push to the branch: `git push origin feature/my-feature`
 5. Open a Pull Request
 
----
-
-## License
-
-This project is for internal dealership use and is not licensed for public redistribution without permission.
-
----
-
-*Built for used-car dealers who value speed, data, and confident decisions.*

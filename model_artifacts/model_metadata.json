@@ -4104,7 +4104,8 @@
       ]
     }
   }
-}{
+}
+{
   "model_name": "CatBoostRegressor",
   "trained_at": "2026-07-21T17:46:08.673152",
   "features": [

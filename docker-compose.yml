@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     container_name: price-prediction-backend
@@ -11,6 +9,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./model_artifacts:/app/model_artifacts
+      - ./model_registry:/app/model_registry
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health')"]
