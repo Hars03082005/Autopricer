@@ -2,7 +2,7 @@ fastapi
 uvicorn[standard]
 pandas
 numpy
-catboost==1.2.7
+catboost
 lightgbm
 xgboost<3.0.0
 scipy
