@@ -3,12 +3,14 @@ services:
   - type: web
     name: price-prediction-backend
     runtime: python
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: pip install --no-cache-dir -r backend/requirements.txt
     startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: ACTIVE_VARIANT_ID
+        value: variant_2
       - key: CUDA_VISIBLE_DEVICES
         value: ""
       - key: OMP_NUM_THREADS

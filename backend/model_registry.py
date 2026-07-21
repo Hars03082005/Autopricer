@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -50,6 +51,10 @@ def list_variants() -> list[dict]:
 
 
 def get_default_variant_id() -> Optional[str]:
+    # Allow the environment to pin a specific variant (e.g. for memory-constrained deploys)
+    env_pin = os.environ.get("ACTIVE_VARIANT_ID", "").strip()
+    if env_pin:
+        return env_pin
     return _read_registry().get("default")
 
 
@@ -162,7 +167,11 @@ def get_variant(variant_id: str) -> dict:
     """Return cached variant data, loading from disk on first access."""
     if variant_id not in _CACHE:
         log.info("Loading model variant '%s' from disk …", variant_id)
+        _CACHE.clear()  # Keep only 1 active variant in RAM to stay well under 512MB
+        import gc
+        gc.collect()
         _CACHE[variant_id] = _load_variant_data(variant_id)
+        gc.collect()
         log.info("Variant '%s' loaded and cached.", variant_id)
     return _CACHE[variant_id]
 

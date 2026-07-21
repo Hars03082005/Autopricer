@@ -2,9 +2,10 @@ fastapi
 uvicorn[standard]
 pandas
 numpy
-catboost
+catboost==1.2.7
 lightgbm
-xgboost
+xgboost<3.0.0
 scipy
 scikit-learn
 pydantic
+joblib
