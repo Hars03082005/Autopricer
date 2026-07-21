@@ -448,6 +448,26 @@ def save_artifacts(cat_model, lgb_model, xgb_model,
     }
     joblib.dump(bundle, ARTIFACT_DIR / "ensemble_bundle.pkl")
 
+        model_meta = {
+        "model_name": "CatBoostRegressor",
+        "trained_at": metadata.get("training_time"),
+        "features": FEATURES,
+        "categorical_features": CAT_FEATURES,
+        "numeric_features": NUMERIC_FEATURES,
+        "metrics": metadata.get("val_metrics", {}).get("Ensemble", {}),
+        "ensemble": {
+            "enabled": True,
+            "weights": {
+                "catboost": float(weights[0]),
+                "lightgbm": float(weights[1]),
+                "xgboost":  float(weights[2]),
+            },
+            "category_levels": cat_levels,
+        }
+    }
+    with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(model_meta, f, indent=2)
+
     with open(ARTIFACT_DIR / "training_report.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=4)
 
@@ -455,6 +475,7 @@ def save_artifacts(cat_model, lgb_model, xgb_model,
     print("  Saved: vehicle_price_lightgbm.txt")
     print("  Saved: vehicle_price_xgboost.json")
     print("  Saved: ensemble_bundle.pkl")
+    print("  Saved: model_metadata.json")
     print("  Saved: training_report.json")
 
 # SEGMENT MODELS
