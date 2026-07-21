@@ -6,19 +6,23 @@ function getApiBase() {
     if (window.PriceRef_API_URL) return window.PriceRef_API_URL;
 
     const host = window.location.hostname;
-    const isLocal = host === 'localhost' || host === '127.0.0.1';
-    const envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_ML_API_URL;
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+    const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_ML_API_URL || '').trim();
 
-    // Use configured envUrl if it matches environment (don't use localhost URL on live domain)
+    // If VITE_API_URL is set to a valid non-localhost URL (or we are on localhost), use it
     if (envUrl) {
       const envIsLocal = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
-      if (isLocal || !envIsLocal) {
-        return envUrl;
+      if (isLocalHost || !envIsLocal) {
+        return envUrl.replace(/\/+$/, '');
       }
     }
 
     // Smart fallback for Render live deployments
     if (host.endsWith('.onrender.com')) {
+      const name = host.replace('.onrender.com', '');
+      if (name === 'priceref' || name.startsWith('priceref')) {
+        return 'https://priceref-backend.onrender.com';
+      }
       return 'https://price-prediction-backend.onrender.com';
     }
   }
@@ -27,7 +31,7 @@ function getApiBase() {
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_ML_API_URL ||
     'http://localhost:9000'
-  );
+  ).replace(/\/+$/, '');
 }
 
 function toNumber(value, fallback = 0) {

@@ -12,7 +12,7 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # Stage 3: Builder (for production bundle)
 FROM base AS builder
 # Accept the API URL at build time (baked into static bundle)
-ARG VITE_API_URL=http://localhost:9000
+ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 COPY . .
 RUN npm run build
