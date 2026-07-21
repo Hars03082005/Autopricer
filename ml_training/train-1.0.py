@@ -25,10 +25,14 @@ try:
 except Exception:
     pass
 
+from ml_training import registry_helper
+
 ROOT         = Path(__file__).resolve().parents[1]
 DATASET      = Path(__file__).resolve().parent / "data" / "processed_widown-1.csv"
-ARTIFACT_DIR = ROOT / "model_artifacts"
-ARTIFACT_DIR.mkdir(exist_ok=True)
+VARIANT_ID   = registry_helper.next_variant_id()
+ARTIFACT_DIR = registry_helper.get_variant_dir(VARIANT_ID)
+print(f"Training run -> Variant ID: {VARIANT_ID} ({ARTIFACT_DIR})")
+
 
 RANDOM_STATE = 42
 DIV = "=" * 80
@@ -321,6 +325,26 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
     }
     joblib.dump(bundle, ARTIFACT_DIR / "ensemble_bundle.pkl")
 
+    model_meta = {
+        "model_name": "CatBoostRegressor",
+        "trained_at": metadata.get("training_time"),
+        "features": FEATURES,
+        "categorical_features": CAT_FEATURES,
+        "numeric_features": NUMERIC_FEATURES,
+        "metrics": metadata.get("val_metrics", {}).get("Ensemble", {}),
+        "ensemble": {
+            "enabled": True,
+            "weights": {
+                "catboost": float(weights[0]),
+                "lightgbm": float(weights[1]),
+                "xgboost":  float(weights[2]),
+            },
+            "category_levels": cat_levels,
+        }
+    }
+    with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(model_meta, f, indent=2)
+
     with open(ARTIFACT_DIR / "training_report.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=4)
 
@@ -328,7 +352,9 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
     print("  Saved: vehicle_price_lightgbm.txt")
     print("  Saved: vehicle_price_xgboost.json")
     print("  Saved: ensemble_bundle.pkl")
+    print("  Saved: model_metadata.json")
     print("  Saved: training_report.json")
+
 
 
 def train_segment_model(seg_name, seg_df, global_model, global_cat_levels):
@@ -520,7 +546,22 @@ def train_all_models():
     print(f"  Global R2   : {val_scores['R2']:.4f}")
     print(f"  Artifacts   : {ARTIFACT_DIR}")
 
+    reg_metrics = {
+        "mae":  val_scores.get("MAE", 0),
+        "rmse": val_scores.get("RMSE", 0),
+        "r2":   val_scores.get("R2", 0),
+        "mape": val_scores.get("MAPE", 0),
+    }
+    registry_helper.register_variant(
+        variant_id=VARIANT_ID,
+        artifact_dir=ARTIFACT_DIR,
+        dataset_name=DATASET.name,
+        metrics=reg_metrics,
+    )
+    registry_helper.copy_to_model_artifacts(ARTIFACT_DIR)
+
     return {"comparison": comparison, "metadata": metadata, "segments": seg_results}
+
 
 
 if __name__ == "__main__":

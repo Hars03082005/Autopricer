@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { CITY_DEMAND } from '../utils/mockData.js';
-import { fetchBrands, runMLValuation } from '../utils/apiValuation.js';
+import { fetchBrands, runMLValuation, fetchRegistry } from '../utils/apiValuation.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
+
 
 /* ─── Static Constants ──────────────────────────────────────────── */
 const YEARS        = Array.from({ length: 20 }, (_, i) => String(2025 - i));
@@ -327,6 +328,8 @@ export default function InputScreen() {
   } = useApp();
 
   const [brandCatalog, setBrandCatalog] = useState({});
+  const [registry, setRegistry]         = useState({ default: null, variants: [] });
+  const [selectedVariant, setSelectedVariant] = useState('auto');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [submitting, setSubmitting]     = useState(false);
@@ -348,15 +351,19 @@ export default function InputScreen() {
   const required = [inputs.brand, inputs.model, inputs.year, inputs.mileage, inputs.fuel, inputs.city].filter(Boolean).length;
   const isReady  = required === 6;
 
-  /* Load brands */
+  /* Load brands & registry */
   useEffect(() => {
     let alive = true;
     fetchBrands()
       .then(b => { if (alive) setBrandCatalog(b); })
       .catch(() => { if (alive) setError('Backend unavailable — run: uvicorn backend.main:app --reload'); })
       .finally(() => { if (alive) setLoading(false); });
+    fetchRegistry()
+      .then(r => { if (alive && r) setRegistry(r); })
+      .catch(() => {});
     return () => { alive = false; };
   }, []);
+
 
   /* Handlers */
   const onBrand = (b) => {
@@ -382,8 +389,10 @@ export default function InputScreen() {
       const payload = {
         ...inputs,
         model: inputs.variant ? `${inputs.model} ${inputs.variant}` : inputs.model,
+        modelVariant: selectedVariant,
       };
       const result = await runMLValuation(payload);
+
       setValuationResult(result);
       addEvaluation({ ...inputs }, result, 'Single Vehicle');
     } catch {
@@ -762,8 +771,39 @@ export default function InputScreen() {
 
           <div style={{ flex: 1 }} />
 
+          {/* Model Registry Selector */}
+          <div className="vwsp-card" style={{ marginBottom: 16 }}>
+            <div className="vwsp-stat-label" style={{ marginBottom: 6 }}>Model Variant Engine</div>
+            <select
+              value={selectedVariant}
+              onChange={(e) => setSelectedVariant(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '13px',
+                background: '#f8fafc',
+                color: '#1e293b',
+                fontWeight: '500',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="auto">
+                ⚡ Automatic (Best Model — {registry.default ? registry.default.replace('_', ' ').toUpperCase() : 'Default'})
+              </option>
+              {registry.variants && registry.variants.map((v) => (
+                <option key={v.variant_id} value={v.variant_id}>
+                  {v.variant_id.replace('_', ' ').toUpperCase()} ({v.dataset}) — MAPE: {v.metrics?.mape ? `${v.metrics.mape}%` : 'N/A'} {v.is_default ? '★ Active' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* CTA */}
           <div className="vwsp-cta">
+
             <button
               className="vws-cta-btn"
               onClick={onSubmit}

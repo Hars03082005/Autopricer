@@ -98,8 +98,10 @@ export function payloadFromInputs(inputs) {
     seller_asking_price: 0,
     target_margin_pct: toNumber(inputs.targetMarginPct ?? inputs.target_margin_pct, 15),
     repair_buffer: toNumber(inputs.repairBuffer ?? inputs.repair_buffer, 25000),
+    ...(inputs.modelVariant && inputs.modelVariant !== 'auto' ? { model_variant: inputs.modelVariant } : {}),
   };
 }
+
 
 function buildCounterfactuals(inputs) {
   const km = toNumber(inputs.mileage ?? inputs.odometer_reading, 0);
@@ -312,3 +314,22 @@ export async function runReverseCalculate(payload) {
     priceBreakdown: data.price_breakdown,
   };
 }
+
+export async function fetchRegistry() {
+  const response = await fetch(`${getApiBase()}/api/registry`);
+  if (!response.ok) {
+    return { default: null, variants: [] };
+  }
+  return response.json();
+}
+
+export async function activateVariant(variantId) {
+  const response = await fetch(`${getApiBase()}/api/registry/${encodeURIComponent(variantId)}/activate`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to activate variant ${variantId}`);
+  }
+  return response.json();
+}
+

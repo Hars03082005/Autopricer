@@ -44,6 +44,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 warnings.filterwarnings("ignore")
+from ml_training import registry_helper
 
 try:
     import sys
@@ -55,8 +56,9 @@ except Exception:
 
 ROOT        = Path(__file__).resolve().parents[1]
 DATASET     = Path(__file__).resolve().parent / "data" / "processed_with owner filled.csv"
-ARTIFACT_DIR = ROOT / "model_artifacts"
-ARTIFACT_DIR.mkdir(exist_ok=True)
+VARIANT_ID   = registry_helper.next_variant_id()
+ARTIFACT_DIR = registry_helper.get_variant_dir(VARIANT_ID)
+print(f"Training run -> Variant ID: {VARIANT_ID} ({ARTIFACT_DIR})")
 
 RANDOM_STATE = 42
 DIV = "=" * 80

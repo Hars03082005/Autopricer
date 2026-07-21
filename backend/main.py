@@ -29,13 +29,11 @@ from backend.decision_engine import (
 )
 from backend.ensemble_predictor import EnsemblePredictor
 from backend.brand_catalog import build_brand_catalog
+from backend import model_registry
 
-# Paths & startup
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
 
-# Brand → tier map (mirrors clean_data.py)
-# 0 = budget, 1 = economy, 2 = mid, 3 = premium, 4 = luxury
 _BRAND_TIER_MAP: dict[str, int] = {
     "datsun":        0,
     "maruti suzuki": 1, "renault": 1, "tata": 1, "chevrolet": 1,
@@ -47,46 +45,63 @@ _BRAND_TIER_MAP: dict[str, int] = {
     "bmw":           4, "mercedes-benz": 4, "audi":    4, "volvo": 4,
     "mini":          4, "lexus":   4, "jaguar": 4, "land rover": 4,
 }
-METADATA_PATH = ARTIFACT_DIR / "model_metadata.json"
 
-with open(METADATA_PATH, "r", encoding="utf-8") as f:
-    METADATA = json.load(f)
+def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePredictor, dict, dict, dict, str]:
+    """
+    Resolves the predictor, segment_models, metadata, dataset catalog, and active variant_id.
+    Falls back to default variant or model_artifacts directory for backward compatibility.
+    """
+    active_id = variant_id or model_registry.get_default_variant_id()
+    if active_id:
+        try:
+            vdata = model_registry.get_variant(active_id)
+            return (
+                vdata["predictor"],
+                vdata["segment_models"],
+                vdata["metadata"],
+                vdata["catalog"],
+                active_id,
+            )
+        except Exception:
+            pass
 
-FEATURES           = METADATA["features"]
-CAT_FEATURES       = METADATA["categorical_features"]
+    # Fallback to local model_artifacts if registry lookup fails
+    meta_path = ARTIFACT_DIR / "model_metadata.json"
+    if meta_path.exists():
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+    else:
+        meta = {"model_name": "CatBoostRegressor", "features": [], "categorical_features": []}
+
+    pred = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
+    seg_mods = {}
+    for _seg in ["economy", "premium", "luxury"]:
+        _p = ARTIFACT_DIR / f"ensemble_{_seg}.pkl"
+        if _p.exists():
+            seg_mods[_seg] = joblib.load(_p)
+
+    cat_data = {}
+    cat_p = ARTIFACT_DIR / "dataset_catalog.json"
+    if cat_p.exists():
+        with open(cat_p, "r", encoding="utf-8") as f:
+            cat_data = json.load(f)
+
+    return pred, seg_mods, meta, cat_data, active_id or "default"
+
+predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
+
+FEATURES           = METADATA.get("features", [])
+CAT_FEATURES       = METADATA.get("categorical_features", [])
 CURRENT_YEAR       = METADATA.get("current_year_used_for_age", datetime.now().year)
 CONDITION_MULTIPLIERS = {
-    # v9.0 — Improvement #8: stronger condition impact for realistic valuation
-    "excellent": 1.05,   # +5%  — near showroom condition
-    "good":      1.00,   # baseline
-    "average":   0.92,   # -8%  — noticeable wear, refurb needed
-    "poor":      0.82,   # -18% — major reconditioning required
+    "excellent": 1.05,
+    "good":      1.00,
+    "average":   0.92,
+    "poor":      0.82,
 }
 
-predictor    = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
 BRAND_CATALOG = build_brand_catalog()
 
-# Dataset-derived brand → model → variant catalog
-# Built from the processed training CSV by the training pipeline.
-# Falls back to empty dict if file not yet generated.
-_CATALOG_PATH = ARTIFACT_DIR / "dataset_catalog.json"
-DATASET_CATALOG: dict = {}
-if _CATALOG_PATH.exists():
-    with open(_CATALOG_PATH, "r", encoding="utf-8") as _f:
-        DATASET_CATALOG = json.load(_f)
-
-# Segment models (economy / premium / luxury)
-SEGMENT_MODELS: dict = {}
-for _seg in ["economy", "premium", "luxury"]:
-    _path = ARTIFACT_DIR / f"ensemble_{_seg}.pkl"
-    if _path.exists():
-        SEGMENT_MODELS[_seg] = joblib.load(_path)
-# Backward-compat: also try old brand-class names and alias them
-for _old, _new in [("budget", "economy"), ("mid", "economy")]:
-    if _old not in SEGMENT_MODELS:
-        _path = ARTIFACT_DIR / f"ensemble_{_old}.pkl"
-        if _path.exists() and _new not in SEGMENT_MODELS:
-            SEGMENT_MODELS[_new] = joblib.load(_path)
 
 # Brand → segment map (loaded from metadata, fallback inline)
 BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
@@ -141,6 +156,7 @@ class VehicleInput(BaseModel):
     seller_asking_price: float = 0
     target_margin_pct: float = 15
     repair_buffer: float = 25000
+    model_variant: Optional[str] = None
 
 
 DEFAULT_VENDOR_TYPE = {
@@ -408,32 +424,28 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
 
 
 # Core prediction
-def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
+def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> tuple[int, str]:
     """
     Returns (market_value_inr: int, routing_note: str).
-
-    Routing: brand → segment_class (economy / premium / luxury).
-    Brand is always known at input time — O(1) dict lookup.
-    Falls back to global ensemble if segment model file is missing.
     """
-    # Resolve year-based model alias BEFORE building features
+    var_id = model_variant or vehicle.model_variant
+    pred_obj, seg_models, meta, _, active_id = resolve_variant_data(var_id)
+
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
-    artifact  = SEGMENT_MODELS.get(seg_class)
+    artifact  = seg_models.get(seg_class)
 
-    # Hybrid routing: only use segment model for 'economy' (which is highly optimized on volume).
-    # For 'premium' or 'luxury', route to the global model to prevent target shrinkage / underprediction.
     if seg_class == "economy" and artifact:
         try:
             log_price    = _run_class_model(features, artifact)
-            routing_note = "economy segment model used"
+            routing_note = f"economy segment model used [{active_id}]"
         except Exception:
-            log_price    = predictor.predict_log_price(features)
-            routing_note = "economy segment model error — fell back to global"
+            log_price    = pred_obj.predict_log_price(features)
+            routing_note = f"economy segment model error — fell back to global [{active_id}]"
     else:
-        log_price    = predictor.predict_log_price(features)
-        routing_note = f"global model used ({seg_class} segment routed)"
+        log_price    = pred_obj.predict_log_price(features)
+        routing_note = f"global model used ({seg_class} segment routed) [{active_id}]"
 
     market_value = float(np.expm1(log_price))
     if not math.isfinite(market_value):
@@ -442,10 +454,10 @@ def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
     return int(round(market_value / 500) * 500), routing_note
 
 
-def predict_market_value(vehicle: VehicleInput) -> dict:
+def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
     """Return base ML value and final condition-calibrated, sanity-clamped market value."""
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
-    base_value, routing_note = predict_base_market_value(vehicle)
+    base_value, routing_note = predict_base_market_value(vehicle, model_variant=model_variant)
     seg_class = get_segment_class(vehicle.brand)
     age       = max(0, CURRENT_YEAR - int(vehicle.year))
 
@@ -453,14 +465,14 @@ def predict_market_value(vehicle: VehicleInput) -> dict:
     adjusted = max(50_000, min(base_value * mult, 20_000_000))
     adjusted = int(round(adjusted / 500) * 500)
 
-    # Apply market sanity clamp AFTER condition adjustment.
-    # Use the resolved (alias-corrected) model name so Innova 2019
-    # gets the Innova Crysta band instead of the generic Innova band.
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
         resolved_model, seg_class, age, float(adjusted),
         city=str(vehicle.city or ""),
     )
     final_value = int(round(clamped_value / 500) * 500)
+
+    var_id = model_variant or vehicle.model_variant
+    _, seg_models, meta, _, active_id = resolve_variant_data(var_id)
 
     return {
         "base_market_value":     int(base_value),
@@ -469,11 +481,12 @@ def predict_market_value(vehicle: VehicleInput) -> dict:
         "condition_adjustment":  int(adjusted - base_value),
         "condition_score":       condition_to_score(vehicle.condition),
         "segment_class":         seg_class,
-        "segment_model_used":    seg_class in SEGMENT_MODELS,
+        "segment_model_used":    seg_class in seg_models,
         "routing_note":          routing_note,
         "sanity_clamped":        sanity_clamped,
         "sanity_note":           sanity_note,
-        "resolved_model":        resolved_model,   # surfaced for debugging
+        "resolved_model":        resolved_model,
+        "model_variant":         active_id,
     }
 
 
@@ -499,7 +512,6 @@ def shap_like_explanation(vehicle: VehicleInput, market_value: int) -> list[dict
 
 
 def warnings_for(vehicle: VehicleInput, decision: dict) -> list[str]:
-    # market_value is never touched here — no tuple unpacking needed. Task 5 confirmed correct.
     warnings = []
     age = max(0, CURRENT_YEAR - int(vehicle.year))
     if vehicle.odometer_reading > 100000:
@@ -515,13 +527,15 @@ def warnings_for(vehicle: VehicleInput, decision: dict) -> list[str]:
     return warnings
 
 
-def evaluate_vehicle(vehicle: VehicleInput) -> dict:
-    prediction   = predict_market_value(vehicle)
-    market_value = prediction["market_value"]   # int — sanity-clamped
+def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
+    prediction   = predict_market_value(vehicle, model_variant=model_variant)
+    market_value = prediction["market_value"]
     decision     = calculate_decision(vehicle, market_value)
     seg_class    = prediction.get("segment_class", "economy")
 
-    # Similar cars
+    var_id = model_variant or vehicle.model_variant
+    _, _, meta, _, active_id = resolve_variant_data(var_id)
+
     similar = generate_similar_cars(
         market_value = float(market_value),
         brand        = vehicle.brand,
@@ -534,16 +548,17 @@ def evaluate_vehicle(vehicle: VehicleInput) -> dict:
 
     return {
         **prediction,
-        "model_name":         METADATA["model_name"],
+        "model_name":         meta.get("model_name", "CatBoostRegressor"),
         "is_ml_powered":      True,
-        "metrics":            METADATA.get("metrics", {}),
-        "train_metrics":      METADATA.get("train_metrics", {}),
-        "validation_metrics": METADATA.get("validation_metrics", {}),
-        "test_metrics":       METADATA.get("test_metrics", {}),
-        "overfitting_check":  METADATA.get("overfitting_check", {}),
+        "metrics":            meta.get("metrics", {}),
+        "train_metrics":      meta.get("train_metrics", {}),
+        "validation_metrics": meta.get("validation_metrics", {}),
+        "test_metrics":       meta.get("test_metrics", {}),
+        "overfitting_check":  meta.get("overfitting_check", {}),
         "shap":               shap_like_explanation(vehicle, market_value),
         "warnings":           warnings_for(vehicle, decision),
         "similar_cars":       similar,
+        "model_variant":      active_id,
         **decision,
     }
 
@@ -551,19 +566,42 @@ def evaluate_vehicle(vehicle: VehicleInput) -> dict:
 # API routes
 @app.get("/health")
 def health():
+    pred, seg_mods, meta, _, active_id = resolve_variant_data()
+    cbm_exists = (ARTIFACT_DIR / "vehicle_price_catboost.cbm").exists() or (model_registry.get_variant_path(active_id) is not None)
     return {
         "status":              "ok",
-        "model_loaded":        (ARTIFACT_DIR / "vehicle_price_lightgbm.txt").exists(),
-        "ensemble_enabled":    METADATA.get("ensemble", {}).get("enabled", False),
-        "model_name":          METADATA["model_name"],
+        "model_loaded":        cbm_exists,
+        "ensemble_enabled":    meta.get("ensemble", {}).get("enabled", False),
+        "model_name":          meta.get("model_name", "CatBoostRegressor"),
         "segmentation":        "segment_class",
-        "segments_loaded":     list(SEGMENT_MODELS.keys()),
+        "segments_loaded":     list(seg_mods.keys()),
+        "active_variant":      active_id,
     }
 
 
 @app.get("/metadata")
-def metadata():
-    return METADATA
+def metadata(model_variant: Optional[str] = None):
+    _, _, meta, _, _ = resolve_variant_data(model_variant)
+    return meta
+
+
+@app.get("/api/registry")
+def get_registry():
+    return {
+        "default": model_registry.get_default_variant_id(),
+        "variants": model_registry.list_variants(),
+    }
+
+
+@app.post("/api/registry/{variant_id}/activate")
+def activate_variant_endpoint(variant_id: str):
+    success = model_registry.activate_variant(variant_id)
+    if not success:
+        return {"status": "error", "message": f"Variant '{variant_id}' not found in registry"}
+    # Reload global variables for active default variant
+    global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
+    predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
+    return {"status": "success", "active_variant": variant_id}
 
 
 @app.get("/api/brands")
@@ -572,29 +610,21 @@ def get_brands():
 
 
 @app.get("/api/catalog")
-def get_catalog():
-    """
-    Returns the full dataset-derived brand → model → variant tree.
-    Brands and models are the exact lowercase keys used in training.
-    Frontend should present them title-cased for display.
-    """
-    return {"catalog": DATASET_CATALOG}
+def get_catalog(model_variant: Optional[str] = None):
+    _, _, _, catalog, _ = resolve_variant_data(model_variant)
+    return {"catalog": catalog or DATASET_CATALOG}
 
 
 @app.get("/api/catalog/{brand}")
-def get_catalog_brand(brand: str):
-    """
-    Returns models and their variants for the given brand.
-    Brand lookup is case-insensitive.
-    """
+def get_catalog_brand(brand: str, model_variant: Optional[str] = None):
+    _, _, _, catalog, _ = resolve_variant_data(model_variant)
+    cat = catalog or DATASET_CATALOG
     key = brand.strip().lower()
-    # Try direct key first
-    models_map = DATASET_CATALOG.get(key)
-    # Fallback: try matching 'maruti' → 'maruti suzuki'
+    models_map = cat.get(key)
     if models_map is None:
-        for cat_brand in DATASET_CATALOG:
+        for cat_brand in cat:
             if cat_brand.startswith(key) or key.startswith(cat_brand.split()[0]):
-                models_map = DATASET_CATALOG[cat_brand]
+                models_map = cat[cat_brand]
                 break
     if models_map is None:
         return {"brand": brand, "models": {}}
@@ -602,18 +632,21 @@ def get_catalog_brand(brand: str):
 
 
 @app.post("/predict")
-def predict(vehicle: VehicleInput):
-    prediction = predict_market_value(vehicle)
+def predict(vehicle: VehicleInput, model_variant: Optional[str] = None):
+    prediction = predict_market_value(vehicle, model_variant=model_variant)
+    var_id = model_variant or vehicle.model_variant
+    _, _, meta, _, _ = resolve_variant_data(var_id)
     return {
         **prediction,
-        "model_name":    METADATA["model_name"],
+        "model_name":    meta.get("model_name", "CatBoostRegressor"),
         "is_ml_powered": True,
     }
 
 
 @app.post("/evaluate")
-def evaluate(vehicle: VehicleInput):
-    return evaluate_vehicle(vehicle)
+def evaluate(vehicle: VehicleInput, model_variant: Optional[str] = None):
+    return evaluate_vehicle(vehicle, model_variant=model_variant)
+
 
 
 def _wheelr_enrichment(
@@ -696,8 +729,8 @@ def _wheelr_enrichment(
 
 
 @app.post("/evaluate-enhanced")
-def evaluate_enhanced(vehicle: EnhancedEvaluateRequest):
-    base        = evaluate_vehicle(vehicle)
+def evaluate_enhanced(vehicle: EnhancedEvaluateRequest, model_variant: Optional[str] = None):
+    base        = evaluate_vehicle(vehicle, model_variant=model_variant)
     vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
     sale_state  = vehicle.sale_state or vehicle.registration_state or vehicle.city
     profit_target = int(

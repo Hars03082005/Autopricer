@@ -1,0 +1,17 @@
+{
+  "default": "variant_1",
+  "variants": {
+    "variant_1": {
+      "dataset": "processed_widown-1.csv",
+      "trained_at": "2026-07-09T06:50:48.898981",
+      "metrics": {
+        "mae": 33502.97,
+        "rmse": 56679.68,
+        "r2": 0.9871,
+        "mape": 5.36
+      },
+      "artifact_path": "model_registry/variant_1",
+      "status": "active"
+    }
+  }
+}

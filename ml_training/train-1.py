@@ -22,6 +22,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 warnings.filterwarnings("ignore")
+from ml_training import registry_helper
 
 try:
     import sys
@@ -33,8 +34,9 @@ except Exception:
 
 ROOT         = Path(__file__).resolve().parents[1]
 DATASET      = Path(__file__).resolve().parent / "data" / "processed_widown-1.csv"
-ARTIFACT_DIR = ROOT / "model_artifacts"
-ARTIFACT_DIR.mkdir(exist_ok=True)
+VARIANT_ID   = registry_helper.next_variant_id()
+ARTIFACT_DIR = registry_helper.get_variant_dir(VARIANT_ID)
+print(f"Training run -> Variant ID: {VARIANT_ID} ({ARTIFACT_DIR})")
 
 RANDOM_STATE = 42
 DIV = "=" * 80
@@ -687,6 +689,19 @@ def train_all_models():
     print(f"  Global MAPE : {test_scores['MAPE']:.2f}%")
     print(f"  Global R2   : {test_scores['R2']:.4f}")
     print(f"  Artifacts   : {ARTIFACT_DIR}")
+    reg_metrics = {
+        "mae":  val_scores.get("MAE", 0) if isinstance(val_scores, dict) else 0,
+        "rmse": val_scores.get("RMSE", 0) if isinstance(val_scores, dict) else 0,
+        "r2":   val_scores.get("R2", 0) if isinstance(val_scores, dict) else 0,
+        "mape": val_scores.get("MAPE", 0) if isinstance(val_scores, dict) else 0,
+    }
+    registry_helper.register_variant(
+        variant_id=VARIANT_ID,
+        artifact_dir=ARTIFACT_DIR,
+        dataset_name=DATASET.name,
+        metrics=reg_metrics,
+    )
+    registry_helper.copy_to_model_artifacts(ARTIFACT_DIR)
 
     return {"comparison": comparison, "metadata": metadata, "segments": seg_results}
 
