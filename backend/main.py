@@ -269,7 +269,6 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     owner       = max(1, int(vehicle.owner_count or 1))
     km_per_year = min(km / max(vehicle_age, 1), 100_000)
 
-    # Scores — mirror train_ml_model.py v5.0 formulas exactly
     ownership_trust_score = (
         (1 / owner) * 0.5
         + (1 - min(vehicle_age / 35, 1.0)) * 0.3
@@ -281,17 +280,20 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         + (1 / owner) * 0.2
     )
 
-    seg_class   = get_segment_class(vehicle.brand)   # economy/premium/luxury
-    color       = clean_text(getattr(vehicle, 'color', None) or 'unknown')
-    high_mileage = 1 if km > 93_143 else 0          # 75th percentile from training
+    seg_class    = get_segment_class(vehicle.brand)
+    color        = clean_text(getattr(vehicle, 'color', None) or 'unknown')
+    high_mileage = 1 if km > 93_143 else 0
     luxury_brand = 1 if seg_class == "luxury" else 0
     inspected    = 1 if getattr(vehicle, 'inspected', False) else 0
 
-    # Derived features required by the trained CatBoost/LGB/XGB models
-    brand_clean       = clean_text(vehicle.brand)
-    brand_tier        = _BRAND_TIER_MAP.get(brand_clean, 1)          # default economy
+    brand_clean        = clean_text(vehicle.brand)
+    brand_tier         = _BRAND_TIER_MAP.get(brand_clean, 1)
     age_km_interaction = float(vehicle_age) * float(km)
-    is_high_mileage   = 1 if km_per_year > 15_000 else 0            # mirrors clean_data.py
+    is_high_mileage    = 1 if km_per_year > 15_000 else 0
+
+    # Luxury brand age/km penalty features (used by unified model)
+    brand_age_penalty = float(brand_tier) * float(vehicle_age)
+    brand_km_penalty  = float(brand_tier) * (km / 10_000)
 
     row = {
         # Categorical
@@ -299,12 +301,12 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "model":         normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
         "variant":       clean_text(vehicle.variant or "unknown"),
         "city":          clean_text(vehicle.city),
-        "rto_state":     "unknown",   # not collected at basic input
         "color":         color,
         "segment_class": seg_class,
         "fuel_type":     clean_text(vehicle.fuel_type),
         "transmission":  clean_text(vehicle.transmission),
-        # NOTE: seller_type removed — not in the trained model's feature list
+        # Also expose legacy fields so old model variants still work
+        "rto_state":     "unknown",
         # Numeric
         "vehicle_age":           float(vehicle_age),
         "odometer_reading":      float(km),
@@ -312,22 +314,23 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "owner_count":           float(owner),
         "ownership_trust_score": float(ownership_trust_score),
         "vehicle_health_score":  float(vehicle_health_score),
-        # Derived numeric
         "brand_tier":            float(brand_tier),
         "age_km_interaction":    float(age_km_interaction),
         "is_high_mileage":       float(is_high_mileage),
+        "brand_age_penalty":     brand_age_penalty,
+        "brand_km_penalty":      brand_km_penalty,
         # Binary
-        "inspected":     float(inspected),
-        "high_mileage":  float(high_mileage),
-        "luxury_brand":  float(luxury_brand),
-        "has_list_price": 0.0,   # not known at inference
+        "inspected":      float(inspected),
+        "high_mileage":   float(high_mileage),
+        "luxury_brand":   float(luxury_brand),
+        "has_list_price": 0.0,
     }
-    # Build frame with all columns present; _prepare_frame will pick only model-required ones
     df = pd.DataFrame([row])
     for col in CAT_FEATURES:
         if col in df.columns:
             df[col] = df[col].astype(str)
     return df
+
 
 
 def condition_multiplier(condition: str) -> float:
@@ -768,7 +771,9 @@ def reverse_calculate(body: ReverseCalculateRequest):
     odometer          = int(body.odometer)
     owner_count       = int(body.owner_count)
     expected_sell     = int(body.expected_sell_price)
-    target_margin_pct = float(body.target_margin_pct)
+    raw_pct           = float(body.target_margin_pct)
+    # Normalise: if caller sends 15 (percent) convert to 0.15 (fraction)
+    target_margin_pct = raw_pct / 100.0 if raw_pct > 1.0 else raw_pct
     profit_target     = int(expected_sell * target_margin_pct)
     recon = get_recon_cost(body.engine_grade, body.tyre_grade, body.body_grade, body.interior_grade, body.electrical_grade, body.vendor_type)
     wheelr_risk = get_wheelr_risk_deductions(owner_count, odometer, body.accident_history, body.registration_state, body.sale_state, body.loan_outstanding, body.seller_reason)
