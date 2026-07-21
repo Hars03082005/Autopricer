@@ -448,7 +448,7 @@ def save_artifacts(cat_model, lgb_model, xgb_model,
     }
     joblib.dump(bundle, ARTIFACT_DIR / "ensemble_bundle.pkl")
 
-        model_meta = {
+    model_meta = {
         "model_name": "CatBoostRegressor",
         "trained_at": metadata.get("training_time"),
         "features": FEATURES,
@@ -466,6 +466,7 @@ def save_artifacts(cat_model, lgb_model, xgb_model,
         }
     }
     with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
+        json.dump(model_meta, f, indent=2)
         json.dump(model_meta, f, indent=2)
 
     with open(ARTIFACT_DIR / "training_report.json", "w", encoding="utf-8") as f:
