@@ -2,8 +2,30 @@
 // window.PriceRef_API_URL injection (fired after onPageFinished) is
 // always picked up, even though it arrives after module initialisation.
 function getApiBase() {
+  if (typeof window !== 'undefined') {
+    if (window.PriceRef_API_URL) return window.PriceRef_API_URL;
+
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    const envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_ML_API_URL;
+
+    // Use configured envUrl if it matches environment (don't use localhost URL on live domain)
+    if (envUrl) {
+      const envIsLocal = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
+      if (isLocal || !envIsLocal) {
+        return envUrl;
+      }
+    }
+
+    // Smart fallback for Render live deployments
+    if (host.endsWith('.onrender.com')) {
+      const sub = host.split('.')[0];
+      const suffix = sub.includes('-') ? '-' + sub.split('-').slice(1).join('-') : '';
+      return `https://price-prediction-backend${suffix}.onrender.com`;
+    }
+  }
+
   return (
-    (typeof window !== 'undefined' && window.PriceRef_API_URL) ||
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_ML_API_URL ||
     'http://localhost:9000'
