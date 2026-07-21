@@ -29,9 +29,7 @@ try:
 except Exception:
     pass
 
-# =============================================================================
 # CONFIGURATION
-# =============================================================================
 
 ROOT         = Path(__file__).resolve().parents[1]
 DATASET      = Path(__file__).resolve().parent / "data" / "processed_widown-1.csv"
@@ -41,9 +39,7 @@ ARTIFACT_DIR.mkdir(exist_ok=True)
 RANDOM_STATE = 42
 DIV = "=" * 80
 
-# =============================================================================
 # FEATURES — updated for new Bangalore dataset
-# =============================================================================
 
 TARGET = "selling_price"
 
@@ -83,9 +79,7 @@ NUMERIC_FEATURES = [
 
 FEATURES = CAT_FEATURES + NUMERIC_FEATURES
 
-# =============================================================================
 # PRICE SEGMENTS
-# =============================================================================
 
 SEGMENTS = {
     "0_6_lakh":     (0,          600_000),
@@ -95,9 +89,7 @@ SEGMENTS = {
 
 MIN_SEGMENT_ROWS = 200  # lowered from 300 since we have 15K rows
 
-# =============================================================================
 # METRICS
-# =============================================================================
 
 def calculate_metrics(y_true, y_pred) -> dict:
     y_true_price = np.expm1(y_true)
@@ -113,9 +105,7 @@ def calculate_metrics(y_true, y_pred) -> dict:
         "MAPE": round(mape, 2),
     }
 
-# =============================================================================
 # CATEGORY LEVELS
-# =============================================================================
 
 def build_category_levels(df: pd.DataFrame) -> dict:
     levels = {}
@@ -129,9 +119,7 @@ def build_category_levels(df: pd.DataFrame) -> dict:
         levels[col] = sorted(vals)
     return levels
 
-# =============================================================================
 # DATA PREPARATION
-# =============================================================================
 
 def prepare_frames(df, category_levels, encoders=None):
     # Only use features that exist in df
@@ -194,9 +182,7 @@ def prepare_training_frames(X_train, X_val, X_test):
         "xgboost":   {"train": xgb_train, "val": xgb_val, "test": xgb_test},
     }
 
-# =============================================================================
 # LOAD / VALIDATE / CLEAN
-# =============================================================================
 
 def load_dataset() -> pd.DataFrame:
     print(DIV)
@@ -275,9 +261,7 @@ def clean_training_data(df: pd.DataFrame) -> pd.DataFrame:
     print(f"Remaining: {len(df):,} rows")
     return df
 
-# =============================================================================
 # SPLIT
-# =============================================================================
 
 def split_dataset(df):
     print(f"\n{DIV}")
@@ -300,9 +284,7 @@ def split_dataset(df):
 
     return X_train, X_val, X_test, y_train, y_val, y_test
 
-# =============================================================================
 # MODEL TRAINERS
-# =============================================================================
 
 def train_catboost(X_train, y_train, X_val, y_val):
     print("\nTraining CatBoost ...")
@@ -373,9 +355,7 @@ def train_xgboost(X_train, y_train, X_val, y_val):
     )
     return model
 
-# =============================================================================
 # PREDICT / EVALUATE
-# =============================================================================
 
 def predict(model, model_name, X):
     if model_name == "CatBoost":
@@ -398,9 +378,7 @@ def evaluate_model(model, model_name, X, y, label="Val"):
     print(f"  R2   : {scores['R2']:.4f}")
     return scores, preds
 
-# =============================================================================
 # ENSEMBLE WEIGHTS
-# =============================================================================
 
 def optimise_weights(cb_preds, lgb_preds, xgb_preds, y_true):
     print(f"\n{DIV}")
@@ -435,9 +413,7 @@ def evaluate_ensemble(w, cb, lgb_p, xgb_p, y, label="Val"):
     print(f"  R2   : {scores['R2']:.4f}")
     return scores
 
-# =============================================================================
 # SAVE ARTIFACTS
-# =============================================================================
 
 def save_artifacts(cat_model, lgb_model, xgb_model,
                    weights, cat_levels, encoders, metadata):
@@ -477,9 +453,7 @@ def save_artifacts(cat_model, lgb_model, xgb_model,
     print("  Saved: ensemble_bundle.pkl")
     print("  Saved: training_report.json")
 
-# =============================================================================
 # SEGMENT MODELS
-# =============================================================================
 
 def train_segment_model(seg_name, seg_df, global_model, global_cat_levels):
     print(f"\n{'─'*60}")
@@ -584,9 +558,7 @@ def save_segment_artifacts(segment_results):
     print("  Saved: routing_table.json")
     return routing
 
-# =============================================================================
 # MAIN PIPELINE
-# =============================================================================
 
 def train_all_models():
     df = load_dataset()

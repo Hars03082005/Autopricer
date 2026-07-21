@@ -1,6 +1,4 @@
-// ============================================================
 // Mock Data – Vehicle Valuation Platform
-// ============================================================
 
 /** Car images mapped by brand + model key */
 export const CAR_IMAGES = {

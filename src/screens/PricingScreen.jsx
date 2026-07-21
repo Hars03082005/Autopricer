@@ -302,7 +302,6 @@ export default function PricingScreen() {
         </div>
 
 
-
       </div>
 
       <div style={{ display:'flex', gap:10, marginTop:16 }}>

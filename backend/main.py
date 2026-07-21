@@ -30,11 +30,11 @@ from backend.decision_engine import (
 from backend.ensemble_predictor import EnsemblePredictor
 from backend.brand_catalog import build_brand_catalog
 
-# ── Paths & startup ───────────────────────────────────────────────────────────
+# Paths & startup
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
 
-# ── Brand → tier map (mirrors clean_data.py) ──────────────────────────────────
+# Brand → tier map (mirrors clean_data.py)
 # 0 = budget, 1 = economy, 2 = mid, 3 = premium, 4 = luxury
 _BRAND_TIER_MAP: dict[str, int] = {
     "datsun":        0,
@@ -66,7 +66,7 @@ CONDITION_MULTIPLIERS = {
 predictor    = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
 BRAND_CATALOG = build_brand_catalog()
 
-# ── Dataset-derived brand → model → variant catalog ───────────────────────────
+# Dataset-derived brand → model → variant catalog
 # Built from the processed training CSV by the training pipeline.
 # Falls back to empty dict if file not yet generated.
 _CATALOG_PATH = ARTIFACT_DIR / "dataset_catalog.json"
@@ -75,7 +75,7 @@ if _CATALOG_PATH.exists():
     with open(_CATALOG_PATH, "r", encoding="utf-8") as _f:
         DATASET_CATALOG = json.load(_f)
 
-# ── Segment models (economy / premium / luxury) ──────────────────────────────
+# Segment models (economy / premium / luxury)
 SEGMENT_MODELS: dict = {}
 for _seg in ["economy", "premium", "luxury"]:
     _path = ARTIFACT_DIR / f"ensemble_{_seg}.pkl"
@@ -112,7 +112,7 @@ BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
     "hummer": "luxury",
 })
 
-# ── FastAPI app ────────────────────────────────────────────────────────────────
+# FastAPI app
 app = FastAPI(title="PriceRef ML API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -122,7 +122,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Pydantic models ───────────────────────────────────────────────────────────
+# Pydantic models
 class VehicleInput(BaseModel):
     brand: str = "Honda"
     model: str = "City"
@@ -187,7 +187,7 @@ class ReverseCalculateRequest(BaseModel):
     target_margin_pct: float = Field(0.15, ge=0, le=1)
 
 
-# ── Helper functions ──────────────────────────────────────────────────────────
+# Helper functions
 def clean_text(value: object, default: str = "unknown") -> str:
     if value is None:
         return default
@@ -196,7 +196,7 @@ def clean_text(value: object, default: str = "unknown") -> str:
     return text if text else default
 
 
-# ── Model-year alias map ─────────────────────────────────────────────────────
+# Model-year alias map
 # When a user types a generic model name that maps to a more specific generation
 # depending on the year, resolve it here BEFORE building features and before
 # looking up the sanity-clamp band.
@@ -288,7 +288,7 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "segment_class": seg_class,
         "fuel_type":     clean_text(vehicle.fuel_type),
         "transmission":  clean_text(vehicle.transmission),
-        "seller_type":   "dealer",    # not collected at input; default to most common training value
+        # NOTE: seller_type removed — not in the trained model's feature list
         # Numeric
         "vehicle_age":           float(vehicle_age),
         "odometer_reading":      float(km),
@@ -311,9 +311,6 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     for col in CAT_FEATURES:
         if col in df.columns:
             df[col] = df[col].astype(str)
-    # seller_type is categorical in the model but not in the metadata CAT_FEATURES list
-    if "seller_type" in df.columns:
-        df["seller_type"] = df["seller_type"].astype(str)
     return df
 
 
@@ -326,7 +323,7 @@ def condition_multiplier(condition: str) -> float:
     )
 
 
-# ── Segment routing helpers ────────────────────────────────────────────────────
+# Segment routing helpers
 def get_segment_class(brand: str) -> str:
     """Return the segment class (economy / premium / luxury) for a given brand.
     Brand is always known at inference time — O(1) dict lookup.
@@ -375,20 +372,42 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
     weights = artifact["weights"]
     preds = {}
     if weights.get("catboost", 0) > 0:
-        preds["catboost"] = float(artifact["catboost"].predict(cb_f)[0])
+        # Reindex to the model's own feature list to guard against extra/stale columns
+        cb_model = artifact["catboost"]
+        cb_cols   = cb_model.feature_names_
+        # Fill any missing expected columns
+        for _col in cb_cols:
+            if _col not in cb_f.columns:
+                cb_f[_col] = "unknown" if _col in artifact.get("cat_features", []) else 0.0
+        cb_f_aligned = cb_f[cb_cols]
+        # Ensure all cat feature columns are strings (CatBoost requirement)
+        for _col in artifact.get("cat_features", []):
+            if _col in cb_f_aligned.columns:
+                cb_f_aligned = cb_f_aligned.copy()
+                cb_f_aligned[_col] = cb_f_aligned[_col].astype(str)
+        preds["catboost"] = float(cb_model.predict(cb_f_aligned)[0])
     if weights.get("lightgbm", 0) > 0:
         preds["lightgbm"] = float(artifact["lightgbm"].predict(lgb_f)[0])
     if weights.get("xgboost", 0) > 0:
         preds["xgboost"]  = float(artifact["xgboost"].predict(xgb_f)[0])
     if not preds:
-        # Fallback: all weights zero — just use catboost
-        preds["catboost"] = float(artifact["catboost"].predict(cb_f)[0])
+        # Fallback: all weights zero — just use catboost (with same alignment guard)
+        cb_model = artifact["catboost"]
+        cb_cols   = cb_model.feature_names_
+        for _col in cb_cols:
+            if _col not in cb_f.columns:
+                cb_f[_col] = "unknown" if _col in artifact.get("cat_features", []) else 0.0
+        cb_f_aligned = cb_f[cb_cols]
+        for _col in artifact.get("cat_features", []):
+            if _col in cb_f_aligned.columns:
+                cb_f_aligned = cb_f_aligned.copy()
+                cb_f_aligned[_col] = cb_f_aligned[_col].astype(str)
+        preds["catboost"] = float(cb_model.predict(cb_f_aligned)[0])
         weights = {"catboost": 1.0}
     return sum(weights[k] * preds[k] for k in preds)
 
 
-
-# ── Core prediction ────────────────────────────────────────────────────────────
+# Core prediction
 def predict_base_market_value(vehicle: VehicleInput) -> tuple[int, str]:
     """
     Returns (market_value_inr: int, routing_note: str).
@@ -529,7 +548,7 @@ def evaluate_vehicle(vehicle: VehicleInput) -> dict:
     }
 
 
-# ── API routes ────────────────────────────────────────────────────────────────
+# API routes
 @app.get("/health")
 def health():
     return {
@@ -625,7 +644,7 @@ def _wheelr_enrichment(
     recon              = get_recon_cost(engine_grade, tyre_grade, body_grade, interior_grade, electrical_grade, vendor_type, rc_transfer_cost)
     wheelr_risk        = get_wheelr_risk_deductions(owner_count, odometer, accident_history, registration_state, sale_state, loan_outstanding, seller_reason)
 
-    # ── IDV gap analysis ────────────────────────────────────────────────────────
+    # IDV gap analysis
     idv_analysis = None
     idv_extra_risk_deduction = 0
     idv_confidence_boost = 0

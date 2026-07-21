@@ -13,9 +13,7 @@ try:
 except Exception:
     pass
 
-# =============================================================================
 # CONFIGURATION
-# =============================================================================
 
 HERE         = Path(__file__).resolve().parent
 DATA_DIR     = HERE / "data"
@@ -26,9 +24,7 @@ INPUT_FILES = {
     "widoutown_deduplicated": DATA_DIR / "widoutown_deduplicated.csv",
 }
 
-# =============================================================================
 # BRAND VALIDATION
-# =============================================================================
 
 OEM_ALLOWLIST = {
     "maruti suzuki", "hyundai", "tata", "renault", "honda",
@@ -38,9 +34,7 @@ OEM_ALLOWLIST = {
     "bajaj", "jaguar", "mitsubishi", "mini", "lexus",
 }
 
-# =============================================================================
 # BRAND TIER MAP  (0 budget → 4 luxury)
-# =============================================================================
 
 BRAND_TIER_MAP: dict[str, int] = {
     "datsun":        0,
@@ -71,9 +65,7 @@ VALID_FUEL = {
     "hybrid", "plug-in hybrid", "petrol+cng", "petrol+lpg",
 }
 
-# =============================================================================
 # HELPERS
-# =============================================================================
 
 def _norm(value, default="unknown") -> str:
     if pd.isna(value):
@@ -94,9 +86,7 @@ def _usage_category(value) -> int:
     mapping = {"low": 0, "medium": 1, "high": 2, "very high": 3}
     return mapping.get(_norm(value), 0)
 
-# =============================================================================
 # PHASE 1 — LOAD
-# =============================================================================
 
 def load_and_audit(path: Path, label: str) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -117,9 +107,7 @@ def load_and_audit(path: Path, label: str) -> pd.DataFrame:
             print(f"  {col:<30} {count:>8,}  ({count/len(df)*100:.1f}%)")
     return df
 
-# =============================================================================
 # PHASE 2 — RENAME  (map new dataset columns to internal names)
-# =============================================================================
 
 COLUMN_MAPPING = {
     # New dataset column  →  internal name
@@ -151,11 +139,9 @@ def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\nRenamed {len(rename_map)} columns.")
     return df
 
-# =============================================================================
 # PHASE 2b — DROP LEAKAGE COLUMNS
 # These columns are derived from the target (selling_price) and cause data
 # leakage if left in the dataset. They must never reach the trained model.
-# =============================================================================
 
 LEAKAGE_COLS = [
     "make_model_year_avg_price",  # group mean of target → direct leakage
@@ -173,9 +159,7 @@ def drop_leakage_columns(df: pd.DataFrame) -> pd.DataFrame:
         print("  [LEAKAGE DROP] No leakage columns present — OK")
     return df
 
-# =============================================================================
 # PHASE 3 — CLEAN & VALIDATE
-# =============================================================================
 
 def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -184,23 +168,23 @@ def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
 
     before = len(df)
 
-    # ── Selling price ─────────────────────────────────────────────────────────
+    # Selling price
     df["selling_price"] = pd.to_numeric(df["selling_price"], errors="coerce")
     df = df[df["selling_price"].between(50_000, 20_000_000)]
     print(f"  Price filter       : {before:,} → {len(df):,}")
 
-    # ── Year ──────────────────────────────────────────────────────────────────
+    # Year
     df["year"] = pd.to_numeric(df["year"], errors="coerce")
     df = df[df["year"].between(1990, CURRENT_YEAR)]
     df["year"] = df["year"].astype(int)
     print(f"  Year filter        : kept {len(df):,}")
 
-    # ── Odometer ──────────────────────────────────────────────────────────────
+    # Odometer
     df["odometer_reading"] = pd.to_numeric(df["odometer_reading"], errors="coerce")
     df = df[df["odometer_reading"].between(0, 600_000)]
     print(f"  Odometer filter    : kept {len(df):,}")
 
-    # ── Brand ─────────────────────────────────────────────────────────────────
+    # Brand
     df["brand"] = df["brand_raw"].apply(_norm).replace({
         "mercedes benz": "mercedes-benz",
         "land-rover":    "land rover",
@@ -210,16 +194,16 @@ def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["brand"].isin(OEM_ALLOWLIST)]
     print(f"  Brand filter       : {before_brand:,} → {len(df):,}")
 
-    # ── Model ─────────────────────────────────────────────────────────────────
+    # Model
     df["model"] = df["model_raw"].apply(lambda x: _norm(x, "unknown"))
     df = df[df["model"] != "unknown"]
     print(f"  Model filter       : kept {len(df):,}")
 
-    # ── Variant ───────────────────────────────────────────────────────────────
+    # Variant
     df["variant"] = df["variant_raw"].apply(lambda x: _norm(x, "unknown")) \
         if "variant_raw" in df.columns else "unknown"
 
-    # ── Fuel ──────────────────────────────────────────────────────────────────
+    # Fuel
     df["fuel_type"] = df["fuel_raw"].apply(_norm).replace({
         "petrol+cng":     "cng",
         "petrol+lpg":     "lpg",
@@ -228,7 +212,7 @@ def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["fuel_type"].isin(VALID_FUEL)]
     print(f"  Fuel filter        : kept {len(df):,}")
 
-    # ── Transmission ──────────────────────────────────────────────────────────
+    # Transmission
     df["transmission"] = df["trans_raw"].apply(_norm).replace({
         "amt": "automatic", "cvt": "automatic",
         "dct": "automatic", "imt": "manual",
@@ -236,38 +220,36 @@ def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["transmission"].isin({"manual", "automatic"})]
     print(f"  Trans filter       : kept {len(df):,}")
 
-    # ── City ──────────────────────────────────────────────────────────────────
+    # City
     df["city"] = df["city"].apply(_norm) if "city" in df.columns else "bangalore"
 
-    # ── Locality ──────────────────────────────────────────────────────────────
+    # Locality
     df["locality"] = df["locality"].apply(lambda x: _norm(x, "unknown")) \
         if "locality" in df.columns else "unknown"
 
-    # ── RTO ───────────────────────────────────────────────────────────────────
+    # RTO
     df["rto"] = df["rto"].apply(lambda x: _norm(x, "unknown")) \
         if "rto" in df.columns else "unknown"
 
-    # ── Seller type ───────────────────────────────────────────────────────────
+    # Seller type
     df["seller_type"] = df["seller_type_raw"].apply(_seller) \
         if "seller_type_raw" in df.columns else "unknown"
 
-    # ── Numeric enriched columns from new dataset ────────────────────────────
+    # Numeric enriched columns from new dataset
     for col in ["locality_density", "popularity_score",
                 "price_per_year"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    # ── Usage category ────────────────────────────────────────────────────────
+    # Usage category
     df["usage_category_num"] = df["usage_category_raw"].apply(_usage_category) \
         if "usage_category_raw" in df.columns else 0
 
     print(f"\n  Rows after cleaning : {len(df):,}")
     return df
 
-# =============================================================================
 # PHASE 4 — SEGMENT CLASSIFICATION
 # Brand tier first — cheap old BMW stays "luxury" not "economy"
-# =============================================================================
 
 def classify_segment(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -288,17 +270,15 @@ def classify_segment(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-# =============================================================================
 # PHASE 5 — FEATURE ENGINEERING
 # Uses pre-computed columns from new dataset + derives additional features
-# =============================================================================
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}")
     print("PHASE 5 : FEATURE ENGINEERING")
     print(DIV)
 
-    # ── Vehicle age ───────────────────────────────────────────────────────────
+    # Vehicle age
     # Use pre-computed 'age' from dataset if available, else compute
     if "vehicle_age_raw" in df.columns:
         df["vehicle_age"] = pd.to_numeric(
@@ -308,7 +288,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         df["vehicle_age"] = (CURRENT_YEAR - df["year"]).clip(lower=0)
     print("  [1] vehicle_age             — from dataset or computed")
 
-    # ── KM per year ───────────────────────────────────────────────────────────
+    # KM per year
     # Use pre-computed avg_km_per_year if available
     # FIXED — compute fallback first, then fillna with a Series
     fallback = np.where(
@@ -327,15 +307,15 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         df["km_per_year"] = pd.Series(fallback, index=df.index).clip(0, 50_000).round(1)
     print("  [2] km_per_year             — from dataset or computed")
 
-    # ── Brand tier ────────────────────────────────────────────────────────────
+    # Brand tier
     df["brand_tier"] = df["brand"].map(BRAND_TIER_MAP).fillna(1).astype(int)
     print("  [3] brand_tier              — prestige 0-4")
 
-    # ── Age × KM interaction ──────────────────────────────────────────────────
+    # Age × KM interaction
     df["age_km_interaction"] = df["vehicle_age"] * df["odometer_reading"]
     print("  [4] age_km_interaction      — age × odometer")
 
-    # ── Vehicle health score ──────────────────────────────────────────────────
+    # Vehicle health score
     df["vehicle_health_score"] = (
         100
         - (df["vehicle_age"] * 3)
@@ -343,11 +323,11 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     ).clip(0, 100).round(1)
     print("  [5] vehicle_health_score    — composite health 0-100")
 
-    # ── High mileage flag ────────────────────────────────────────────────────
+    # High mileage flag
     df["is_high_mileage"] = (df["km_per_year"] > 15_000).astype(int)
     print("  [6] is_high_mileage         — flag >15K km/yr")
 
-    # ── Locality tier (Bangalore-specific) ───────────────────────────────────
+    # Locality tier (Bangalore-specific)
     # Uses locality_density if available, else manual tier mapping
     LOCALITY_TIER = {
         # Tier 3 — premium (buyers pay more)
@@ -365,7 +345,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df["locality_tier"] = df["locality"].map(LOCALITY_TIER).fillna(2).astype(int)
     print("  [8] locality_tier           — Bangalore area premium 1-3")
 
-    # ── Locality density (normalised) ────────────────────────────────────────
+    # Locality density (normalised)
     if "locality_density" in df.columns:
         max_density = df["locality_density"].max()
         df["locality_density_norm"] = (
@@ -373,7 +353,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         ).round(4)
         print("  [9] locality_density_norm   — normalised area density")
 
-    # ── Popularity score (log-scaled) ────────────────────────────────────────
+    # Popularity score (log-scaled)
     if "popularity_score" in df.columns:
         df["popularity_score_log"] = np.log1p(df["popularity_score"]).round(4)
         print("  [10] popularity_score_log  — log popularity signal")
@@ -384,9 +364,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-# =============================================================================
 # PHASE 6 — DEDUPLICATION
-# =============================================================================
 
 def deduplicate(df: pd.DataFrame) -> pd.DataFrame:
     before = len(df)
@@ -399,9 +377,7 @@ def deduplicate(df: pd.DataFrame) -> pd.DataFrame:
     print(f"  Remaining rows     : {len(df):,}")
     return df
 
-# =============================================================================
 # PHASE 7 — DISTRIBUTION REPORT
-# =============================================================================
 
 def distribution_report(df: pd.DataFrame) -> None:
     print(f"\n{DIV}")
@@ -434,9 +410,7 @@ def distribution_report(df: pd.DataFrame) -> None:
     print("\nTOP 10 BRANDS")
     print(df["brand"].value_counts().head(10).to_string())
 
-# =============================================================================
 # PHASE 8 — SELECT OUTPUT COLUMNS & SAVE
-# =============================================================================
 
 ML_FEATURES = [
     # Categorical identifiers
@@ -499,9 +473,7 @@ def save_dataset(df: pd.DataFrame, out_path: Path) -> None:
     else:
         print("\n  No nulls remaining.")
 
-# =============================================================================
 # PIPELINE
-# =============================================================================
 
 def process_file(name: str, in_path: Path) -> None:
     out_path = DATA_DIR / f"processed_{name}.csv"

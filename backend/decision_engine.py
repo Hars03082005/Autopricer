@@ -4,9 +4,7 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
-# ──────────────────────────────────────────────────────────────────────────────
 # HELPERS
-# ──────────────────────────────────────────────────────────────────────────────
 def _clamp(value: float, low: float = 0, high: float = 100) -> float:
     return max(low, min(high, value))
 
@@ -14,10 +12,8 @@ def _round500(v: float) -> int:
     return int(round(v / 500) * 500)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # CONFIG — All business rules live here as named constants.
 # Update these dicts when market conditions change; never hard-code in logic.
-# ──────────────────────────────────────────────────────────────────────────────
 
 # ── Market Reference Bands (Indian used-car transaction prices, baseline 2021)
 # Format: (lower_₹, upper_₹) — age-adjusted at runtime via _AGE_DEPRECIATION
@@ -295,9 +291,7 @@ _ANNUAL_KM_TIERS = {
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # VEHICLE CATEGORY CLASSIFIER
-# ──────────────────────────────────────────────────────────────────────────────
 def classify_vehicle_category(brand: str, model: str) -> str:
     b = brand.lower().strip()
     m = model.lower().strip()
@@ -323,9 +317,7 @@ def classify_vehicle_category(brand: str, model: str) -> str:
     return "economy"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # ANNUAL MILEAGE INTENSITY  (Improvement #10)
-# ──────────────────────────────────────────────────────────────────────────────
 def _annual_km(km: float, age: int) -> float:
     """Returns annual_km = odometer / max(age, 0.5).
     A car with 80k km in 2 years is far riskier than one with 80k in 8 years.
@@ -344,9 +336,7 @@ def _annual_km_risk_factor(km: float, age: int) -> float:
     return 0.90   # commercial-level usage — high risk
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 1. MARKET SANITY CLAMP — Adaptive confidence-scaled tolerance (Improvement #9)
-# ──────────────────────────────────────────────────────────────────────────────
 def _normalise_model(model_name: str) -> str:
     return " ".join(model_name.lower().split())
 
@@ -416,9 +406,7 @@ def apply_market_sanity_clamp(
     return float(raw_value), clamped, note
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 2. DYNAMIC RECONDITIONING COST — with brand repair multiplier (Improvement #2)
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_dynamic_recon_cost(
     segment: str,
     age: int,
@@ -480,9 +468,7 @@ def compute_dynamic_recon_cost(
     return min(subtotal, caps.get(segment, 100_000))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 3. DYNAMIC HOLDING COST — brand popularity adjusts inventory duration (Improvement #3)
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_holding_cost(
     segment: str,
     market_value: float,
@@ -505,9 +491,7 @@ def compute_holding_cost(
     return cost, eff_days
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 4. DYNAMIC DOCUMENTATION COST
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_doc_cost(
     registration_state: str = "",
     sale_state: str = "",
@@ -535,9 +519,7 @@ def compute_doc_cost(
     }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 5. DYNAMIC DEALER PROFIT MARGIN  (Improvement #1 — proportional, no convergence)
-# ──────────────────────────────────────────────────────────────────────────────
 def dynamic_target_margin(
     segment: str,
     vehicle_age: int,
@@ -587,9 +569,7 @@ def dynamic_target_margin(
     return round(_clamp(blended, lo, hi), 1)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 6. RISK SCORE — with annual mileage + unknown field penalties (Improvements #4 + #10)
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_risk_score(
     vehicle_age: int,
     km: float,
@@ -653,9 +633,7 @@ def compute_risk_score(
     return score, level
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 7. RUPEE-BASED RISK BUFFER — with unknown field additive penalties (Improvement #4)
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_risk_buffer(
     market_value: float,
     risk_score: int,
@@ -718,9 +696,7 @@ def compute_risk_buffer(
     return int(_clamp(total, 2_000, market_value * 0.05))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 8. TWO-COMPONENT CONFIDENCE SCORE (Improvement #5)
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_confidence_score(
     vehicle_age: int,
     km: float,
@@ -749,7 +725,7 @@ def compute_confidence_score(
 
     Final = sqrt(model_confidence × business_confidence)  [geometric mean]
     """
-    # ── Model confidence (how reliable is the ML prediction?) ────────────────
+    # Model confidence (how reliable is the ML prediction?)
     mc = 88.0
     if sanity_clamped:                                mc -= 18   # ML needed heavy correction
     if not city or city.lower() in {"", "unknown"}:   mc -= 5
@@ -765,7 +741,7 @@ def compute_confidence_score(
     if km < 5_000 and vehicle_age > 3:                mc -= 8
     mc -= risk_score * 0.12
 
-    # ── Business confidence (how good is the deal intelligence?) ─────────────
+    # Business confidence (how good is the deal intelligence?)
     bc = 84.0
     if not owner_known:                                bc -= 12   # can't assess ownership risk
     if accident_hist.lower() in {"unknown", ""}:       bc -= 10   # unknown damage history
@@ -796,9 +772,7 @@ def compute_confidence_score(
     return int(_clamp(final, 42, 95)), int(mc_clamped), int(bc_clamped)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 9. MONETARY SHAP EXPLANATION  (Improvement #11)
-# ──────────────────────────────────────────────────────────────────────────────
 def shap_explanation(
     market_value: float,
     vehicle_age: int,
@@ -954,9 +928,7 @@ def shap_explanation(
     return sorted(items, key=lambda x: abs(x["contribution"]), reverse=True)[:8]
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 10. NEGOTIATION TRIO — with negotiation_room and potential_savings (Improvement #7)
-# ──────────────────────────────────────────────────────────────────────────────
 def compute_negotiation_trio(
     recommended_buy_price: float,
     city: str,
@@ -1008,12 +980,10 @@ def compute_negotiation_trio(
     }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # 11. DATASET-SOURCED SIMILAR VEHICLES
 # Searches actual dataset rows that match the same brand+model, within a
 # ±30% price band of the predicted market value.  Falls back to an empty
 # list if the dataset is not available or no matches exist.
-# ──────────────────────────────────────────────────────────────────────────────
 import json as _json
 import os as _os
 
@@ -1073,18 +1043,18 @@ def generate_similar_cars(
     model_key = str(model or "").strip().lower()
     fuel_key  = str(fuel  or "").strip().lower()
 
-    # ── Step 1: strict match — same brand + model ─────────────────────────────
+    # Step 1: strict match — same brand + model
     mask = (df["brand"] == brand_key) & (df["model"] == model_key)
     subset = df[mask].copy()
 
-    # ── Step 2: if <3 rows, widen to same brand, any model ────────────────────
+    # Step 2: if <3 rows, widen to same brand, any model
     if len(subset) < 3:
         subset = df[df["brand"] == brand_key].copy()
 
     if subset.empty:
         return []
 
-    # ── Step 3: filter by price band ±30% around predicted market value ───────
+    # Step 3: filter by price band ±30% around predicted market value
     lo = market_value * 0.70
     hi = market_value * 1.30
     price_mask = subset["selling_price"].between(lo, hi)
@@ -1094,7 +1064,7 @@ def generate_similar_cars(
     if filtered.empty:
         filtered = subset
 
-    # ── Step 4: score rows by closeness to market_value + fuel preference ─────
+    # Step 4: score rows by closeness to market_value + fuel preference
     filtered = filtered.copy()
     filtered["_price_dist"] = (filtered["selling_price"] - market_value).abs()
     filtered["_fuel_match"] = (filtered["fuel_type"] == fuel_key).astype(int)
@@ -1124,9 +1094,7 @@ def generate_similar_cars(
     return results
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # INLINE BRAND→SEGMENT MAP (avoids circular import with main.py)
-# ──────────────────────────────────────────────────────────────────────────────
 _INLINE_BRAND_SEGMENT: dict[str, str] = {
     **{b: "economy"  for b in {
         "maruti", "maruti suzuki", "datsun", "bajaj", "chevrolet", "fiat",
@@ -1146,9 +1114,7 @@ _INLINE_BRAND_SEGMENT: dict[str, str] = {
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # MAIN DECISION FUNCTION — Full waterfall (Improvement #12)
-# ──────────────────────────────────────────────────────────────────────────────
 def calculate_decision(vehicle, market_value: float) -> dict:
     """
     Convert ML market value → complete dealer valuation package.
@@ -1163,7 +1129,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
           ═══════════════════════════════════════════════════
           = Recommended Buy Price  (floor: 45% of market value)
     """
-    # ── Extract inputs ────────────────────────────────────────────────────────
+    # Extract inputs
     def _g(attr, default):
         return getattr(vehicle, attr, default) or default
 
@@ -1200,7 +1166,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # Segment (inline, no circular import)
     segment = _INLINE_BRAND_SEGMENT.get(brand.lower().strip(), "economy")
 
-    # ── Apply market sanity clamp ─────────────────────────────────────────────
+    # Apply market sanity clamp
     # Pass a rough confidence estimate (70) so the clamp band is reasonable
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
         model_name, segment, age, float(market_value), city,
@@ -1208,7 +1174,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     )
     market_value = clamped_value
 
-    # ── Risk score ────────────────────────────────────────────────────────────
+    # Risk score
     risk_score, risk_level = compute_risk_score(
         age, km, owner_count, condition, fuel, inspected, sanity_clamped,
         variant_known=variant_known,
@@ -1216,7 +1182,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         accident_history=accident_hist,
     )
 
-    # ── Two-component confidence (Improvement #5) ─────────────────────────────
+    # Two-component confidence (Improvement #5)
     confidence_score, model_conf, business_conf = compute_confidence_score(
         age, km, owner_count, condition, fuel, variant, fuel_eff,
         risk_score, sanity_clamped, city, inspected,
@@ -1231,12 +1197,12 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     )
     market_value = clamped_value
 
-    # ── Dynamic margin ────────────────────────────────────────────────────────
+    # Dynamic margin
     eff_margin_pct = dynamic_target_margin(
         segment, age, km, owner_count, condition, inspected, fuel, target_margin_pct
     )
 
-    # ── Waterfall cost components ─────────────────────────────────────────────
+    # Waterfall cost components
     # 1. Reconditioning — with brand multiplier (Improvement #2)
     if repair_buffer > 5_000:
         # Dealer has provided their own repair estimate — use it directly
@@ -1278,7 +1244,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     raw_profit       = market_value * (eff_margin_pct / 100)
     target_profit    = int(_clamp(raw_profit, p_min, p_max))
 
-    # ── Buy Price ─────────────────────────────────────────────────────────────
+    # Buy Price
     total_deductions      = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
     recommended_buy_price = market_value - total_deductions
     # Floor: dealer must pay at least 88% of market value to be competitive
@@ -1286,7 +1252,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     recommended_buy_price = max(market_value * 0.88, recommended_buy_price)
     recommended_buy_price = _round500(recommended_buy_price)
 
-    # ── Sell price ────────────────────────────────────────────────────────────
+    # Sell price
     city_premium           = _CITY_DEMAND.get(city, 0.015)
     recommended_sell_price = _round500(market_value * (1 + city_premium * 0.5))
     # Net profit = sell price minus (buy price + all costs)
@@ -1302,7 +1268,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         "Very Slow"
     )
 
-    # ── Six-action recommendation (Improvement #6 — more factors) ────────────
+    # Six-action recommendation (Improvement #6 — more factors)
     roi = (expected_profit / max(recommended_buy_price, 1)) * 100
     flexible_reasons = {"financial", "relocating", "problem"}
 
@@ -1329,7 +1295,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         seller_reason, seller_asking
     )
 
-    # ── Composite scores ──────────────────────────────────────────────────────
+    # Composite scores
     demand_score           = round(_clamp(88 - age * 2.5 - (km / 200_000) * 35))
     brand_retention_score  = round(_clamp(80 - age * 1.2 + (5 if fuel in {"petrol", "hybrid"} else 0)))
     vehicle_health_score   = round(_clamp(100 - age * 3 - km / 10_000 - (owner_count - 1) * 8))
@@ -1344,7 +1310,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     ))
     urgency_label = "High" if urgency_score >= 75 else "Medium" if urgency_score >= 55 else "Low"
 
-    # ── Positive / negative factors ───────────────────────────────────────────
+    # Positive / negative factors
     positive_factors, negative_factors = [], []
 
     if age <= 3:
@@ -1388,14 +1354,14 @@ def calculate_decision(vehicle, market_value: float) -> dict:
 
     positive_factors.append("Market value predicted by CatBoost+LightGBM+XGBoost ensemble (R²=0.97)")
 
-    # ── Price confidence band ─────────────────────────────────────────────────
+    # Price confidence band
     price_spread = market_value * (0.06 + risk_score * 0.0005)
     price_min    = _round500(market_value - price_spread)
     price_max    = _round500(market_value + price_spread)
 
     seller_gap = _round500(seller_asking - recommended_buy_price) if seller_asking > 0 else 0
 
-    # ── Full waterfall (Improvement #12 — every line explained) ──────────────
+    # Full waterfall (Improvement #12 — every line explained)
     waterfall = [
         {
             "label": "ML Market Value",
@@ -1446,7 +1412,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     ]
 
     return {
-        # ── Prices ──
+        # Prices
         "market_value":             int(market_value),
         "price_min":                int(price_min),
         "price_max":                int(price_max),
@@ -1459,7 +1425,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         "suggested_sell_price":     int(recommended_sell_price),
         "margin_pct":               round(expected_margin_pct, 1),
         "margin_amt":               int(expected_profit),
-        # ── Cost waterfall ──
+        # Cost waterfall
         "recon_cost":               int(recon_cost),
         "holding_cost":             int(holding_cost),
         "doc_cost":                 int(doc_cost),
@@ -1468,14 +1434,14 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         "target_profit":            int(target_profit),
         "repair_buffer":            int(recon_cost),
         "waterfall":                waterfall,
-        # ── Negotiation (Improvement #7) ──
+        # Negotiation (Improvement #7)
         "opening_offer":            nego["opening_offer"],
         "max_offer":                nego["walk_away_price"],
         "target_offer":             nego["target_offer"],
         "negotiation_room":         nego["negotiation_room"],
         "potential_savings":        nego["potential_savings"],
         "seller_gap":               int(seller_gap),
-        # ── Risk & Confidence ──
+        # Risk & Confidence
         "risk_score":               int(risk_score),
         "risk_level":               risk_level,
         "confidence_score":         int(confidence_score),
@@ -1488,19 +1454,19 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         "deal_quality_score":       int(deal_quality_score),
         "urgency_score":            int(urgency_score),
         "urgency_label":            urgency_label,
-        # ── Decision ──
+        # Decision
         "action":                   action,
         "effective_margin_pct":     float(eff_margin_pct),
         "target_margin_pct":        float(target_margin_pct),
         "inventory_days":           int(eff_days),          # NEW
         "inventory_label":          inv_duration_label,     # NEW
-        # ── Factors ──
+        # Factors
         "positive_factors":         positive_factors[:5],
         "negative_factors":         negative_factors[:5],
-        # ── Sanity ──
+        # Sanity
         "sanity_clamped":           sanity_clamped,
         "sanity_note":              sanity_note,
-        # ── Quote ──
+        # Quote
         "quote_message": (
             f"Based on ML ensemble valuation (R²=0.97), {brand or 'vehicle'} condition, "
             f"and {city.title() or 'local'} market demand, recommended acquisition is "
@@ -1515,9 +1481,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # LEGACY FUNCTIONS — unchanged interface, used by /evaluate-enhanced
-# ──────────────────────────────────────────────────────────────────────────────
 def check_disqualifier(vehicle_age: int, odometer: int,
                         owner_count: int, accident_history: str) -> dict:
     acc = (accident_history or "none").lower().strip()

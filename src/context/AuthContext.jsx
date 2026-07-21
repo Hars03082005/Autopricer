@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useCallback } from 'react';
 
 const AuthContext = createContext(null);
 
-// ── Seed demo accounts ──────────────────────────────────────
+// Seed demo accounts
 const DEMO_ACCOUNTS = {
   'dealer@priceref.ai': { password: 'dealer123', name: 'Ramesh Sharma', role: 'Dealer', avatar: 'RS' },
 };

@@ -6,7 +6,7 @@
  */
 
 const ICONS = {
-  // ── Navigation ──
+  // Navigation
   home: (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M4 10.5L12 4l8 6.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -50,7 +50,7 @@ const ICONS = {
     </svg>
   ),
 
-  // ── Roles ──
+  // Roles
   store: (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M3 9l1.5-5h15L21 9" strokeLinecap="round" strokeLinejoin="round"/>
@@ -73,7 +73,7 @@ const ICONS = {
     </svg>
   ),
 
-  // ── Input Screen ──
+  // Input Screen
   search: (
     <svg viewBox="0 0 24 24" fill="none">
       <circle cx="11" cy="11" r="7"/>
@@ -93,7 +93,7 @@ const ICONS = {
     </svg>
   ),
 
-  // ── Fuel types ──
+  // Fuel types
   fuelPump: (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M4 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14" strokeLinecap="round" strokeLinejoin="round"/>
@@ -124,7 +124,7 @@ const ICONS = {
     </svg>
   ),
 
-  // ── Result / General ──
+  // Result / General
   mapPin: (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z" strokeLinejoin="round"/>
@@ -165,7 +165,7 @@ const ICONS = {
     </svg>
   ),
 
-  // ── Analytics / Dashboard ──
+  // Analytics / Dashboard
   trendUp: (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M3 17l5-5 4 4 9-9" strokeLinecap="round" strokeLinejoin="round"/>
@@ -198,7 +198,7 @@ const ICONS = {
     </svg>
   ),
 
-  // ── Info / misc ──
+  // Info / misc
   bell: (
     <svg viewBox="0 0 24 24" fill="none">
       <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7" strokeLinejoin="round"/>

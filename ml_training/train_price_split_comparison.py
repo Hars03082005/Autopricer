@@ -57,7 +57,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths
 ROOT     = Path(__file__).resolve().parents[1]
 DATA_CSV = Path(__file__).resolve().parent / "data" / "processed_cell7_dataset.csv"
 OUT_DIR  = ROOT / "model_artifacts_split_compare"
@@ -66,7 +66,7 @@ OUT_DIR.mkdir(exist_ok=True)
 RANDOM_STATE = 42
 DIV = "=" * 78
 
-# ── Feature sets ───────────────────────────────────────────────────────────────
+# Feature sets
 CAT_FEATURES = [
     "brand", "model", "variant", "city", "rto_state",
     "color", "segment_class", "fuel_type", "transmission",
@@ -78,7 +78,7 @@ NUMERIC_FEATURES = [
 ]
 FEATURES = CAT_FEATURES + NUMERIC_FEATURES
 
-# ── Price band definitions ─────────────────────────────────────────────────────
+# Price band definitions
 THREE_BANDS = {
     "0-6L":  (0,           600_000),
     "6-12L": (600_000,   1_200_000),
@@ -93,7 +93,7 @@ TWO_BANDS = {
 MIN_BAND_ROWS = 300
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# Helpers
 def calc_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     """Metrics on actual INR scale (expm1 of log-price predictions)."""
     yt = np.expm1(y_true)
@@ -157,7 +157,7 @@ def prepare_frames(df: pd.DataFrame, cat_levels: dict):
     return cb, lgb_f, xgb_f
 
 
-# ── Data loader ────────────────────────────────────────────────────────────────
+# Data loader
 def load_data() -> pd.DataFrame:
     print(f"\n  Loading data from {DATA_CSV.name} ...")
     df = pd.read_csv(DATA_CSV, low_memory=False)
@@ -187,7 +187,7 @@ def load_data() -> pd.DataFrame:
     return df
 
 
-# ── Model trainers ─────────────────────────────────────────────────────────────
+# Model trainers
 def train_catboost(X_tr, y_tr, X_vl, y_vl) -> CatBoostRegressor:
     cat_cols = [c for c in CAT_FEATURES if c in X_tr.columns]
     model = CatBoostRegressor(
@@ -244,7 +244,7 @@ def _predict(name: str, model, frame) -> np.ndarray:
     raise ValueError(name)
 
 
-# ── Core ensemble trainer (one band) ──────────────────────────────────────────
+# Core ensemble trainer (one band)
 def train_ensemble(sub_df: pd.DataFrame, band_name: str, art_dir: Path) -> Optional[dict]:
     n_rows = len(sub_df)
     if n_rows < MIN_BAND_ROWS:
@@ -325,7 +325,7 @@ def train_ensemble(sub_df: pd.DataFrame, band_name: str, art_dir: Path) -> Optio
     }
 
 
-# ── Strategy runners ───────────────────────────────────────────────────────────
+# Strategy runners
 def run_global(df: pd.DataFrame) -> dict:
     print(f"\n{DIV}")
     print("STRATEGY A  --  GLOBAL MODEL  (no price split)")
@@ -375,7 +375,7 @@ def run_two_band(df: pd.DataFrame) -> dict:
             "elapsed_s": round(time.time() - t0, 1)}
 
 
-# ── Weighted-average metrics for split strategies ──────────────────────────────
+# Weighted-average metrics for split strategies
 def weighted_avg_metrics(band_results: dict) -> dict:
     total = sum(v["rows"] for v in band_results.values())
     if total == 0:
@@ -388,7 +388,7 @@ def weighted_avg_metrics(band_results: dict) -> dict:
     return {k: round(val, 4) for k, val in avg.items()}
 
 
-# ── Comparison report ──────────────────────────────────────────────────────────
+# Comparison report
 def print_comparison(ga: dict, tb: dict, twb: dict) -> None:
     print(f"\n\n{'='*78}")
     print("  FINAL COMPARISON REPORT")
@@ -481,7 +481,7 @@ def print_comparison(ga: dict, tb: dict, twb: dict) -> None:
     print(f"{'='*78}\n")
 
 
-# ── Entry point ────────────────────────────────────────────────────────────────
+# Entry point
 def main() -> None:
     print(DIV)
     print("PriceRef  --  Price-Split Strategy Comparison")

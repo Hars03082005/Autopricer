@@ -43,7 +43,7 @@ export default function EnhancedValuationScreen() {
   } = useApp();
 
   const [error,   setError]   = useState('');
-  // ── Dataset catalog state ───────────────────────────────────────────────────
+  // Dataset catalog state
   const [catalog,       setCatalog]       = useState({});  // brand(lower) → { model(lower): [variants] }
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [catalogError,  setCatalogError]  = useState(false);
@@ -61,7 +61,7 @@ export default function EnhancedValuationScreen() {
       });
   }, []);
 
-  // ── Derived dropdown options (all from dataset) ─────────────────────────────
+  // Derived dropdown options (all from dataset)
   const brandOptions = useMemo(() =>
     Object.keys(catalog).sort(), [catalog]);
 
@@ -81,7 +81,7 @@ export default function EnhancedValuationScreen() {
     return variants.sort();
   }, [catalog, selectedBrandKey, selectedModelKey]);
 
-  // ── Handlers for cascading resets ──────────────────────────────────────────
+  // Handlers for cascading resets
   function handleBrandChange(brandKey) {
     updateInput('brand',   brandKey);
     updateInput('model',   '');
@@ -93,7 +93,7 @@ export default function EnhancedValuationScreen() {
     updateInput('variant', '');
   }
 
-  // ── Misc derived values for side panel ─────────────────────────────────────
+  // Misc derived values for side panel
   const vehicleAge  = new Date().getFullYear() - Number(inputs.year || 2021);
   const odometer    = Number(inputs.mileage || 0);
   const ownerCount  = Number(inputs.ownerCount || 1);

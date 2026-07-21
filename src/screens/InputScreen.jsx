@@ -28,7 +28,7 @@ const COLORS = [
 ];
 
 const VARIANT_CATALOG = {
-  // ── Maruti ────────────────────────────────────────────────────────
+  // Maruti
   'Swift':          ['LXi','VXi','ZXi','ZXi+','LDi','VDi','ZDi','ZDi+'],
   'Dzire':          ['LXi','VXi','ZXi','ZXi+','LDi','VDi','ZDi','ZDi+'],
   'Baleno':         ['Sigma','Delta','Zeta','Alpha','Delta Turbo','Zeta Turbo','Alpha Turbo'],
@@ -45,7 +45,7 @@ const VARIANT_CATALOG = {
   'S-Presso':       ['STD','LXi','VXi','VXi+','VXi AGS'],
   'XL6':            ['Zeta','Alpha','Zeta MT','Alpha MT'],
 
-  // ── Hyundai ───────────────────────────────────────────────────────
+  // Hyundai
   'Creta':          ['E','EX','S','S+','SX','SX Tech','SX(O)'],
   'i10':            ['ERA','Magna','Sportz','Asta'],
   'i20':            ['Era','Magna','Sportz','Asta','Asta(O)','N Line N6','N Line N8'],
@@ -59,7 +59,7 @@ const VARIANT_CATALOG = {
   'Ioniq 5':        ['Standard Range RWD','Long Range RWD','Long Range AWD'],
   'Kona':           ['E','S','SX'],
 
-  // ── Tata ──────────────────────────────────────────────────────────
+  // Tata
   'Nexon':          ['Smart','Smart+','Pure','Creative','Fearless','Fearless+'],
   'Harrier':        ['Smart','Smart+','Pure','Adventure','Fearless','Fearless+'],
   'Safari':         ['Smart','Smart+','Pure','Adventure','Fearless','Fearless+'],
@@ -71,7 +71,7 @@ const VARIANT_CATALOG = {
   'Bolt':           ['XE','XM','XT','XZ'],
   'Zest':           ['XE','XM','XT','XZ'],
 
-  // ── Honda ─────────────────────────────────────────────────────────
+  // Honda
   'City':           ['SV','V','VX','ZX','RS'],
   'Amaze':          ['E','S','V','VX','SX MT','SX CVT'],
   'Jazz':           ['S','V','VX','ZX'],
@@ -82,7 +82,7 @@ const VARIANT_CATALOG = {
   'BR-V':           ['S MT','V MT','V AT'],
   'HR-V':           ['V CVT','VX CVT'],
 
-  // ── Toyota ────────────────────────────────────────────────────────
+  // Toyota
   'Innova':         ['GX MT','GX AT','VX MT','VX AT','ZX AT'],
   'Fortuner':       ['2WD MT','2WD AT','4WD AT','Legender 2WD AT'],
   'Camry':          ['Hybrid'],
@@ -94,7 +94,7 @@ const VARIANT_CATALOG = {
   'Etios':          ['J','G','V','VX'],
   'Vellfire':       ['ZX'],
 
-  // ── Mahindra ──────────────────────────────────────────────────────
+  // Mahindra
   'Scorpio':        ['S3','S5','S7','S9','S11'],
   'XUV500':         ['W3','W5','W7','W9','W11'],
   'XUV300':         ['W4','W6','W8','W8 (O)'],
@@ -107,28 +107,28 @@ const VARIANT_CATALOG = {
   'BE6':            ['Pack One','Pack Two','Pack Three'],
   'XEV9e':          ['Pack One','Pack Two'],
 
-  // ── Kia ───────────────────────────────────────────────────────────
+  // Kia
   'Seltos':         ['HTE','HTK','HTK+','HTX','HTX+','GTX+'],
   'Sonet':          ['HTE','HTK','HTK+','HTX','HTX+','GTX+'],
   'Carens':         ['Premium','Prestige','Prestige Plus','Luxury','Luxury Plus'],
   'Carnival':       ['Premium','Prestige'],
   'EV6':            ['GT Line RWD','GT Line AWD','GT AWD'],
 
-  // ── Renault ───────────────────────────────────────────────────────
+  // Renault
   'Kwid':           ['STD','RXE','RXL','RXT','RXT(O)','Climber'],
   'Duster':         ['RXE','RXL','RXS','RXZ'],
   'Triber':         ['RXE','RXL','RXT','RXZ','RXZ(O)'],
   'Kiger':          ['RXE','RXL','RXT','RXT(O)','RXZ','RXZ(O)'],
   'Captur':         ['RXE','RXL','RXT','Platine'],
 
-  // ── Nissan ────────────────────────────────────────────────────────
+  // Nissan
   'Magnite':        ['XE','XL','XV','XV(O)','XV Premium','XV Premium(O)'],
   'Kicks':          ['XL','XV','XV Premium'],
   'Terrano':        ['XL','XV','XV D THP'],
   'Sunny':          ['XE','XL','XV'],
   'Micra':          ['XE','XL','XV'],
 
-  // ── Volkswagen ────────────────────────────────────────────────────
+  // Volkswagen
   'Polo':           ['Trendline','Comfortline','Highline','GT TSI'],
   'Vento':          ['Comfortline','Highline','Highline AT','GT Plus TSI'],
   'Taigun':         ['Comfortline','Highline','GT Plus'],
@@ -136,7 +136,7 @@ const VARIANT_CATALOG = {
   'Tiguan':         ['Comfortline','Highline'],
   'T-Roc':          ['Sport'],
 
-  // ── Skoda ─────────────────────────────────────────────────────────
+  // Skoda
   'Rapid':          ['Rider','Active','Ambition','Style'],
   'Octavia':        ['Ambition','Style'],
   'Superb':         ['Style','Sportline'],
@@ -145,7 +145,7 @@ const VARIANT_CATALOG = {
   'Kodiaq':         ['Style','Sportline'],
   'Karoq':          ['Style'],
 
-  // ── Ford ──────────────────────────────────────────────────────────
+  // Ford
   'EcoSport':       ['Ambiente','Trend','Titanium','Titanium+','S'],
   'Endeavour':      ['Trend AT 4x2','Titanium AT 4x2','Titanium AT 4x4'],
   'Figo':           ['Ambiente','Trend','Titanium'],
@@ -153,20 +153,20 @@ const VARIANT_CATALOG = {
   'Aspire':         ['Ambiente','Trend','Titanium'],
   'Mustang':        ['Fastback'],
 
-  // ── Jeep ──────────────────────────────────────────────────────────
+  // Jeep
   'Compass':        ['Sport','Sport+','Longitude','Limited','Limited Plus','Trailhawk'],
   'Meridian':       ['Longitude','Longitude (O)','Limited','X'],
   'Wrangler':       ['Unlimited Petrol AT'],
   'Grand Cherokee': ['Limited 4x4','Overland 4x4','Summit'],
 
-  // ── MG ────────────────────────────────────────────────────────────
+  // MG
   'Hector':         ['Style','Super','Smart','Sharp','Savvy'],
   'Astor':          ['Style','Super','Smart','Sharp'],
   'Gloster':        ['Super 2WD','Sharp 2WD','Sharp 4WD','Savvy AWD'],
   'ZS EV':          ['Excite','Exclusive'],
   'Comet EV':       ['EX','Executive'],
 
-  // ── BMW ───────────────────────────────────────────────────────────
+  // BMW
   '3 Series':       ['320i Sport','320d Sport','330i M Sport','M340i xDrive'],
   '5 Series':       ['520d Luxury','520d M Sport','530d M Sport'],
   '7 Series':       ['730Ld DPE','730Ld M Sport','740Li DPE','M760Li xDrive'],
@@ -179,7 +179,7 @@ const VARIANT_CATALOG = {
   'i4':             ['eDrive40 M Sport','M50 xDrive'],
   'iX':             ['xDrive40','xDrive50'],
 
-  // ── Mercedes-Benz ─────────────────────────────────────────────────
+  // Mercedes-Benz
   'A-Class':        ['A 200 Progressive Line','A 200 AMG Line'],
   'C-Class':        ['C 200 Progressive','C 200 AMG Line','C 300d AMG Line'],
   'E-Class':        ['E 200 Exclusive','E 220d','E 350d'],
@@ -192,7 +192,7 @@ const VARIANT_CATALOG = {
   'EQS':            ['EQS 580 4MATIC'],
   'EQB':            ['EQB 300 4MATIC'],
 
-  // ── Audi ──────────────────────────────────────────────────────────
+  // Audi
   'A3':             ['30 TFSI Premium Plus','35 TFSI Technology'],
   'A4':             ['30 TFSI Premium Plus','35 TFSI Technology','45 TFSI Technology'],
   'A6':             ['45 TFSI Technology','55 TFSI Technology'],
@@ -205,7 +205,7 @@ const VARIANT_CATALOG = {
   'RS5':            ['Sportback'],
   'TT':             ['TTS Coupe'],
 
-  // ── Volvo ─────────────────────────────────────────────────────────
+  // Volvo
   'XC40':           ['B4 AWD Momentum','B4 AWD R-Design','Recharge Pure Electric'],
   'XC60':           ['B5 AWD Momentum','B5 AWD R-Design','T8 Recharge'],
   'XC90':           ['B6 AWD Momentum','B6 AWD R-Design','T8 Recharge'],
@@ -213,7 +213,7 @@ const VARIANT_CATALOG = {
   'S90':            ['B6 AWD Momentum','B6 AWD R-Design'],
   'V60':            ['B4 Momentum','B4 R-Design'],
 
-  // ── Land Rover ────────────────────────────────────────────────────
+  // Land Rover
   'Defender':       ['90 S','90 X-Dynamic S','110 S','110 X-Dynamic S','110 X'],
   'Discovery':      ['SE 2.0 TD4','HSE 3.0 TD6'],
   'Range Rover':    ['HSE 3.0 Diesel','Autobiography 3.0 Diesel'],
@@ -221,7 +221,7 @@ const VARIANT_CATALOG = {
   'Range Rover Evoque': ['SE 2.0 Diesel','HSE 2.0 Diesel','HSE Dynamic 2.0 Diesel'],
   'Freelander':     ['SE TD4','HSE TD4'],
 
-  // ── Porsche ───────────────────────────────────────────────────────
+  // Porsche
   'Cayenne':        ['E-Hybrid','Turbo','Turbo S E-Hybrid'],
   'Macan':          ['2.0 Petrol','S 3.0 Petrol','GTS'],
   'Panamera':       ['4 Executive','4S Executive','Turbo S E-Hybrid'],
@@ -229,7 +229,7 @@ const VARIANT_CATALOG = {
   '911':            ['Carrera','Carrera S','Carrera 4S','GT3'],
   'Boxster':        ['718 Boxster','718 Boxster S'],
 
-  // ── Jaguar ────────────────────────────────────────────────────────
+  // Jaguar
   'XE':             ['Prestige','Portfolio','R-Sport'],
   'XF':             ['Prestige','Portfolio','R-Sport'],
   'XJ':             ['Premium Luxury','L Portfolio'],
@@ -238,7 +238,7 @@ const VARIANT_CATALOG = {
   'I-Pace':         ['EV400 S','EV400 SE','EV400 HSE'],
   'F-Type':         ['Coupe','Coupe R','Convertible','SVR'],
 
-  // ── Lexus ─────────────────────────────────────────────────────────
+  // Lexus
   'ES':             ['300h Exquisite','300h Luxury','300h Ultra Luxury'],
   'LS':             ['500h Luxury','500h Ultra Luxury'],
   'NX':             ['300h Luxury','300h F Sport'],

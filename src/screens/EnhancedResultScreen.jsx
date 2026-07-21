@@ -18,7 +18,7 @@ function gradeLabel(category, value) {
   return GRADE_OPTIONS[category]?.find(o => o.value === value)?.label || value;
 }
 
-// ─── IDV Comparison Banner ─────────────────────────────────
+// IDV Comparison Banner
 function IDVBanner({ idvAnalysis }) {
   if (!idvAnalysis) return null;
   const { idv_value, ml_value, idv_gap_pct, flag, flag_type } = idvAnalysis;
@@ -57,7 +57,7 @@ function IDVBanner({ idvAnalysis }) {
   );
 }
 
-// ─── Connector arrow between pipeline steps ────────────────
+// Connector arrow between pipeline steps
 function PipelineArrow() {
   return (
     <div className="pipeline-connector">
@@ -66,7 +66,7 @@ function PipelineArrow() {
   );
 }
 
-// ─── Single pipeline step ──────────────────
+// Single pipeline step
 function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, barPct, barClass, subRows }) {
   return (
     <div className="pipeline-step">
@@ -100,7 +100,7 @@ function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, 
   );
 }
 
-// ─── Main Pricing Pipeline section ─────────────────────────
+// Main Pricing Pipeline section
 function RuleBasedPricingPipeline({ result, inputs }) {
   const {
     predictedPrice,
@@ -237,7 +237,7 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   );
 }
 
-// ─── Main Enhanced Result Screen ────────────────────────────
+// Main Enhanced Result Screen
 export default function EnhancedResultScreen() {
   const { enhancedResult, inputs, setActiveScreen, isLoading } = useApp();
   const [showNegotiation, setShowNegotiation] = useState(true);

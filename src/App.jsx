@@ -50,7 +50,7 @@ const MOBILE_NAV = [
   { id: 'dashboard', label: 'Analytics',icon: 'chart'  },
 ];
 
-// ── User Avatar Button + Dropdown ─────────────────────────
+// User Avatar Button + Dropdown
 function UserMenu() {
   const { currentUser, logout } = useAuth();
   const [open, setOpen] = useState(false);
@@ -100,7 +100,7 @@ function UserMenu() {
   );
 }
 
-// ── Main App Shell ─────────────────────────────────────────
+// Main App Shell
 function AppShell() {
   const { activeScreen, setActiveScreen } = useApp();
 
@@ -221,7 +221,7 @@ function AppShell() {
   );
 }
 
-// ── Root: Auth gate ────────────────────────────────────────
+// Root: Auth gate
 function Root() {
   const { currentUser, loading } = useAuth();
 

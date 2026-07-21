@@ -6,7 +6,7 @@ from typing import Dict, List
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET_PATH = ROOT / "ml_training" / "data" / "cardekho_vehicle_dataset" / "cars_details_merges.csv"
+DATASET_PATH = ROOT / "ml_training" / "data" / "processed_widoutown-2.csv"
 
 # Comprehensive Indian used-car catalog (minimum required set + common variants).
 INDIAN_BRAND_CATALOG: Dict[str, List[str]] = {

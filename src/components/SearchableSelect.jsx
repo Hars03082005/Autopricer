@@ -18,14 +18,14 @@ export default function SearchableSelect({
   const [query,  setQuery]  = useState('');
   const [cursor, setCursor] = useState(-1);
 
-  // ── filtered list ──────────────────────────────────────────────────
+  // filtered list
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter(opt => opt.toLowerCase().includes(q));
   }, [options, query]);
 
-  // ── close on outside click ─────────────────────────────────────────
+  // close on outside click
   useEffect(() => {
     const handleOutside = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
@@ -39,7 +39,7 @@ export default function SearchableSelect({
     };
   }, []);
 
-  // ── reset query / cursor when closed ───────────────────────────────
+  // reset query / cursor when closed
   useEffect(() => {
     if (!open) {
       setTimeout(() => {
@@ -56,7 +56,7 @@ export default function SearchableSelect({
     }
   }, [open]);
 
-  // ── scroll active item into view ───────────────────────────────────
+  // scroll active item into view
   useEffect(() => {
     if (cursor >= 0 && listRef.current) {
       const el = listRef.current.children[cursor];
@@ -64,7 +64,7 @@ export default function SearchableSelect({
     }
   }, [cursor]);
 
-  // ── keyboard handler ───────────────────────────────────────────────
+  // keyboard handler
   const handleKeyDown = (e) => {
     if (!open) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } return; }
     if (e.key === 'Escape') { setOpen(false); return; }
@@ -81,7 +81,7 @@ export default function SearchableSelect({
     setOpen(false);
   };
 
-  // ── highlight matched chars ────────────────────────────────────────
+  // highlight matched chars
   const highlight = (text) => {
     const q = query.trim().toLowerCase();
     if (!q) return text;

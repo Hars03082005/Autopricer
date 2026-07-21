@@ -51,9 +51,7 @@ try:
 except Exception:
     pass
 
-# =============================================================================
 # CONFIGURATION
-# =============================================================================
 
 ROOT        = Path(__file__).resolve().parents[1]
 DATASET     = Path(__file__).resolve().parent / "data" / "processed_with owner filled.csv"
@@ -63,9 +61,7 @@ ARTIFACT_DIR.mkdir(exist_ok=True)
 RANDOM_STATE = 42
 DIV = "=" * 80
 
-# =============================================================================
 # FEATURES
-# =============================================================================
 
 TARGET = "selling_price"
 
@@ -95,9 +91,7 @@ NUMERIC_FEATURES = [
 
 FEATURES = CAT_FEATURES + NUMERIC_FEATURES
 
-# =============================================================================
 # PRICE SEGMENTS  (business-driven lakh bands)
-# =============================================================================
 
 SEGMENTS = {
     "0_6_lakh":    (0,          600_000),
@@ -107,9 +101,7 @@ SEGMENTS = {
 
 MIN_SEGMENT_ROWS = 300
 
-# =============================================================================
 # METRICS
-# =============================================================================
 
 def calculate_metrics(y_true, y_pred):
     y_true = np.expm1(y_true)
@@ -127,9 +119,7 @@ def calculate_metrics(y_true, y_pred):
         "MAPE": round(mape, 2),
     }
 
-# =============================================================================
 # CATEGORY LEVELS
-# =============================================================================
 
 def build_category_levels(df):
     levels = {}
@@ -140,9 +130,7 @@ def build_category_levels(df):
         levels[col] = sorted(values)
     return levels
 
-# =============================================================================
 # DATA PREPARATION
-# =============================================================================
 
 def prepare_frames(df, category_levels, encoders=None):
     """
@@ -201,9 +189,7 @@ def prepare_training_frames(X_train, X_val, X_test):
         "xgboost":   {"train": xgb_train, "val": xgb_val, "test": xgb_test},
     }
 
-# =============================================================================
 # LOAD / VALIDATE / CLEAN
-# =============================================================================
 
 def load_dataset():
     print(DIV)
@@ -274,9 +260,7 @@ def clean_training_data(df):
     print(f"Remaining rows : {len(df):,}")
     return df
 
-# =============================================================================
 # TRAIN / VAL / TEST SPLIT  (70 / 15 / 15)
-# =============================================================================
 
 def split_dataset(df):
     print(f"\n{DIV}")
@@ -299,9 +283,7 @@ def split_dataset(df):
 
     return X_train, X_val, X_test, y_train, y_val, y_test
 
-# =============================================================================
 # GLOBAL MODEL TRAINERS
-# =============================================================================
 
 def train_catboost(X_train, y_train, X_val, y_val):
     print("\nTraining CatBoost …")
@@ -371,9 +353,7 @@ def train_xgboost(X_train, y_train, X_val, y_val):
     )
     return model
 
-# =============================================================================
 # PREDICT / EVALUATE
-# =============================================================================
 
 def predict(model, model_name, X):
     if model_name == "CatBoost":
@@ -399,9 +379,7 @@ def evaluate_model(model, model_name, X, y, split_label="Validation"):
 
     return scores, preds
 
-# =============================================================================
 # ENSEMBLE WEIGHT OPTIMISATION
-# =============================================================================
 
 def optimise_ensemble_weights(cb_preds, lgb_preds, xgb_preds, y_true):
     print(f"\n{DIV}")
@@ -446,9 +424,7 @@ def evaluate_ensemble(weights, cb_preds, lgb_preds, xgb_preds, y_true, split_lab
 
     return scores
 
-# =============================================================================
 # SAVE GLOBAL ARTIFACTS
-# =============================================================================
 
 def save_artifacts(cat_model, lgb_model, xgb_model, weights, category_levels, encoders, metadata):
     print(f"\n{DIV}")
@@ -488,9 +464,7 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, category_levels, en
         json.dump(metadata, f, indent=4)
     print("  ✓ Report     → training_report.json")
 
-# =============================================================================
 # SEGMENT (PRICE-BAND) MODEL TRAINING
-# =============================================================================
 
 def train_segment_model(segment_name, seg_df, global_model, global_cat_levels):
     """
@@ -659,13 +633,11 @@ def print_segment_summary(segment_results):
     summary = pd.DataFrame(rows)
     print(summary.to_string(index=False))
 
-# =============================================================================
 # FULL PIPELINE — global + price-band segments  (single entry point)
-# =============================================================================
 
 def train_all_models():
 
-    # ── Global model ──────────────────────────────────────────────────────────
+    # Global model
     df = load_dataset()
     df = validate_dataset(df)
     df = clean_training_data(df)
@@ -751,7 +723,7 @@ def train_all_models():
     save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, frames["encoders"], metadata)
     comparison.to_csv(ARTIFACT_DIR / "model_comparison.csv", index=False)
 
-    # ── Price-band segmented training ────────────────────────────────────────
+    # Price-band segmented training
     segment_results = train_segmented_models(df, cat_model, cat_levels)
     routing_table    = save_segment_artifacts(segment_results)
     print_segment_summary(segment_results)
@@ -783,7 +755,7 @@ def train_all_models():
 if __name__ == "__main__":
     train_all_models()
 
-    # ── Generate dataset_catalog.json (brand → model → variants) ─────────────
+    # Generate dataset_catalog.json (brand → model → variants)
     print("\nGenerating dataset_catalog.json …")
     try:
         _df_cat = pd.read_csv(DATASET, usecols=["brand", "model", "variant"])

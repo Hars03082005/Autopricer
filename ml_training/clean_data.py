@@ -13,9 +13,7 @@ try:
 except Exception:
     pass
 
-# =============================================================================
 # CONFIGURATION
-# =============================================================================
 
 HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / "data"
@@ -28,9 +26,7 @@ INPUT_FILES = {
     "with owner filled":        DATA_DIR / "with owner filled.csv",
 }
 
-# =============================================================================
 # BRAND VALIDATION
-# =============================================================================
 
 OEM_ALLOWLIST = {
     # All normalized to lowercase — raw variants are handled in clean_and_validate()
@@ -64,10 +60,8 @@ OEM_ALLOWLIST = {
     "lexus",
 }
 
-# =============================================================================
 # BRAND → TIER  (0 budget · 1 economy · 2 mid · 3 premium · 4 luxury)
 # Used for both brand_tier feature and segment fallback
-# =============================================================================
 
 BRAND_TIER_MAP: dict[str, int] = {
     # Budget (0)
@@ -132,9 +126,7 @@ VALID_FUEL = {
 
 VALID_TRANS = {"manual", "automatic", "amt", "cvt", "dct", "imt"}
 
-# =============================================================================
 # HELPERS
-# =============================================================================
 
 def _norm(value, default="unknown"):
     if pd.isna(value):
@@ -167,9 +159,7 @@ def _parse_inspected(value):
     return int(_norm(value) in {"yes", "true", "1", "certified", "inspected"})
 
 
-# =============================================================================
 # PHASE 1 — LOAD
-# =============================================================================
 
 def load_and_audit(path: Path, label: str) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -190,9 +180,7 @@ def load_and_audit(path: Path, label: str) -> pd.DataFrame:
     return df
 
 
-# =============================================================================
 # PHASE 2 — RENAME
-# =============================================================================
 
 COLUMN_MAPPING = {
     "make":        "brand_raw",
@@ -218,11 +206,9 @@ def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     print("\nColumns renamed.")
     return df
 
-# =============================================================================
 # PHASE 2b — DROP LEAKAGE COLUMNS
 # These columns are derived from the target (selling_price) and cause data
 # leakage if left in the dataset. They must never reach the trained model.
-# =============================================================================
 
 LEAKAGE_COLS = [
     "make_model_year_avg_price",  # group mean of target → direct leakage
@@ -241,9 +227,7 @@ def drop_leakage_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# =============================================================================
 # PHASE 3 — CLEAN & VALIDATE
-# =============================================================================
 
 def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -327,11 +311,9 @@ def clean_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# =============================================================================
 # PHASE 4 — SEGMENT CLASSIFICATION
 # Segment is derived from brand tier first; price band is the fallback.
 # This ensures a cheap old BMW stays "luxury", not "economy".
-# =============================================================================
 
 def classify_segment(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -356,10 +338,8 @@ def classify_segment(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# =============================================================================
 # PHASE 5 — FEATURE ENGINEERING
 # 5 derived features chosen for maximum ML value with zero extra data.
-# =============================================================================
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}")
@@ -376,42 +356,34 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["km_per_year"] = df["km_per_year"].clip(0, 50_000).round(1)
 
-    # ------------------------------------------------------------------
     # DERIVED FEATURE 1: brand_tier
     # Numeric 0–4 encoding of brand prestige.
     # Gives the model an explicit depreciation-curve anchor without
     # requiring it to infer prestige purely from price patterns.
-    # ------------------------------------------------------------------
     df["brand_tier"] = df["brand"].map(BRAND_TIER_MAP).fillna(1).astype(int)
     print("  [1/5] brand_tier            — brand prestige 0–4")
 
-    # ------------------------------------------------------------------
     # DERIVED FEATURE 2: age_km_interaction
     # vehicle_age × odometer_reading
     # A 5-yr car with 20k km vs 5-yr car with 120k km are different
     # products. This interaction term captures that non-linearity.
     # Most impactful single addition for MAPE reduction.
-    # ------------------------------------------------------------------
     df["age_km_interaction"] = df["vehicle_age"] * df["odometer_reading"]
     print("  [2/5] age_km_interaction    — age × odometer (depreciation proxy)")
 
-    # ------------------------------------------------------------------
     # DERIVED FEATURE 3: ownership_trust_score
     # Non-linear penalty for owner count: 100 → 75 → 50 → 25 → 10
     # Raw owner_count treats 1→2 the same as 2→3. This curve reflects
     # that the first ownership change is the biggest value hit.
-    # ------------------------------------------------------------------
     trust_map = {1: 100, 2: 75, 3: 50, 4: 25, 5: 10, 6: 10}
     df["ownership_trust_score"] = df["owner_count"].map(trust_map).fillna(10).astype(int)
     print("  [3/5] ownership_trust_score — non-linear owner penalty 100→10")
 
-    # ------------------------------------------------------------------
     # DERIVED FEATURE 4: vehicle_health_score
     # Composite condition proxy from age + km + owners.
     # Gives the model one pre-computed health number instead of learning
     # all three relationships from scratch.
     # Clipped to [0, 100] — old/high-km cars don't go negative.
-    # ------------------------------------------------------------------
     df["vehicle_health_score"] = (
         100
         - (df["vehicle_age"] * 3)
@@ -420,13 +392,11 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     ).clip(lower=0, upper=100).round(1)
     print("  [4/5] vehicle_health_score  — composite health 0–100")
 
-    # ------------------------------------------------------------------
     # DERIVED FEATURE 5: is_high_mileage
     # Binary flag for cars driven >15,000 km/year.
     # km_per_year handles mileage as a linear feature; this flag
     # explicitly marks outlier cases (e.g. the Seltos at 18k km/yr)
     # where the linear signal underestimates the risk.
-    # ------------------------------------------------------------------
     df["is_high_mileage"] = (df["km_per_year"] > 15_000).astype(int)
     print("  [5/5] is_high_mileage       — binary flag for >15k km/yr")
 
@@ -436,9 +406,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# =============================================================================
 # PHASE 6 — DEDUPLICATION
-# =============================================================================
 
 #def deduplicate(df: pd.DataFrame) -> pd.DataFrame:
  #   before = len(df)
@@ -450,9 +418,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
  #   return df
 
 
-# =============================================================================
 # PHASE 7 — DISTRIBUTION REPORT
-# =============================================================================
 
 def distribution_report(df: pd.DataFrame):
     print(f"\n{DIV}")
@@ -477,9 +443,7 @@ def distribution_report(df: pd.DataFrame):
     )
 
 
-# =============================================================================
 # PHASE 8 — SAVE
-# =============================================================================
 
 ML_FEATURES = [
     # Identifiers
@@ -535,9 +499,7 @@ def save_dataset(df: pd.DataFrame, output_path: Path):
         print(f"    {c}")
 
 
-# =============================================================================
 # PIPELINE
-# =============================================================================
 
 def process_file(name: str, input_path: Path):
     output_path = DATA_DIR / f"processed_{name}.csv"
