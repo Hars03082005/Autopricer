@@ -19,9 +19,7 @@ function getApiBase() {
 
     // Smart fallback for Render live deployments
     if (host.endsWith('.onrender.com')) {
-      const sub = host.split('.')[0];
-      const suffix = sub.includes('-') ? '-' + sub.split('-').slice(1).join('-') : '';
-      return `https://price-prediction-backend${suffix}.onrender.com`;
+      return 'https://price-prediction-backend.onrender.com';
     }
   }
 
