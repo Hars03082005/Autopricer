@@ -220,25 +220,30 @@ def train():
 
     # model_metadata.json in the format EnsemblePredictor expects
     model_meta = {
-        "model_name": "CatBoostRegressor",
-        "trained_at": metadata.get("training_time"),
-        "features": FEATURES,
-        "categorical_features": CAT_FEATURES,
-        "numeric_features": NUMERIC_FEATURES,
-        "metrics": metadata.get("val_metrics", {}).get("Ensemble", {}),
+        "model_name":              "CatBoostRegressor (Unified-19F)",
+        "trained_at":              datetime.now().isoformat(),
+        "current_year_used_for_age": CURRENT_YEAR,
+        "features":                available,
+        "categorical_features":    cat_available,
+        "numeric_features":        NUMERIC_FEATURES,
+        "metrics":                 test_sc,
+        "train_metrics":           train_sc,
+        "validation_metrics":      val_sc,
+        "test_metrics":            test_sc,
         "ensemble": {
-            "enabled": True,
-            "weights": {
-                "catboost": float(weights[0]),
-                "lightgbm": float(weights[1]),
-                "xgboost":  float(weights[2]),
-            },
+            "enabled": False,
+            "weights": {"catboost": 1.0, "lightgbm": 0.0, "xgboost": 0.0},
             "category_levels": cat_levels,
-        }
+        },
+        "global_metrics": {
+            "train":      train_sc,
+            "validation": val_sc,
+            "test":       test_sc,
+        },
     }
     with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
         json.dump(model_meta, f, indent=2)
-        json.dump(model_meta, f, indent=2)
+
 
     # Dataset catalog for frontend brand/model dropdowns
     try:
