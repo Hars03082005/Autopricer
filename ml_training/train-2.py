@@ -344,7 +344,6 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
     }
     with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
         json.dump(model_meta, f, indent=2)
-        json.dump(model_meta, f, indent=2)
 
     with open(ARTIFACT_DIR / "training_report.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=4)

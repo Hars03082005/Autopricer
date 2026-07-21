@@ -1,5 +1,5 @@
 {
-  "default": "variant_1",
+  "default": "variant_3",
   "variants": {
     "variant_1": {
       "dataset": "processed_widown-1.csv",
@@ -11,6 +11,30 @@
         "mape": 5.36
       },
       "artifact_path": "model_registry/variant_1",
+      "status": "archived"
+    },
+    "variant_2": {
+      "dataset": "processed_widown-1.csv",
+      "trained_at": "2026-07-21T15:46:34.501321",
+      "metrics": {
+        "mae": 45873.95,
+        "rmse": 69127.4,
+        "r2": 0.9629,
+        "mape": 7.89
+      },
+      "artifact_path": "model_registry/variant_2",
+      "status": "archived"
+    },
+    "variant_3": {
+      "dataset": "processed_widown1-6.csv",
+      "trained_at": "2026-07-21T16:16:24.618811",
+      "metrics": {
+        "mae": 19994.4,
+        "rmse": 52672.85,
+        "r2": 0.9913,
+        "mape": 3.28
+      },
+      "artifact_path": "model_registry/variant_3",
       "status": "active"
     }
   }
