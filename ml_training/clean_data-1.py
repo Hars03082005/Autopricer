@@ -383,15 +383,42 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def deduplicate(df: pd.DataFrame) -> pd.DataFrame:
     before = len(df)
-   # df = df.drop_duplicates(
-  #      subset=["brand", "model", "variant", "transmission",
-  #              "fuel_type", "year", "odometer_reading", "selling_price"]
-   # ).reset_index(drop=True)
-    removed = before - len(df)
-    print(f"\n  Duplicates removed : {removed:,}  ({removed/before*100:.1f}%)")
-    print(f"  Remaining rows     : {len(df):,}")
-    return df
 
+    # -- Spec-similarity analysis (REPORTING ONLY - no rows removed) ------
+    _SPEC_COLS = [
+        "brand", "model", "variant", "transmission",
+        "fuel_type", "year", "odometer_reading", "selling_price",
+    ]
+    spec_dup_count = int(df.duplicated(subset=_SPEC_COLS, keep=False).sum())
+    spec_groups    = before - df.drop_duplicates(subset=_SPEC_COLS).shape[0]
+
+    print(f"\n  Spec-duplicate rows (analysis only, NOT removed): {spec_dup_count:,}")
+    print("  These rows differ in locality / rto / owner_count / seller_type.")
+    print(f"  Spec-duplicate groups: {spec_groups:,}")
+    print("  -> Different market listings - keeping all.")
+
+    # -- Exact duplicate removal (ALL columns must match) ------------------
+    df = df.drop_duplicates(keep="first").reset_index(drop=True)
+    exact_removed = before - len(df)
+
+
+    # ---- Secondary dedup: true duplicates sharing same listing ---------------
+    # Rows with same brand+model+year+odometer+price+locality are same car,
+    # different scrape noise in other columns -> remove them
+    _LISTING_COLS = [
+        "brand", "model", "year", "odometer_reading", "selling_price", "locality",
+    ]
+    _present = [c for c in _LISTING_COLS if c in df.columns]
+    before_2 = len(df)
+    df = df.drop_duplicates(subset=_present, keep="first").reset_index(drop=True)
+    true_dupes = before_2 - len(df)
+    print(f"  True listing duplicates removed: {true_dupes:,}")
+    print(f"  Final rows after both dedups   : {len(df):,}")
+
+    print(f"\n  Original rows       : {before:,}")
+    print(f"  Exact dupes removed : {exact_removed:,}  ({exact_removed/before*100:.1f}%)")
+    print(f"  Final training rows : {len(df):,}")
+    return df
 # PHASE 7 — DISTRIBUTION REPORT
 
 def distribution_report(df: pd.DataFrame) -> None:
@@ -463,7 +490,7 @@ ML_FEATURES = [
     "selling_price",
 ]
 
-ANALYSIS_COLS = ["year", "price_per_year"]
+ANALYSIS_COLS = ["year"]  # price_per_year removed: leakage (encodes target)
 
 
 def save_dataset(df: pd.DataFrame, out_path: Path) -> None:

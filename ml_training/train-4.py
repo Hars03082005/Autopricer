@@ -159,6 +159,11 @@ def validate_dataset(df: pd.DataFrame) -> pd.DataFrame:
 def clean_training_data(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}"); print("CLEANING TRAINING DATA"); print(DIV)
     before = len(df)
+    # Explicitly drop leakage column (price_per_year = price/age encodes the target)
+    if "price_per_year" in df.columns:
+        df = df.drop(columns=["price_per_year"])
+        print("  Dropped leakage column: price_per_year")
+
 
     df[TARGET] = pd.to_numeric(df[TARGET], errors="coerce")
     df = df.dropna(subset=[TARGET])
@@ -205,10 +210,10 @@ def train_catboost(X_train, y_train, X_val, y_val):
     print("\nTraining CatBoost ...")
     cat_cols = [c for c in CAT_FEATURES if c in X_train.columns]
     model = CatBoostRegressor(
-        iterations=3000, learning_rate=0.03, depth=8,
+        iterations=3000, learning_rate=0.03, depth=6,       # depth 8->6: prevents memorization
         loss_function="RMSE", eval_metric="RMSE",
-        random_seed=RANDOM_STATE, l2_leaf_reg=5,
-        min_data_in_leaf=15, early_stopping_rounds=100, verbose=200,
+        random_seed=RANDOM_STATE, l2_leaf_reg=10,           # 5->10: stronger regularization
+        min_data_in_leaf=25, early_stopping_rounds=150, verbose=200,  # 15->25 leaf samples
     )
     model.fit(
         Pool(X_train, y_train, cat_features=cat_cols),
@@ -223,15 +228,16 @@ def train_lightgbm(X_train, y_train, X_val, y_val):
     model = lgb.train(
         {
             "objective": "regression", "metric": "rmse",
-            "learning_rate": 0.03, "num_leaves": 64,
+            "learning_rate": 0.03, "num_leaves": 48,       # 64->48: shallower trees
             "feature_fraction": 0.8, "bagging_fraction": 0.8,
-            "bagging_freq": 5, "min_child_samples": 15,
+            "bagging_freq": 5, "min_child_samples": 25,   # 15->25: more samples per leaf
+            "lambda_l2": 5.0,                              # added L2 regularization
             "verbosity": -1, "seed": RANDOM_STATE,
         },
         lgb.Dataset(X_train, label=y_train),
         valid_sets=[lgb.Dataset(X_val, label=y_val)],
         num_boost_round=3000,
-        callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)],
+        callbacks=[lgb.early_stopping(150), lgb.log_evaluation(200)],
     )
     return model
 
@@ -241,13 +247,16 @@ def train_xgboost(X_train, y_train, X_val, y_val):
     model = xgb.train(
         {
             "objective": "reg:squarederror", "eval_metric": "rmse",
-            "learning_rate": 0.03, "max_depth": 8,
-            "subsample": 0.8, "colsample_bytree": 0.8, "seed": RANDOM_STATE,
+            "learning_rate": 0.03, "max_depth": 6,         # 8->6: prevent memorization
+            "subsample": 0.8, "colsample_bytree": 0.8,
+            "min_child_weight": 25,                         # added: min samples per leaf
+            "lambda": 5.0,                                  # added: L2 regularization
+            "seed": RANDOM_STATE,
         },
         xgb.DMatrix(X_train, label=y_train),
         num_boost_round=3000,
         evals=[(xgb.DMatrix(X_val, label=y_val), "val")],
-        early_stopping_rounds=100, verbose_eval=200,
+        early_stopping_rounds=150, verbose_eval=200,
     )
     return model
 
@@ -381,7 +390,7 @@ def train_segment_model(seg_name, seg_df, global_model, global_cat_levels):
     seg_model = CatBoostRegressor(
         iterations=2000, learning_rate=0.03, depth=7,
         loss_function="RMSE", eval_metric="RMSE",
-        random_seed=RANDOM_STATE, l2_leaf_reg=5,
+        random_seed=RANDOM_STATE, l2_leaf_reg=10,           # 5->10: stronger regularization
         min_data_in_leaf=10, early_stopping_rounds=100, verbose=200,
     )
     seg_model.fit(

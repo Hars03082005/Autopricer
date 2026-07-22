@@ -128,7 +128,7 @@ _AGE_DEPRECIATION: dict[int, float] = {
 # Some vehicles hold value much better (or worse) than the generic schedule.
 # Keys are normalised model names (lowercase, no brand prefix).
 _MODEL_DEPRECIATION_OVERRIDE: dict[str, dict[int, float]] = {
-    # Innova Crysta: legendary resale value in India — holds ~65-70% after 6 yrs
+    # ── Toyota — best resale in India ──────────────────────────────────────
     "innova crysta": {
         0: 1.00, 1: 0.92, 2: 0.86, 3: 0.80, 4: 0.75,
         5: 0.70, 6: 0.66, 7: 0.62, 8: 0.58, 9: 0.54,
@@ -139,19 +139,122 @@ _MODEL_DEPRECIATION_OVERRIDE: dict[str, dict[int, float]] = {
         5: 0.70, 6: 0.66, 7: 0.62, 8: 0.58, 9: 0.54,
         10: 0.50, 11: 0.46, 12: 0.43,
     },
-    # Fortuner: premium SUV, depreciates slowly
+    "innova hycross": {
+        0: 1.00, 1: 0.93, 2: 0.87, 3: 0.82, 4: 0.77,
+        5: 0.73, 6: 0.69, 7: 0.65, 8: 0.62, 9: 0.58,
+        10: 0.55, 11: 0.52, 12: 0.49,
+    },
     "fortuner": {
         0: 1.00, 1: 0.91, 2: 0.84, 3: 0.78, 4: 0.73,
         5: 0.68, 6: 0.64, 7: 0.60, 8: 0.57, 9: 0.53,
         10: 0.50, 11: 0.47, 12: 0.44,
     },
-    # Thar (2020+): cult off-roader, almost no depreciation
+    # ── Mahindra — strong resale for cult SUVs ─────────────────────────────
     "thar": {
         0: 1.00, 1: 0.95, 2: 0.90, 3: 0.86, 4: 0.82,
         5: 0.78, 6: 0.74, 7: 0.70, 8: 0.66, 9: 0.62,
         10: 0.58, 11: 0.54, 12: 0.50,
     },
+    "scorpio n": {
+        0: 1.00, 1: 0.90, 2: 0.83, 3: 0.77, 4: 0.72,
+        5: 0.67, 6: 0.63, 7: 0.59, 8: 0.55, 9: 0.52,
+        10: 0.48, 11: 0.45, 12: 0.42,
+    },
+    "xuv700": {
+        0: 1.00, 1: 0.90, 2: 0.83, 3: 0.77, 4: 0.72,
+        5: 0.67, 6: 0.63, 7: 0.59, 8: 0.55, 9: 0.51,
+        10: 0.48, 11: 0.44, 12: 0.41,
+    },
+    # ── Hyundai/Kia — average-to-good resale ───────────────────────────────
+    "creta": {
+        0: 1.00, 1: 0.88, 2: 0.80, 3: 0.73, 4: 0.67,
+        5: 0.62, 6: 0.57, 7: 0.53, 8: 0.49, 9: 0.46,
+        10: 0.42, 11: 0.39, 12: 0.37,
+    },
+    "seltos": {
+        0: 1.00, 1: 0.88, 2: 0.80, 3: 0.73, 4: 0.67,
+        5: 0.62, 6: 0.57, 7: 0.53, 8: 0.49, 9: 0.46,
+        10: 0.43, 11: 0.40, 12: 0.37,
+    },
+    "venue": {
+        0: 1.00, 1: 0.87, 2: 0.79, 3: 0.72, 4: 0.66,
+        5: 0.61, 6: 0.56, 7: 0.52, 8: 0.48, 9: 0.44,
+        10: 0.41, 11: 0.38, 12: 0.35,
+    },
+    # ── Maruti — very good resale due to parts availability ────────────────
+    "swift": {
+        0: 1.00, 1: 0.87, 2: 0.79, 3: 0.72, 4: 0.66,
+        5: 0.61, 6: 0.56, 7: 0.52, 8: 0.48, 9: 0.45,
+        10: 0.41, 11: 0.38, 12: 0.35,
+    },
+    "baleno": {
+        0: 1.00, 1: 0.87, 2: 0.79, 3: 0.72, 4: 0.66,
+        5: 0.61, 6: 0.56, 7: 0.52, 8: 0.48, 9: 0.44,
+        10: 0.41, 11: 0.38, 12: 0.35,
+    },
+    "brezza": {
+        0: 1.00, 1: 0.88, 2: 0.80, 3: 0.73, 4: 0.67,
+        5: 0.62, 6: 0.57, 7: 0.53, 8: 0.49, 9: 0.46,
+        10: 0.42, 11: 0.39, 12: 0.37,
+    },
+    "vitara brezza": {
+        0: 1.00, 1: 0.88, 2: 0.80, 3: 0.73, 4: 0.67,
+        5: 0.62, 6: 0.57, 7: 0.53, 8: 0.49, 9: 0.46,
+        10: 0.42, 11: 0.39, 12: 0.37,
+    },
+    # ── Tata — EV models hold value better; petrol models average ──────────
+    "nexon": {
+        0: 1.00, 1: 0.87, 2: 0.78, 3: 0.71, 4: 0.65,
+        5: 0.59, 6: 0.54, 7: 0.50, 8: 0.46, 9: 0.42,
+        10: 0.39, 11: 0.36, 12: 0.33,
+    },
+    "nexon ev": {
+        0: 1.00, 1: 0.85, 2: 0.74, 3: 0.66, 4: 0.59,
+        5: 0.53, 6: 0.48, 7: 0.44, 8: 0.40, 9: 0.37,
+        10: 0.34, 11: 0.31, 12: 0.28,
+    },
+    # ── Honda City — solid mid-size resale ────────────────────────────────
+    "city": {
+        0: 1.00, 1: 0.87, 2: 0.79, 3: 0.72, 4: 0.65,
+        5: 0.60, 6: 0.55, 7: 0.51, 8: 0.47, 9: 0.44,
+        10: 0.40, 11: 0.37, 12: 0.34,
+    },
+    # ── Fast depreciators ─────────────────────────────────────────────────
+    "polo": {
+        0: 1.00, 1: 0.84, 2: 0.74, 3: 0.66, 4: 0.60,
+        5: 0.54, 6: 0.49, 7: 0.45, 8: 0.41, 9: 0.37,
+        10: 0.34, 11: 0.31, 12: 0.29,
+    },
+    "duster": {
+        0: 1.00, 1: 0.83, 2: 0.72, 3: 0.64, 4: 0.58,
+        5: 0.52, 6: 0.47, 7: 0.43, 8: 0.39, 9: 0.36,
+        10: 0.33, 11: 0.30, 12: 0.28,
+    },
 }
+
+# ── Fuel-type depreciation modifier ─────────────────────────────────────────
+# Applied on top of age-based depreciation in the sanity clamp.
+_FUEL_DEPRECIATION_MODIFIER: dict[str, float] = {
+    "petrol":   1.00,   # baseline
+    "diesel":   0.96,   # better fuel economy, slightly lower running cost
+    "electric": 0.88,   # EV battery uncertainty in India, faster depreciation
+    "cng":      1.04,   # CNG stigma — lower resale demand
+    "hybrid":   0.94,   # good efficiency, limited used-market demand
+    "lpg":      1.06,   # niche, hard to resell
+}
+
+# ── Odometer non-linear penalty ──────────────────────────────────────────────
+# Returns a multiplier [0.65–1.00] based on total km driven.
+# Exponential penalty past 80k km — the model's linear feature misses this.
+def _odometer_penalty(km: float) -> float:
+    if km < 20_000: return 1.000   # near-new
+    if km < 40_000: return 0.985   # light use
+    if km < 60_000: return 0.970   # normal
+    if km < 80_000: return 0.950   # moderate wear
+    if km < 100_000: return 0.920  # heavy use threshold
+    if km < 130_000: return 0.875  # high km
+    if km < 160_000: return 0.820  # very high km
+    return 0.750                    # >1.6L km — steep discount
 
 # ── Condition multipliers (Improvement #8 — meaningful impact)
 # excellent: +5%, good: 0%, average: -8%, poor: -18%
@@ -348,14 +451,16 @@ def apply_market_sanity_clamp(
     raw_value: float,
     city: str = "",
     pre_clamp_confidence: float = 70.0,
+    fuel_type: str = "petrol",
+    odometer_km: float = 0.0,
 ) -> tuple[float, bool, str]:
     """
-    Clamp ML output to realistic age-adjusted, city-adjusted market bands.
+    Clamp ML output to realistic age-adjusted, city-adjusted, fuel-adjusted,
+    and odometer-penalised market bands.
 
     Improvement #9 — Adaptive tolerance:
       High-confidence predictions (conf ≥ 80) → tighter clamp (±8–12%)
       Low-confidence predictions  (conf < 50) → wider clamp  (±18–25%)
-    This prevents over-correcting a good prediction on a well-known model.
 
     Returns (clamped_value, was_clamped, note).
     """
@@ -377,17 +482,23 @@ def apply_market_sanity_clamp(
         if model_dep
         else _AGE_DEPRECIATION.get(min(vehicle_age, 12), 0.30)
     )
+
+    # Fuel-type modifier (Issue 3 fix)
+    fuel_key   = str(fuel_type or "petrol").lower().strip()
+    fuel_mod   = _FUEL_DEPRECIATION_MODIFIER.get(fuel_key, 1.00)
+
+    # Odometer non-linear penalty (Issue 4 fix)
+    odo_penalty = _odometer_penalty(float(odometer_km or 0))
+
     city_adj   = _CITY_DEMAND.get(city.lower().strip(), 0.0)
     upper_adj  = 1.0 + (city_adj * 0.5)   # city premium increases upper band
 
-    lower = band[0] * age_factor
-    upper = band[1] * age_factor * upper_adj
+    lower = band[0] * age_factor * fuel_mod * odo_penalty
+    upper = band[1] * age_factor * fuel_mod * odo_penalty * upper_adj
 
     # Confidence-scaled tolerance
-    # conf=100 → base tolerance, conf=50 → +50% wider tolerance
     base_lo, base_hi = _CLAMP_BASE_TOLERANCE.get(segment, (0.88, 1.12))
     conf_factor = max(0.0, (100.0 - pre_clamp_confidence) / 100.0)
-    tolerance_expansion = 1.0 + conf_factor * 0.5   # max 1.5× at conf=0
     lo_ratio = base_lo - (1.0 - base_lo) * conf_factor * 0.5
     hi_ratio = base_hi + (base_hi - 1.0) * conf_factor * 0.5
 
@@ -1170,7 +1281,9 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # Pass a rough confidence estimate (70) so the clamp band is reasonable
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
         model_name, segment, age, float(market_value), city,
-        pre_clamp_confidence=70.0
+        pre_clamp_confidence=70.0,
+        fuel_type=fuel,
+        odometer_km=km,
     )
     market_value = clamped_value
 
@@ -1193,7 +1306,9 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # Re-apply sanity clamp with actual confidence
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
         model_name, segment, age, float(market_value), city,
-        pre_clamp_confidence=float(confidence_score)
+        pre_clamp_confidence=float(confidence_score),
+        fuel_type=fuel,
+        odometer_km=km,
     )
     market_value = clamped_value
 

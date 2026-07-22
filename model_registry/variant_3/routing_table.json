@@ -1,0 +1,36 @@
+{
+    "0_6_lakh": {
+        "active": false,
+        "fallback": "global",
+        "price_range": [
+            0,
+            600000
+        ],
+        "row_count": 11941,
+        "mape": 8.39
+    },
+    "6_12_lakh": {
+        "active": true,
+        "model_file": "segment_6_12_lakh.cbm",
+        "levels_file": "segment_6_12_lakh_levels.pkl",
+        "price_range": [
+            600000,
+            1200000
+        ],
+        "row_count": 6525,
+        "mape": 5.77,
+        "r2": 0.8472
+    },
+    "12_plus_lakh": {
+        "active": true,
+        "model_file": "segment_12_plus_lakh.cbm",
+        "levels_file": "segment_12_plus_lakh_levels.pkl",
+        "price_range": [
+            1200000,
+            20000000
+        ],
+        "row_count": 1993,
+        "mape": 5.32,
+        "r2": 0.8831
+    }
+}

@@ -114,21 +114,25 @@ CONDITION_MULTIPLIERS = {
     "poor":      0.82,
 }
 BRAND_CATALOG   = {}
+# ── Brand → segment_class — must match training TIER_TO_SEGMENT exactly ────
+# Training: {0: "budget", 1: "economy", 2: "mid", 3: "premium", 4: "luxury"}
 BRAND_SEGMENT_MAP: dict = {
-    # Economy
-    "maruti": "economy", "maruti suzuki": "economy", "datsun": "economy",
-    "bajaj": "economy", "chevrolet": "economy", "fiat": "economy",
+    # Tier 0 → budget
+    "datsun": "budget",
+    # Tier 1 → economy
+    "maruti suzuki": "economy", "maruti": "economy",
+    "renault": "economy", "tata": "economy", "chevrolet": "economy",
+    "fiat": "economy", "bajaj": "economy",
     "opel": "economy", "premier": "economy", "force": "economy",
-    "ashok leyland": "economy", "ambassador": "economy",
-    "hyundai": "economy", "honda": "economy", "tata": "economy",
-    "renault": "economy", "nissan": "economy", "ford": "economy",
-    "mitsubishi": "economy", "isuzu": "economy", "citroen": "economy", "dc": "economy",
-    # Premium
-    "volkswagen": "premium", "skoda": "premium", "toyota": "premium",
-    "mg": "premium", "jeep": "premium", "kia": "premium",
+    "ashok leyland": "economy", "ambassador": "economy", "dc": "economy",
+    # Tier 2 → mid  ← this was the biggest bug (Hyundai/Honda/Kia sent as economy)
+    "hyundai": "mid", "honda": "mid", "kia": "mid", "ford": "mid",
+    "volkswagen": "mid", "skoda": "mid", "nissan": "mid",
+    "mitsubishi": "mid", "mahindra": "mid", "citroen": "mid", "isuzu": "mid",
+    # Tier 3 → premium
+    "toyota": "premium", "mg": "premium", "jeep": "premium",
     "mini": "premium", "volvo": "premium", "lexus": "premium",
-    "mahindra": "premium",
-    # Luxury
+    # Tier 4 → luxury
     "bmw": "luxury", "mercedes-benz": "luxury", "audi": "luxury",
     "jaguar": "luxury", "land rover": "luxury", "porsche": "luxury",
     "maserati": "luxury", "aston martin": "luxury", "bentley": "luxury",
@@ -292,22 +296,82 @@ def condition_to_score(condition: str) -> int:
     return {"excellent": 90, "good": 75, "average": 58, "poor": 38}.get(clean_text(condition), 65)
 
 
+
+# ── Lookup tables derived from training dataset (processed_widoutown-2.csv) ───
+# These allow build_features() to supply the 7 features that were computed
+# during data-cleaning but are unavailable at inference time.
+
+# city → (locality_tier, locality_density_norm, representative_rto, locality)
+_CITY_FEATURE_MAP: dict[str, tuple[int, float, str, str]] = {
+    "bangalore":  (2, 1.000, "ka-03", "bellahalli"),   # Issue 8 fix: city-level default = tier-2 (mid)
+    "bengaluru":  (2, 1.000, "ka-03", "bellahalli"),   # bellahalli locality is tier-1, but city default is tier-2
+    "mysuru":     (2, 0.071, "ka-09", "mysuru"),
+    "mysore":     (2, 0.071, "ka-09", "mysuru"),
+    "mumbai":     (1, 0.950, "mh-02", "andheri"),
+    "pune":       (1, 0.720, "mh-12", "kothrud"),
+    "delhi":      (1, 0.980, "dl-05", "lajpat nagar"),
+    "new delhi":  (1, 0.980, "dl-05", "lajpat nagar"),
+    "ncr":        (1, 0.900, "hr-26", "gurgaon"),
+    "gurgaon":    (1, 0.750, "hr-26", "gurgaon"),
+    "noida":      (1, 0.730, "up-16", "noida sector 18"),
+    "hyderabad":  (1, 0.830, "ts-09", "banjara hills"),
+    "chennai":    (1, 0.800, "tn-09", "anna nagar"),
+    "kolkata":    (1, 0.780, "wb-02", "salt lake"),
+    "ahmedabad":  (1, 0.700, "gj-01", "sg highway"),
+    "surat":      (2, 0.420, "gj-05", "surat"),
+    "jaipur":     (2, 0.380, "rj-14", "jaipur"),
+    "lucknow":    (2, 0.320, "up-32", "lucknow"),
+    "chandigarh": (2, 0.410, "ch-01", "chandigarh"),
+    "kochi":      (2, 0.360, "kl-07", "edapally"),
+    "coimbatore": (2, 0.290, "tn-37", "coimbatore"),
+    "nagpur":     (2, 0.280, "mh-31", "nagpur"),
+    "bhubaneswar": (3, 0.190, "od-02", "bhubaneswar"),
+    "patna":      (3, 0.170, "br-01", "patna"),
+    "indore":     (2, 0.250, "mp-09", "indore"),
+    "bhopal":     (2, 0.220, "mp-04", "bhopal"),
+    "visakhapatnam": (2, 0.230, "ap-31", "visakhapatnam"),
+    "vadodara":   (2, 0.260, "gj-06", "vadodara"),
+    "agra":       (3, 0.180, "up-80", "agra"),
+    "varanasi":   (3, 0.160, "up-65", "varanasi"),
+}
+
+# Brand → mean popularity_score_log from training data
+_BRAND_POPULARITY_LOG: dict[str, float] = {
+    "renault":       6.28, "hyundai":      6.13, "honda":        6.06,
+    "maruti suzuki": 5.89, "maruti":       5.89, "kia":          5.85,
+    "ford":          5.64, "volkswagen":   5.54, "tata":         5.49,
+    "jeep":          5.31, "mahindra":     5.08, "skoda":        4.76,
+    "mg":            4.67, "nissan":       4.63, "datsun":       4.41,
+    "toyota":        3.86, "chevrolet":    3.62, "fiat":         3.46,
+    "bmw":           3.45, "audi":         3.43, "jaguar":       2.64,
+    "mitsubishi":    2.56, "citroen":      2.53, "bajaj":        2.40,
+    "volvo":         2.34, "mercedes-benz": 2.32, "land rover":  1.99,
+    "lexus":         1.79, "mini":         1.78,
+}
+
+# km_per_year → usage_category_num bucket (0=very_low, 1=low, 2=moderate, 3=high)
+def _usage_category_num(km_per_year: float) -> float:
+    if km_per_year < 8_000:  return 0.0
+    if km_per_year < 15_000: return 1.0
+    if km_per_year < 25_000: return 2.0
+    return 3.0
+
+
 def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
     km          = max(0, float(vehicle.odometer_reading or 0))
     owner       = max(1, int(vehicle.owner_count or 1))
-    km_per_year = min(km / max(vehicle_age, 1), 100_000)
+    # Issue 6 fix: use 0.5 floor so a 6-month-old car gets ~2x correct km/yr
+    km_per_year = min(km / max(vehicle_age, 0.5), 100_000)
 
-    ownership_trust_score = (
-        (1 / owner) * 0.5
-        + (1 - min(vehicle_age / 35, 1.0)) * 0.3
-        + (1 - min(km / 600_000, 1.0)) * 0.2
-    )
-    vehicle_health_score = (
-        (1 - min(km / 600_000, 1.0)) * 0.5
-        + (1 - min(vehicle_age / 35, 1.0)) * 0.3
-        + (1 / owner) * 0.2
-    )
+    # Issue 1 fix: match training scale {1:100, 2:75, 3:50, 4:25, 5+:10}
+    _TRUST_MAP = {1: 100, 2: 75, 3: 50, 4: 25, 5: 10, 6: 10}
+    ownership_trust_score = float(_TRUST_MAP.get(owner, 10))
+
+    # Issue 2 fix: match training formula — score 0-100 not 0-1
+    vehicle_health_score = float(max(0.0, min(100.0,
+        100.0 - (vehicle_age * 3) - (km / 10_000) - ((owner - 1) * 8)
+    )))
 
     seg_class    = get_segment_class(vehicle.brand)
     color        = clean_text(getattr(vehicle, 'color', None) or 'unknown')
@@ -324,31 +388,51 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     brand_age_penalty = float(brand_tier) * float(vehicle_age)
     brand_km_penalty  = float(brand_tier) * (km / 10_000)
 
+    # ── 7 previously missing features — now properly estimated ──────────────
+    city_clean = clean_text(vehicle.city)
+    city_info  = _CITY_FEATURE_MAP.get(city_clean)
+
+    if city_info:
+        locality_tier_val, density_norm, rto_val, locality_val = city_info
+    else:
+        # Unknown city → Tier-2 defaults (conservative middle estimate)
+        locality_tier_val, density_norm, rto_val, locality_val = 2, 0.20, "unknown", city_clean
+
+    usage_cat_num   = _usage_category_num(km_per_year)
+    pop_log         = _BRAND_POPULARITY_LOG.get(brand_clean, 3.50)
+
     row = {
-        # Categorical
+        # Categorical — core model features
         "brand":         brand_clean,
         "model":         normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
         "variant":       clean_text(vehicle.variant or "unknown"),
-        "city":          clean_text(vehicle.city),
-        "color":         color,
+        "city":          city_clean,
+        "locality":      locality_val,               # ← was missing
+        "rto":           rto_val,                    # ← was missing
         "segment_class": seg_class,
         "fuel_type":     clean_text(vehicle.fuel_type),
         "transmission":  clean_text(vehicle.transmission),
-        # Also expose legacy fields so old model variants still work
-        "rto_state":     "unknown",
-        # Numeric
+        "seller_type":   "dealer",                   # ← was missing (dealer is majority class in training)
+        "color":         color,
+        # Legacy compat
+        "rto_state":     rto_val,
+        # Numeric — core model features
         "vehicle_age":           float(vehicle_age),
         "odometer_reading":      float(km),
         "km_per_year":           float(km_per_year),
         "owner_count":           float(owner),
-        "ownership_trust_score": float(ownership_trust_score),
-        "vehicle_health_score":  float(vehicle_health_score),
         "brand_tier":            float(brand_tier),
         "age_km_interaction":    float(age_km_interaction),
+        "ownership_trust_score": float(ownership_trust_score),
+        "vehicle_health_score":  float(vehicle_health_score),
         "is_high_mileage":       float(is_high_mileage),
+        "locality_tier":         float(locality_tier_val),       # ← was missing
+        "usage_category_num":    float(usage_cat_num),           # ← was missing
+        "locality_density_norm": float(density_norm),            # ← was missing
+        "popularity_score_log":  float(pop_log),                 # ← was missing
+        # Additional
         "brand_age_penalty":     brand_age_penalty,
         "brand_km_penalty":      brand_km_penalty,
-        # Binary
         "inspected":      float(inspected),
         "high_mileage":   float(high_mileage),
         "luxury_brand":   float(luxury_brand),
@@ -459,6 +543,10 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
 def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> tuple[int, str]:
     """
     Returns (market_value_inr: int, routing_note: str).
+
+    Segment model routing (Issue 4 fix):
+    Training saves price-band models keyed as '6_12_lakh', '12_plus_lakh'.
+    We pick the right one based on a rough price estimate, fall back to global.
     """
     var_id = model_variant or vehicle.model_variant
     pred_obj, seg_models, meta, _, active_id = resolve_variant_data(var_id)
@@ -466,18 +554,44 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
-    artifact  = seg_models.get(seg_class)
 
-    if seg_class == "economy" and artifact:
+    # Choose price-band segment model by brand segment as proxy
+    # Routing: budget/economy/mid -> 0_6_lakh, premium -> 6_12_lakh, luxury -> 12_plus_lakh
+    _SEG_TO_BAND = {
+        "budget":  "0_6_lakh",
+        "economy": "0_6_lakh",
+        "mid":     "6_12_lakh",
+        "premium": "6_12_lakh",
+        "luxury":  "12_plus_lakh",
+    }
+    price_band = _SEG_TO_BAND.get(seg_class, "0_6_lakh")
+    artifact   = seg_models.get(price_band)
+
+    if artifact and isinstance(artifact, dict) and "model" in artifact:
         try:
-            log_price    = _run_class_model(features, artifact)
-            routing_note = f"economy segment model used [{active_id}]"
-        except Exception:
+            # Segment model is a raw CatBoost model, not an ensemble
+            from catboost import Pool
+            seg_m = artifact["model"]
+            cat_levels = artifact.get("cat_levels", {})
+            cb_f = features.copy()
+            cat_cols = [c for c in CAT_FEATURES if c in cb_f.columns]
+            # Normalise unseen categories
+            for col in cat_cols:
+                known = set(cat_levels.get(col, ["unknown"]))
+                cb_f[col] = cb_f[col].astype(str).apply(lambda x: x if x in known else "unknown")
+            # Align columns to model's feature names
+            for col in seg_m.feature_names_:
+                if col not in cb_f.columns:
+                    cb_f[col] = "unknown" if col in cat_cols else 0.0
+            log_price    = float(seg_m.predict(cb_f[seg_m.feature_names_])[0])
+            routing_note = f"segment model '{price_band}' used [{active_id}]"
+        except Exception as e:
+            log.warning("Segment model failed (%s), falling back to global: %s", price_band, e)
             log_price    = pred_obj.predict_log_price(features)
-            routing_note = f"economy segment model error — fell back to global [{active_id}]"
+            routing_note = f"segment model error — global fallback [{active_id}]"
     else:
         log_price    = pred_obj.predict_log_price(features)
-        routing_note = f"global model used ({seg_class} segment routed) [{active_id}]"
+        routing_note = f"global model ({seg_class}) [{active_id}]"
 
     market_value = float(np.expm1(log_price))
     if not math.isfinite(market_value):
@@ -497,9 +611,12 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
     adjusted = max(50_000, min(base_value * mult, 20_000_000))
     adjusted = int(round(adjusted / 500) * 500)
 
+    # Issue 5 fix: pass fuel_type and odometer_km so the new depreciation modifiers apply
     clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
         resolved_model, seg_class, age, float(adjusted),
         city=str(vehicle.city or ""),
+        fuel_type=str(vehicle.fuel_type or "petrol"),
+        odometer_km=float(vehicle.odometer_reading or 0),
     )
     final_value = int(round(clamped_value / 500) * 500)
 

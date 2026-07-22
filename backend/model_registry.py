@@ -134,16 +134,40 @@ def _load_variant_data(variant_id: str) -> dict:
 
     predictor = EnsemblePredictor.from_artifact_dir(path)
 
+    # Issue 4 fix: load segment models from routing_table.json (actual filenames)
+    # Training saves: segment_6_12_lakh.cbm, segment_12_plus_lakh.cbm etc.
+    # Old code looked for: ensemble_economy.pkl — these never exist.
     segment_models: dict = {}
-    for seg in ["economy", "premium", "luxury"]:
-        pkl = path / f"ensemble_{seg}.pkl"
-        if pkl.exists():
-            segment_models[seg] = joblib.load(pkl)
-    for old, new in [("budget", "economy"), ("mid", "economy")]:
-        if old not in segment_models:
-            pkl = path / f"ensemble_{old}.pkl"
-            if pkl.exists() and new not in segment_models:
-                segment_models[new] = joblib.load(pkl)
+    routing_path = path / "routing_table.json"
+    if routing_path.exists():
+        from catboost import CatBoostRegressor
+        with open(routing_path, "r", encoding="utf-8") as f:
+            routing = json.load(f)
+        for seg_name, info in routing.items():
+            if info.get("active") and info.get("model_file"):
+                model_file  = path / info["model_file"]
+                levels_file = path / info.get("levels_file", "__nonexistent__")
+                if model_file.exists():
+                    try:
+                        m = CatBoostRegressor()
+                        m.load_model(str(model_file))
+                        levels = joblib.load(levels_file) if levels_file.exists() else {}
+                        segment_models[seg_name] = {
+                            "model":      m,
+                            "cat_levels": levels,
+                            "price_range": info.get("price_range", [0, 20_000_000]),
+                            "mape":        info.get("mape"),
+                        }
+                        log.info("Loaded segment model '%s' (MAPE %.2f%%)",
+                                 seg_name, info.get("mape", 0))
+                    except Exception as e:
+                        log.warning("Failed to load segment model '%s': %s", seg_name, e)
+    else:
+        # Backward-compat: try old pkl names
+        for seg in ["economy", "premium", "luxury"]:
+            pkl = path / f"ensemble_{seg}.pkl"
+            if pkl.exists():
+                segment_models[seg] = joblib.load(pkl)
 
     with open(path / "model_metadata.json", "r", encoding="utf-8") as f:
         metadata = json.load(f)

@@ -1,17 +1,77 @@
 {
-  "default": "variant_2",
+  "default": "variant_5",
   "variants": {
     "variant_2": {
-      "dataset": "processed_widoutown-2.csv",
-      "trained_at": "2026-07-21T17:18:08.587397",
+      "dataset": "processed_widown-1.csv",
+      "trained_at": "2026-07-22T17:02:10.608526",
       "metrics": {
-        "mae": 19005.81,
-        "rmse": 51390.65,
-        "r2": 0.9918,
-        "mape": 3.09
+        "mae": 37988.79,
+        "rmse": 75207.06,
+        "r2": 0.976,
+        "mape": 6.28
       },
       "artifact_path": "model_registry/variant_2",
+      "status": "archived"
+    },
+    "variant_3": {
+      "dataset": "processed_widoutown-2.csv",
+      "trained_at": "2026-07-22T17:13:26.037222",
+      "metrics": {
+        "mae": 38623.85,
+        "rmse": 76167.21,
+        "r2": 0.9756,
+        "mape": 6.37
+      },
+      "artifact_path": "model_registry/variant_3",
+      "status": "archived"
+    },
+    "variant_4": {
+      "dataset": "processed_pincode_with_owner-3.csv",
+      "trained_at": "2026-07-22T17:24:47.412156",
+      "metrics": {
+        "mae": 38933.29,
+        "rmse": 76869.04,
+        "r2": 0.9756,
+        "mape": 6.36
+      },
+      "artifact_path": "model_registry/variant_4",
+      "status": "archived"
+    },
+    "variant_5": {
+      "dataset": "processed_pincode_without_owner-4.csv",
+      "trained_at": "2026-07-22T17:36:31.289457",
+      "metrics": {
+        "mae": 26572.92,
+        "rmse": 65613.84,
+        "r2": 0.9889,
+        "mape": 4.25
+      },
+      "artifact_path": "model_registry/variant_5",
       "status": "active"
+    },
+    "variant_6": {
+      "dataset": "processed_pincode_with_owner1_filled-5.csv",
+      "trained_at": "2026-07-22T17:47:49.437140",
+      "metrics": {
+        "mae": 38933.29,
+        "rmse": 76869.04,
+        "r2": 0.9756,
+        "mape": 6.36
+      },
+      "artifact_path": "model_registry/variant_6",
+      "status": "archived"
+    },
+    "variant_7": {
+      "dataset": "processed_widown1-6.csv",
+      "trained_at": "2026-07-22T17:58:54.393242",
+      "metrics": {
+        "mae": 37988.79,
+        "rmse": 75207.06,
+        "r2": 0.976,
+        "mape": 6.28
+      },
+      "artifact_path": "model_registry/variant_7",
+      "status": "archived"
     }
   }
 }

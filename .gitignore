@@ -1,143 +1,27 @@
-# ── Node / Frontend ───────────────────────────────────────────────────────────
+# Temporary .gitignore to allow committing datasets and models
 node_modules/
-
-# Build output (generated; run `npm run build` to reproduce)
 dist/
 dist-ssr/
 build/
 *.local
-
-# ── Python / Backend ──────────────────────────────────────────────────────────
 venv/
 .venv/
 env/
 ENV/
-
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-*.egg-info/
-.eggs/
-pip-wheel-metadata/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-htmlcov/
-.coverage
-.coverage.*
-
-# ── ML runtime / training cache ───────────────────────────────────────────────
 catboost_info/
-mlruns/
-.wandb/
-
-# ── Large training datasets (GitHub 100 MB file limit) ────────────────────────
-# Raw and cleaned CSVs are large; keep only brand_stats.csv (small reference file)
-ml_training/data/*.csv
-ml_training/data/*.zip
-# Keep brand_stats.csv (tiny) and any .gitkeep sentinels
-!ml_training/data/brand_stats.csv
-!ml_training/data/.gitkeep
-
-# ── Large model artifacts (GitHub 100 MB limit) ───────────────────────────────
-# Segment ensemble pickles — all 4 brand classes (~43–76 MB each)
-model_artifacts/ensemble_*.pkl
-# Global CatBoost model (~0.8 MB — within limit but binary, retrain-able)
-model_artifacts/vehicle_price_catboost.cbm
-# Global XGBoost model (~2.2 MB)
-model_artifacts/vehicle_price_xgboost.json
-# Global LightGBM model (~2.5 MB — kept; remove if repo size is a concern)
-# model_artifacts/vehicle_price_lightgbm.txt
-
-# training_report.json is an exact duplicate of model_metadata.json — skip it
-model_artifacts/training_report.json
-
-# Comparison training artifact directories (large pkl files — retrain-able)
-model_artifacts_cell7/
-model_artifacts_owner_assumed/
-
-# Small files kept for documentation & reproducibility:
-#   model_artifacts/model_metadata.json        (~110 KB)
-#   model_artifacts/cleaned_training_sample.csv (~56 KB)
-
-# ── Mobile (Flutter) ──────────────────────────────────────────────────────────
-mobile/.dart_tool/
-mobile/.idea/
-mobile/.flutter-plugins-dependencies
-mobile/.metadata
-mobile/build/
-mobile/assets/flutter_assets/
-# Keep mobile/assets/web/ (the bundled React app for WebView)
-
-# ── Environment & secrets ─────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
-*.pem
-credentials.json
-secrets.json
-
-# ── Logs ──────────────────────────────────────────────────────────────────────
-logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# ── OS & editor ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-Desktop.ini
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# ── IDE / local tooling ───────────────────────────────────────────────────────
 .gemini/
 .cursor/
 .agents/
 
-# ── Jupyter Notebooks & checkpoints ───────────────────────────────────────────
-.ipynb_checkpoints/
-*.ipynb
-
-# ── Temp / scratch files ──────────────────────────────────────────────────────
-ml_training/scratch_diff.txt
-
-# ── CatBoost training logs (auto-generated, not needed in source control) ─────
-catboost_info/
-ml_training/catboost_info/
-
-# ── Old / experimental model artifact folders (not used by backend) ────────────
-model_artifacts_cell7/
-model_artifacts_owner_assumed/
-model_artifacts_split_compare/
-
-# ── One-off exploration / data scripts ────────────────────────────────────────
-analyze_raw.py
-split_dataset.py
-ml_training/find_dropped.py
-
-# ── Experimental / iterative clean & train scripts (not canonical) ─────────────
-ml_training/clean_data.py
-ml_training/clean_data-1.py
-ml_training/clean-3.py
-ml_training/clean-4.py
-ml_training/clean-5.py
-ml_training/clean-6.py
-ml_training/train-1.py
-ml_training/train-1.0.py
-ml_training/train-3.py
-ml_training/train-4.py
-ml_training/train-5.py
-ml_training/train-6.py
 
