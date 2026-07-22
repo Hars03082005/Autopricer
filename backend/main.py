@@ -11,6 +11,9 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import json
 import math
 import re
+import gc
+import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -95,23 +98,23 @@ def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePred
 
     return pred, seg_mods, meta, cat_data, active_id or "default"
 
-predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
-
-FEATURES           = METADATA.get("features", [])
-CAT_FEATURES       = METADATA.get("categorical_features", [])
-CURRENT_YEAR       = METADATA.get("current_year_used_for_age", datetime.now().year)
+# ── Globals (populated during lifespan startup, NOT at import time) ──────────
+predictor       = None
+SEGMENT_MODELS  = {}
+METADATA        = {}
+DATASET_CATALOG = {}
+ACTIVE_VARIANT_ID = "variant_2"
+FEATURES        = []
+CAT_FEATURES    = []
+CURRENT_YEAR    = datetime.now().year
 CONDITION_MULTIPLIERS = {
     "excellent": 1.05,
     "good":      1.00,
     "average":   0.92,
     "poor":      0.82,
 }
-
-BRAND_CATALOG = build_brand_catalog()
-
-
-# Brand → segment map (loaded from metadata, fallback inline)
-BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
+BRAND_CATALOG   = {}
+BRAND_SEGMENT_MAP: dict = {
     # Economy
     "maruti": "economy", "maruti suzuki": "economy", "datsun": "economy",
     "bajaj": "economy", "chevrolet": "economy", "fiat": "economy",
@@ -125,17 +128,36 @@ BRAND_SEGMENT_MAP: dict = METADATA.get("brand_segment_map", {
     "mg": "premium", "jeep": "premium", "kia": "premium",
     "mini": "premium", "volvo": "premium", "lexus": "premium",
     "mahindra": "premium",
-
     # Luxury
     "bmw": "luxury", "mercedes-benz": "luxury", "audi": "luxury",
     "jaguar": "luxury", "land rover": "luxury", "porsche": "luxury",
     "maserati": "luxury", "aston martin": "luxury", "bentley": "luxury",
     "rolls-royce": "luxury", "ferrari": "luxury", "lamborghini": "luxury",
     "hummer": "luxury",
-})
+}
+
+log = logging.getLogger("priceref")
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    """Load ML models AFTER the port is bound (avoids OOM crash before port open)."""
+    global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
+    global FEATURES, CAT_FEATURES, CURRENT_YEAR, BRAND_CATALOG, BRAND_SEGMENT_MAP
+    log.info("==> Loading ML models…")
+    gc.collect()
+    predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
+    gc.collect()
+    FEATURES    = METADATA.get("features", [])
+    CAT_FEATURES = METADATA.get("categorical_features", [])
+    CURRENT_YEAR = METADATA.get("current_year_used_for_age", datetime.now().year)
+    BRAND_CATALOG = build_brand_catalog()
+    BRAND_SEGMENT_MAP = METADATA.get("brand_segment_map", BRAND_SEGMENT_MAP)
+    log.info("==> ML models loaded. Active variant: %s", ACTIVE_VARIANT_ID)
+    yield  # Server is running
+    log.info("==> Shutting down.")
 
 # FastAPI app
-app = FastAPI(title="PriceRef ML API", version="1.0.0")
+app = FastAPI(title="PriceRef ML API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

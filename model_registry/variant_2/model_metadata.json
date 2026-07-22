@@ -56,11 +56,11 @@
     "MAPE": 3.09
   },
   "ensemble": {
-    "enabled": true,
+    "enabled": false,
     "weights": {
-      "catboost": 2.7755575615628914e-17,
-      "lightgbm": 0.44529441700081696,
-      "xgboost": 0.5547055829991832
+      "catboost": 1.0,
+      "lightgbm": 0.0,
+      "xgboost": 0.0
     },
     "category_levels": {
       "brand": [
