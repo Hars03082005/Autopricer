@@ -214,7 +214,7 @@ create policy "own evals insert"   on evaluations for insert with check (auth.ui
 
 ---
 
-## 🔬 Optional: Retraining Model Variant 2 (Developer Only)
+## 🔬 Optional: Retraining Model Variant 2 
 
 > **Note:** This section is completely optional. The app runs immediately without running these scripts.
 
@@ -229,8 +229,3 @@ python ml_training/train-1.py
 ```
 
 *Note: Training outputs will update `model_registry/variant_2`.*
-
----
-
-## 📄 License
-MIT License. Built for Autopricer Used Vehicle Valuation Systems.
