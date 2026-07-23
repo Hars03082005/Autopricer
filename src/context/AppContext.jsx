@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
+import { supabase } from '../lib/supabaseClient.js';
 
 const DEFAULT_INPUTS = {
   brand: 'Honda', model: 'City', variant: '', year: '2021',
@@ -33,7 +34,7 @@ const DEFAULT_INSPECTION = {
   },
 };
 
-const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1';
+const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1'; // kept for demo-user fallback
 const AppContext = createContext(null);
 
 function toNumber(value, fallback = 0) {
@@ -43,7 +44,7 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function loadHistory() {
+function loadLocalHistory() {
   try {
     const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
     return Array.isArray(parsed) ? parsed : [];
@@ -102,7 +103,86 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
   };
 }
 
+/** Convert camelCase record → snake_case DB row for Supabase insert */
+function recordToDbRow(rec, userId) {
+  return {
+    id:                   rec.id,
+    user_id:              userId,
+    created_at:           rec.createdAt,
+    source:               rec.source,
+    brand:                rec.brand,
+    model:                rec.model,
+    year:                 rec.year,
+    fuel:                 rec.fuel,
+    transmission:         rec.transmission,
+    city:                 rec.city,
+    odometer:             rec.odometer,
+    fuel_efficiency:      rec.fuelEfficiency,
+    owner_count:          rec.ownerCount,
+    engine_cc:            rec.engineCc,
+    condition:            rec.condition,
+    seller_asking_price:  rec.sellerAskingPrice,
+    market_value:         rec.marketValue,
+    buy_price:            rec.buyPrice,
+    sell_price:           rec.sellPrice,
+    expected_profit:      rec.expectedProfit,
+    margin_pct:           rec.marginPct,
+    risk_score:           rec.riskScore,
+    confidence_score:     rec.confidenceScore,
+    deal_quality_score:   rec.dealQualityScore,
+    action:               rec.action,
+    urgency_score:        rec.urgencyScore,
+    is_ml_powered:        rec.isMLPowered,
+    positive_factors:     rec.positiveFactors,
+    negative_factors:     rec.negativeFactors,
+  };
+}
+
+/** Convert snake_case DB row → camelCase record for the UI */
+function dbRowToRecord(row) {
+  return {
+    id:                   row.id,
+    createdAt:            row.created_at,
+    source:               row.source,
+    brand:                row.brand,
+    model:                row.model,
+    year:                 row.year,
+    fuel:                 row.fuel,
+    transmission:         row.transmission,
+    city:                 row.city,
+    odometer:             row.odometer,
+    kmDriven:             row.odometer,
+    mileage:              row.odometer,
+    fuelEfficiency:       row.fuel_efficiency,
+    ownerCount:           row.owner_count,
+    engineCc:             row.engine_cc,
+    condition:            row.condition,
+    conditionScore:       75,
+    sellerAskingPrice:    row.seller_asking_price,
+    marketValue:          row.market_value,
+    predictedPrice:       row.market_value,
+    buyPrice:             row.buy_price,
+    recommendedBuyPrice:  row.buy_price,
+    sellPrice:            row.sell_price,
+    recommendedSellPrice: row.sell_price,
+    expectedProfit:       row.expected_profit,
+    marginPct:            row.margin_pct,
+    riskScore:            row.risk_score,
+    confidenceScore:      row.confidence_score,
+    dealQualityScore:     row.deal_quality_score,
+    dealQuality:          row.deal_quality_score,
+    action:               row.action,
+    urgencyScore:         row.urgency_score,
+    isMLPowered:          row.is_ml_powered,
+    positiveFactors:      row.positive_factors || [],
+    negativeFactors:      row.negative_factors || [],
+    modelName:            'CatBoostRegressor',
+    valuationSource:      'CatBoost ML Backend',
+  };
+}
+
 export function AppProvider({ children }) {
+
   const { currentUser } = useAuth();
   const [activeScreen, setActiveScreen] = useState('home');
   const [role] = useState(currentUser?.role || 'Dealer');
@@ -112,13 +192,38 @@ export function AppProvider({ children }) {
   const [enhancedResult, setEnhancedResult] = useState(null);
   const [enhancedInspection, setEnhancedInspection] = useState(DEFAULT_INSPECTION);
   const [reverseResult, setReverseResult] = useState(null);
-  const [evaluations, setEvaluations] = useState(loadHistory);
+  const [evaluations, setEvaluations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dashFilters, setDashFilters] = useState({ brand: 'All', city: 'All', priceRange: 'All' });
 
+  // Load evaluations from Supabase (or localStorage for demo user)
   useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
-  }, [evaluations]);
+    if (!currentUser) { setEvaluations([]); return; }
+
+    if (currentUser.id === 'demo') {
+      setEvaluations(loadLocalHistory());
+      return;
+    }
+
+    supabase
+      .from('evaluations')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(500)
+      .then(({ data, error }) => {
+        if (error) { console.error('[PriceRef] Failed to load evaluations:', error.message); return; }
+        // Map snake_case DB columns back to camelCase for the UI
+        setEvaluations((data || []).map(dbRowToRecord));
+      });
+  }, [currentUser]);
+
+  // Persist demo-user evaluations to localStorage
+  useEffect(() => {
+    if (currentUser?.id === 'demo') {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
+    }
+  }, [evaluations, currentUser]);
 
   const updateInput = useCallback((field, value) => {
     setInputs(prev => {
@@ -146,16 +251,33 @@ export function AppProvider({ children }) {
     }));
   }, []);
 
-  const addEvaluation = useCallback((vehicleInputs, result, source = 'Single Vehicle') => {
+  const addEvaluation = useCallback(async (vehicleInputs, result, source = 'Single Vehicle') => {
     const record = recordFromResult(vehicleInputs, result, source);
     setEvaluations(prev => [record, ...prev].slice(0, 500));
-    return record;
-  }, []);
 
-  const clearEvaluations = useCallback(() => {
+    // Persist to Supabase (skip for demo user)
+    if (currentUser && currentUser.id !== 'demo') {
+      const { error } = await supabase.from('evaluations').insert(recordToDbRow(record, currentUser.id));
+      if (error) console.error('[PriceRef] Failed to save evaluation:', error.message);
+    }
+
+    return record;
+  }, [currentUser]);
+
+  const clearEvaluations = useCallback(async () => {
     setEvaluations([]);
-    localStorage.removeItem(HISTORY_KEY);
-  }, []);
+    if (currentUser?.id === 'demo') {
+      localStorage.removeItem(HISTORY_KEY);
+      return;
+    }
+    if (currentUser) {
+      const { error } = await supabase
+        .from('evaluations')
+        .delete()
+        .eq('user_id', currentUser.id);
+      if (error) console.error('[PriceRef] Failed to clear evaluations:', error.message);
+    }
+  }, [currentUser]);
 
   const updateEnhancedInspection = useCallback((field, value) => {
     setEnhancedInspection(prev => ({ ...prev, [field]: value }));

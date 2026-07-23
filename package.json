@@ -12,6 +12,7 @@
     "start": "serve -s dist -l $PORT"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
     "lucide-react": "^1.18.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

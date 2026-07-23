@@ -845,8 +845,81 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
     var_id = model_variant or vehicle.model_variant
     _, _, meta, _, active_id = resolve_variant_data(var_id)
 
-    # similar_cars already computed inside predict_market_value by ComparableVehicleService.
-    # Re-use the same pool so market range and similar-cars card are always consistent.
+    # ── Market-range price anchoring ─────────────────────────────────────────
+    # The ML model predicts the market value, but when real comparable dataset
+    # prices exist (price_min / price_max from ComparableVehicleService), those
+    # are the ground truth of what the market actually pays.
+    #
+    # Problem: the ML can over-predict (e.g. ₹14L) while the market shows
+    # actual sales at ₹5–8L. If we derive buy/sell from the ML value alone,
+    # we get a nonsensical inversion where buy > market selling range.
+    #
+    # Fix: when dataset comps exist, anchor the SELL price to price_median
+    # (what comparable cars actually sell for), then derive buy price from
+    # the sell side minus dealer cost waterfall.
+
+    price_min    = prediction.get("price_min", 0)
+    price_max    = prediction.get("price_max", 0)
+    price_median = prediction.get("price_median", 0)
+    mrange_src   = prediction.get("market_range_source", "mape_fallback")
+    comp_count   = prediction.get("market_range_comp_count", 0)
+
+    if mrange_src == "dataset" and comp_count >= 3 and price_median > 0:
+        # Use dataset median as the effective sell-side reference.
+        # Sell price = price_median (what the market pays for comparable cars).
+        # Buy price = sell - (recon + holding + doc + risk + profit).
+        recon_cost   = decision.get("recon_cost",   18_000)
+        holding_cost = decision.get("holding_cost",  5_000)
+        doc_cost     = decision.get("doc_cost",      4_500)
+        risk_buffer  = decision.get("risk_buffer",   3_000)
+        target_profit= decision.get("target_profit", 35_000)
+
+        total_costs = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
+
+        # Sell: target upper-quartile of market (price_max)
+        anchored_sell = int(round(price_max / 500) * 500)
+
+        # Buy: sell minus waterfall costs; floor at 75% of price_min to stay competitive
+        anchored_buy_raw = anchored_sell - total_costs
+        buy_floor        = int(price_min * 0.75)
+        anchored_buy     = int(round(max(buy_floor, anchored_buy_raw) / 500) * 500)
+
+        # Hard constraint: buy must be below price_min (below the lowest market comp)
+        # so the dealer always has room to sell at market price.
+        anchored_buy = min(anchored_buy, int(round(price_min * 0.97 / 500) * 500))
+
+        # Recalculate profit and margin on the anchored values
+        anchored_profit = max(0, anchored_sell - anchored_buy - recon_cost - holding_cost - doc_cost)
+        anchored_margin = round((anchored_profit / max(anchored_buy, 1)) * 100, 1)
+
+        # Recalculate negotiation offers relative to the corrected buy price
+        nego_room    = int(anchored_buy * 0.05)
+        opening_off  = int(round(max(0, anchored_buy - nego_room) / 500) * 500)
+        target_off   = int(round(max(0, anchored_buy - nego_room * 0.35) / 500) * 500)
+        walk_away    = int(round((anchored_buy * 1.015) / 500) * 500)
+
+        # Patch decision dict with corrected values
+        decision.update({
+            "recommended_buy_price":  anchored_buy,
+            "recommended_sell_price": anchored_sell,
+            "dealer_acq_price":       anchored_buy,
+            "suggested_sell_price":   anchored_sell,
+            "expected_profit":        anchored_profit,
+            "expected_margin_pct":    anchored_margin,
+            "margin_pct":             anchored_margin,
+            "margin_amt":             anchored_profit,
+            "opening_offer":          opening_off,
+            "target_offer":           target_off,
+            "max_offer":              walk_away,
+        })
+
+        # Update waterfall to reflect corrected prices
+        for row in decision.get("waterfall", []):
+            if row.get("label") == "Recommended Buy Price":
+                row["value"] = anchored_buy
+            if row.get("label") == "ML Market Value":
+                row["value"] = int(price_median)
+                row["note"]  = f"Dataset-anchored median ({comp_count} comps)"
 
     return {
         **prediction,
@@ -862,6 +935,7 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         "model_variant":      active_id,
         **decision,
     }
+
 
 
 # API routes

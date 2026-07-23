@@ -291,7 +291,10 @@ export default function ResultScreen() {
 
   const ac = getAction(action);
   const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
-  const sellPrice = Number(recommendedSellPrice || predictedPrice * 1.08);
+  // Sell price: use backend recommendedSellPrice (which is above market_value + recon uplift).
+  // Fallback: predictedPrice * 1.08 only when backend value is missing or illogical.
+  const rawSellPrice = Number(recommendedSellPrice || 0);
+  const sellPrice = rawSellPrice > buyPrice ? rawSellPrice : Math.round(buyPrice * 1.10 / 500) * 500;
   const profit    = Number(expectedProfit || sellPrice - buyPrice);
   const roi       = buyPrice ? (profit / buyPrice) * 100 : 0;
 

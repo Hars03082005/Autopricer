@@ -1644,17 +1644,22 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     raw_profit       = market_value * (eff_margin_pct / 100)
     target_profit    = int(_clamp(raw_profit, p_min, p_max))
 
-    # Buy Price
+    # Buy Price — pure waterfall: market_value minus all dealer costs
     total_deductions      = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
     recommended_buy_price = market_value - total_deductions
-    # Floor: dealer must pay at least 88% of market value to be competitive
-    # (sellers will reject offers below ~86-88% in a normal market)
-    recommended_buy_price = max(market_value * 0.88, recommended_buy_price)
+    # Hard cap: buy price cannot exceed 95% of market_value (must leave dealer margin)
+    recommended_buy_price = min(recommended_buy_price, market_value * 0.95)
     recommended_buy_price = _round500(recommended_buy_price)
 
-    # Sell price
+    # Sell price — dealer's target retail price (above market_value, incorporating
+    # reconditioning uplift and city demand premium)
     city_premium           = _CITY_DEMAND.get(city, 0.015)
-    recommended_sell_price = _round500(market_value * (1 + city_premium * 0.5))
+    # Recon uplift: dealer spends on recon, captures ~60% back in higher sell price
+    recon_uplift_pct       = min((recon_cost / max(market_value, 1)) * 0.60, 0.08)
+    recommended_sell_price = _round500(market_value * (1 + recon_uplift_pct + city_premium * 0.5))
+    # Sell price must always be above buy price + costs
+    min_sell = recommended_buy_price + recon_cost + holding_cost + doc_cost + target_profit
+    recommended_sell_price = max(recommended_sell_price, _round500(min_sell))
     # Net profit = sell price minus (buy price + all costs)
     expected_profit        = int(recommended_sell_price - recommended_buy_price - recon_cost - holding_cost - doc_cost)
     expected_profit        = max(expected_profit, target_profit)  # floor at computed target

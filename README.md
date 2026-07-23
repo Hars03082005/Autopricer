@@ -37,18 +37,21 @@ It is designed for used-car dealers who need to make fast, data-driven acquisiti
 - **REST API** — Full FastAPI backend with Swagger docs at `/docs`
 - **Responsive React Dashboard** — Works on desktop, tablet, and mobile
 - **Bulk Evaluation** — Evaluate multiple vehicles in a single API call
+- **Supabase Auth** — Secure cloud-based user accounts with hashed passwords and JWT sessions
+- **Persistent Evaluation History** — All valuations saved to Supabase PostgreSQL, accessible from any device
 
 ---
 
 ## Quick Start
 
-Get PriceRef running locally in under 3 minutes.
+Get PriceRef running locally in under 5 minutes.
 
 ### Prerequisites
 
 - Python **3.10+**
 - Node.js **18+**
 - Git
+- A free [Supabase](https://supabase.com) account
 
 ### 1 — Clone the Repository
 
@@ -57,7 +60,61 @@ git clone https://github.com/UmaDamotharan/Price-Prediction.git
 cd Price-Prediction
 ```
 
-### 2 — Start the Backend
+### 2 — Set Up Supabase
+
+1. Go to [supabase.com](https://supabase.com) → **New Project**
+2. Open the **SQL Editor** and run the schema below:
+
+```sql
+-- User profiles
+create table profiles (
+  id uuid references auth.users(id) primary key,
+  name text not null,
+  avatar text not null default 'U',
+  role text not null default 'Dealer',
+  created_at timestamptz default now()
+);
+
+-- Valuation history
+create table evaluations (
+  id text primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  source text, brand text, model text, year int,
+  fuel text, transmission text, city text,
+  odometer int, fuel_efficiency numeric, owner_count int,
+  engine_cc int, condition text, seller_asking_price numeric,
+  market_value numeric, buy_price numeric, sell_price numeric,
+  expected_profit numeric, margin_pct numeric, risk_score numeric,
+  confidence_score numeric, deal_quality_score numeric, action text,
+  urgency_score numeric, is_ml_powered boolean,
+  positive_factors jsonb, negative_factors jsonb
+);
+
+-- Row Level Security (each user sees only their own data)
+alter table profiles enable row level security;
+alter table evaluations enable row level security;
+
+create policy "own profile read"   on profiles   for select using (auth.uid() = id);
+create policy "own profile insert" on profiles   for insert with check (auth.uid() = id);
+create policy "own evals read"     on evaluations for select using (auth.uid() = user_id);
+create policy "own evals insert"   on evaluations for insert with check (auth.uid() = user_id);
+create policy "own evals delete"   on evaluations for delete using (auth.uid() = user_id);
+```
+
+3. Go to **Settings → API** and copy your **Project URL** and **anon public key**
+
+### 3 — Configure Environment
+
+Create a `.env` file in the project root:
+
+```env
+VITE_API_URL=http://127.0.0.1:9000
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key-here
+```
+
+### 4 — Start the Backend
 
 ```bash
 # Create and activate virtual environment
@@ -75,7 +132,7 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 9000 --reload
 Backend → **http://127.0.0.1:9000**  
 API Docs → **http://127.0.0.1:9000/docs**
 
-### 3 — Start the Frontend
+### 5 — Start the Frontend
 
 ```bash
 # In a new terminal, from the project root
@@ -85,12 +142,15 @@ npm run dev
 
 Frontend → **http://localhost:5173**
 
-### 4 — Log In
+### 6 — Log In
 
+**Demo account (no Supabase required):**
 ```
 Email:    dealer@PriceRef.ai
 Password: dealer123
 ```
+
+Or **sign up** with a new account — credentials are stored securely in Supabase.
 
 ---
 
@@ -104,13 +164,14 @@ Dealer Input (React UI)
   ─ Vehicle form
   ─ Model variant selector
   ─ Result dashboard
-         │  REST API (JSON)
-         ▼
-  FastAPI Backend (port 9000)
-  ─ Input validation (Pydantic)
-  ─ Brand → segment routing
-  ─ Price-band routing
-         │
+  ─ Supabase JS SDK (auth + DB)
+         │  REST API (JSON)          │  Supabase (cloud)
+         ▼                           ▼
+  FastAPI Backend (port 9000)   ┌─────────────────┐
+  ─ Input validation (Pydantic) │  Auth (users)    │
+  ─ Brand → segment routing     │  profiles table  │
+  ─ Price-band routing          │  evaluations     │
+         │                      └─────────────────┘
          ▼
   Model Registry
   ─ variant_1 … variant_6
@@ -139,11 +200,13 @@ Dealer Input (React UI)
 ## Technology Stack
 
 | Layer | Technology | Purpose |
-|-------|-----------|---------|
+|-------|-----------|---------| 
 | Frontend | React 19 + Vite | SPA, fast HMR in development |
 | Styling | Plain CSS | No framework dependency |
 | Charts | Recharts | Waterfall and score charts |
 | State | React Context API | Global input/result state |
+| Auth | **Supabase Auth** | Secure cloud user accounts, JWT sessions |
+| Database | **Supabase PostgreSQL** | Persistent evaluation history, user profiles |
 | Backend | FastAPI + Uvicorn | Async REST API |
 | Validation | Pydantic v2 | Request schema validation |
 | ML — Primary | CatBoost | Handles categoricals natively |
@@ -151,6 +214,37 @@ Dealer Input (React UI)
 | Optimisation | SciPy SLSQP | Ensemble weight optimisation |
 | Serialisation | Joblib + Pickle | Model artifact storage |
 | Mobile | Flutter | WebView shell wrapping the React build |
+
+---
+
+## Database Schema
+
+PriceRef uses **Supabase (PostgreSQL)** with Row Level Security — each user can only access their own data.
+
+### `profiles`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | `uuid` | References `auth.users(id)` |
+| `name` | `text` | Display name |
+| `avatar` | `text` | Initials (e.g. `RS`) |
+| `role` | `text` | Always `Dealer` currently |
+| `created_at` | `timestamptz` | Account creation time |
+
+### `evaluations`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | `text` | Unique evaluation ID |
+| `user_id` | `uuid` | Owner (references `auth.users`) |
+| `created_at` | `timestamptz` | Evaluation timestamp |
+| `brand`, `model`, `year` | various | Vehicle identity |
+| `market_value` | `numeric` | ML-predicted fair price |
+| `buy_price`, `sell_price` | `numeric` | Recommended dealer prices |
+| `expected_profit` | `numeric` | Net profit after all costs |
+| `action` | `text` | BUY / NEGOTIATE / REJECT |
+| `risk_score`, `confidence_score` | `numeric` | ML quality signals |
+| `positive_factors`, `negative_factors` | `jsonb` | Deal analysis arrays |
 
 ---
 
@@ -170,7 +264,7 @@ Price-Prediction/
 │   ├── train-1.py … train-6.py  # 6 training pipelines (different dataset variants)
 │   ├── registry_helper.py       # Auto-assign variant IDs and update registry.json
 │   ├── clean_data.py            # Data cleaning (handles multiple raw CSV schemas)
-│   └── data/                    # Raw + cleaned CSVs (gitignored — 100 MB+ datasets)
+│   └── data/                    # Raw + cleaned CSVs (local only — never deployed)
 │
 ├── model_registry/
 │   ├── registry.json            # Active variant + all variant metrics
@@ -188,6 +282,11 @@ Price-Prediction/
 ├── model_artifacts/             # Symlinked artifacts from the active default variant
 │
 ├── src/
+│   ├── lib/
+│   │   └── supabaseClient.js    # Supabase JS client singleton
+│   ├── context/
+│   │   ├── AuthContext.jsx      # Auth state — Supabase Auth (signup/login/logout/session)
+│   │   └── AppContext.jsx       # Global state — evaluations synced to Supabase DB
 │   ├── screens/
 │   │   ├── InputScreen.jsx      # Vehicle valuation form
 │   │   ├── ResultScreen.jsx     # Prediction + decision result
@@ -195,11 +294,11 @@ Price-Prediction/
 │   │   ├── DashboardScreen.jsx  # Evaluation history + analytics
 │   │   ├── AssistantScreen.jsx  # AI assistant for deal queries
 │   │   └── ReverseCalculatorScreen.jsx  # Target sell → max buy price
-│   ├── context/AppContext.jsx   # Global state provider
-│   └── utils/apiValuation.js   # API calls and response normalisation
+│   └── utils/apiValuation.js    # API calls and response normalisation
 │
+├── .env.example                 # Environment variable template
+├── render.yaml                  # Render.com deployment config (backend + frontend)
 ├── run_all_training.py          # Wipes registry and trains all 6 variants sequentially
-├── docker-compose.yml
 ├── vite.config.js
 └── index.html
 ```
@@ -264,7 +363,7 @@ Training uses `log1p(selling_price)` to reduce skew from high-value outliers. Pr
 **Price-Band Segment Routing**
 
 | Band | Rows | Routing | Band MAPE | Band R² |
-|------|------|---------|-----------|---------|
+|------|------|---------|-----------|---------| 
 | ₹0–6L | 20,342 | Global ensemble fallback | 5.96% | 0.964 |
 | ₹6–12L | 11,095 | ✅ Dedicated segment model | 4.47% | 0.913 |
 | ₹12L+ | 3,251 | ✅ Dedicated segment model | 3.45% | 0.946 |
@@ -379,15 +478,32 @@ This script:
 
 Expected total time: **~55–75 minutes**
 
+> **Note:** Raw CSV datasets (`ml_training/data/`) are excluded from the repository and kept locally only. Back them up to Google Drive or cloud storage of your choice.
+
 ---
 
 ## Deployment
 
-### Option 1 — Local Development (Recommended for Development)
+### Option 1 — Local Development
 
 Follow the [Quick Start](#quick-start) steps above.
 
-### Option 2 — Docker (Production-Ready)
+### Option 2 — Render (Production)
+
+The project ships with a `render.yaml` that configures both services automatically.
+
+1. Connect your GitHub repo to [render.com](https://render.com)
+2. Render will detect `render.yaml` and create both services
+3. In the Render dashboard, set these environment variables on the **frontend** service:
+
+| Key | Value |
+|-----|-------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon public key |
+
+The `VITE_API_URL` is automatically wired from the backend service.
+
+### Option 3 — Docker (Production-Ready)
 
 ```bash
 # Build and start all services
@@ -407,18 +523,6 @@ Services:
 - Backend → **http://localhost:9000**
 - Frontend → **http://localhost:5173**
 
-### Option 3 — Production Build (Static Frontend)
-
-```bash
-# Build optimised static frontend
-npm run build
-
-# The built output is in /dist
-# Serve with any static host (Nginx, Vercel, Netlify, etc.)
-```
-
-Point your static host to the `/dist` folder and proxy `/api` to the backend.
-
 ### Option 4 — Mobile (Flutter)
 
 ```bash
@@ -436,11 +540,11 @@ flutter run
 
 ### Environment Variables
 
-Create `.env` in the project root (see `.env.example`):
-
-```env
-VITE_API_URL=http://127.0.0.1:9000
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_API_URL` | ✅ | FastAPI backend URL |
+| `VITE_SUPABASE_URL` | ✅ | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase anon public key (safe to expose) |
 
 ---
 
@@ -455,6 +559,7 @@ VITE_API_URL=http://127.0.0.1:9000
 | v8.0 | 34,266 | 7.43% | Phase 7 feature engineering, dynamic decision engine |
 | v9.0 | 34,266 | 7.43% | Monetary SHAP, adaptive confidence, negotiation trio |
 | **v10.0** | **34,425** | **3.09%** | Owner-agnostic model, price-band routing, 6-variant registry, SLSQP ensemble optimisation |
+| **v11.0** | **34,425** | **3.09%** | Supabase Auth + PostgreSQL — cloud user accounts and persistent evaluation history |
 
 ---
 

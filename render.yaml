@@ -36,3 +36,7 @@ services:
           type: web
           name: price-prediction-backend
           property: url
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false

@@ -125,7 +125,9 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   const rBuf = riskBuffer || Math.round(mlBasePrice * (riskScore / 100) * 0.08);
   const targetProfit = Math.round(mlBasePrice * ((targetMarginPct || 10) / 100));
   const finalBuyPrice = recommendedBuyPrice || 0;
-  const sellPrice = recommendedSellPrice || Math.round(mlBasePrice * 1.05);
+  // Sell price must always be above buy price — guard against inversion
+  const rawSellPrice = recommendedSellPrice || Math.round(mlBasePrice * 1.05);
+  const sellPrice = rawSellPrice > finalBuyPrice ? rawSellPrice : Math.round(finalBuyPrice * 1.10 / 500) * 500;
   const marginPct = expectedMarginPct || 0;
   const targetMPct = targetMarginPct || 10;
 

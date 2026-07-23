@@ -32,12 +32,11 @@ export default function AuthScreen() {
     e.preventDefault();
     if (!signInEmail.trim()) { setError('Email address is required'); return; }
     if (!signInPassword) { setError('Password is required'); return; }
-    
+
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 600));
-    
-    const result = login({ email: signInEmail, password: signInPassword });
+
+    const result = await login({ email: signInEmail, password: signInPassword });
     if (!result.ok) {
       setError(result.error || 'Invalid email or password');
     }
@@ -49,16 +48,15 @@ export default function AuthScreen() {
     if (!signUpName.trim()) { setError('Name is required'); return; }
     if (!signUpEmail.trim()) { setError('Email address is required'); return; }
     if (!signUpPassword) { setError('Password is required'); return; }
-    
+
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 600));
-    
-    const result = signup({ name: signUpName, email: signUpEmail, password: signUpPassword });
+
+    const result = await signup({ name: signUpName, email: signUpEmail, password: signUpPassword });
     if (!result.ok) {
       setError(result.error || 'Registration failed');
     } else {
-      // Clear sign-up inputs on success (auto-login is handled in context)
+      // Clear sign-up inputs on success (auto-login handled by onAuthStateChange)
       setSignUpName('');
       setSignUpEmail('');
       setSignUpPassword('');

@@ -169,9 +169,13 @@ export default function PricingScreen() {
     shap = [],
   } = valuationResult;
 
-  const finalBuyPrice  = recommendedBuyPrice;
-  const finalSellPrice = recommendedSellPrice;
-  const finalProfit    = expectedProfit;
+  const finalBuyPrice  = recommendedBuyPrice || 0;
+  // Sell price must always be above buy price — guard against backend inversion
+  const rawFinalSell   = recommendedSellPrice || 0;
+  const finalSellPrice = rawFinalSell > finalBuyPrice ? rawFinalSell : Math.round(finalBuyPrice * 1.10 / 500) * 500;
+  const finalProfit    = finalSellPrice > finalBuyPrice
+    ? expectedProfit || Math.round(finalSellPrice - finalBuyPrice - recon_cost - holding_cost - doc_cost)
+    : expectedProfit;
   const finalROI       = expectedMarginPct;
 
   const totalOperatingCosts = recon_cost + holding_cost + doc_cost + risk_buffer;
