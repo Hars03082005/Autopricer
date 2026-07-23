@@ -12,66 +12,6 @@
       },
       "artifact_path": "model_registry/variant_2",
       "status": "active"
-    },
-    "variant_3": {
-      "dataset": "processed_widoutown-2.csv",
-      "trained_at": "2026-07-22T17:13:26.037222",
-      "metrics": {
-        "mae": 38623.85,
-        "rmse": 76167.21,
-        "r2": 0.9756,
-        "mape": 6.37
-      },
-      "artifact_path": "model_registry/variant_3",
-      "status": "archived"
-    },
-    "variant_4": {
-      "dataset": "processed_pincode_with_owner-3.csv",
-      "trained_at": "2026-07-22T17:24:47.412156",
-      "metrics": {
-        "mae": 38933.29,
-        "rmse": 76869.04,
-        "r2": 0.9756,
-        "mape": 6.36
-      },
-      "artifact_path": "model_registry/variant_4",
-      "status": "archived"
-    },
-    "variant_6": {
-      "dataset": "processed_pincode_with_owner1_filled-5.csv",
-      "trained_at": "2026-07-22T17:47:49.437140",
-      "metrics": {
-        "mae": 38933.29,
-        "rmse": 76869.04,
-        "r2": 0.9756,
-        "mape": 6.36
-      },
-      "artifact_path": "model_registry/variant_6",
-      "status": "archived"
-    },
-    "variant_7": {
-      "dataset": "processed_widown1-6.csv",
-      "trained_at": "2026-07-22T17:58:54.393242",
-      "metrics": {
-        "mae": 37988.79,
-        "rmse": 75207.06,
-        "r2": 0.976,
-        "mape": 6.28
-      },
-      "artifact_path": "model_registry/variant_7",
-      "status": "archived"
-    },
-    "variant_5": {
-      "dataset": "processed_pincode without owner-4.csv",
-      "trained_at": "2026-07-23T11:45:33.546103",
-      "metrics": {
-        "mae": 39704.29,
-        "rmse": 79450.56,
-        "r2": 0.9749,
-        "mape": 6.47
-      },
-      "artifact_path": "model_registry/variant_5",
-      "status": "archived"
     }
   }
 }
