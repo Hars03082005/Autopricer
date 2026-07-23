@@ -34,7 +34,7 @@ graph TD
     UI[Vite + React Dashboard] -->|HTTP / REST API| FastAPI[FastAPI Backend Server]
     FastAPI -->|Loads Pre-trained Artifacts| Registry[Model Registry: Variant 2]
     Registry -->|Ensemble Ingestion| Predictor[CatBoost + LightGBM + XGBoost Predictor]
-    FastAPI -->|Auth & History Sync| Supabase[(Supabase PostgreSQL Database)]
+    UI -.->|Optional Auth & History Sync| Supabase[(Supabase PostgreSQL Database)]
 ```
 
 ### Connection Details
@@ -84,9 +84,15 @@ source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Environment Variables (Optional for Supabase)
 
-Create a `.env` file in the root directory:
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Or create `.env` manually:
 
 ```env
 VITE_SUPABASE_URL=your_supabase_url
@@ -113,6 +119,58 @@ npm install
 npm run dev
 ```
 Frontend will start at `http://localhost:5173`.
+
+---
+
+## ⚡ Supabase Setup (Optional — User Accounts & History Sync)
+
+> **Note:** Core ML valuations work **100% offline without Supabase**. Supabase is only required if you want user authentication (login/signup) and persistent cloud evaluation history.
+
+To enable Supabase integration:
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Copy your project **URL** and **anon Key** into `.env`:
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+3. Run this SQL in your Supabase **SQL Editor**:
+
+```sql
+-- User Profiles
+create table if not exists profiles (
+  id uuid references auth.users(id) primary key,
+  name text not null,
+  avatar text not null default 'U',
+  role text not null default 'Dealer',
+  created_at timestamptz default now()
+);
+
+-- Valuation History
+create table if not exists evaluations (
+  id text primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  source text, brand text, model text, year int,
+  fuel text, transmission text, city text,
+  odometer int, fuel_efficiency numeric, owner_count int,
+  engine_cc int, condition text, seller_asking_price numeric,
+  market_value numeric, buy_price numeric, sell_price numeric,
+  expected_profit numeric, margin_pct numeric, risk_score numeric,
+  confidence_score numeric, deal_quality_score numeric, action text,
+  urgency_score numeric, is_ml_powered boolean,
+  positive_factors jsonb, negative_factors jsonb
+);
+
+-- Enable RLS
+alter table profiles enable row level security;
+alter table evaluations enable row level security;
+
+create policy "own profile read"   on profiles   for select using (auth.uid() = id);
+create policy "own profile insert" on profiles   for insert with check (auth.uid() = id);
+create policy "own evals read"     on evaluations for select using (auth.uid() = user_id);
+create policy "own evals insert"   on evaluations for insert with check (auth.uid() = user_id);
+```
 
 ---
 
