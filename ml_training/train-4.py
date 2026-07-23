@@ -29,8 +29,8 @@ except Exception:
     pass
 
 ROOT         = Path(__file__).resolve().parents[1]
-DATASET      = Path(__file__).resolve().parent / "data" / "processed_pincode_without_owner-4.csv"
-VARIANT_ID   = registry_helper.next_variant_id()
+DATASET      = Path(__file__).resolve().parent / "data" / "processed_pincode without owner-4.csv"
+VARIANT_ID   = "variant_5"
 ARTIFACT_DIR = registry_helper.get_variant_dir(VARIANT_ID)
 print(f"Training run -> Variant ID: {VARIANT_ID} ({ARTIFACT_DIR})")
 

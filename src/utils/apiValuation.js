@@ -157,8 +157,9 @@ function normalizeApiResult(data, inputs) {
   const recommendedSellPrice = data.recommended_sell_price ?? data.suggested_sell_price ?? 0;
   const expectedProfit = data.expected_profit ?? data.margin_amt ?? 0;
   const expectedMarginPct = data.expected_margin_pct ?? data.margin_pct ?? 0;
-  const priceMin = data.price_min ?? Math.round(predictedPrice - 10000);
-  const priceMax = data.price_max ?? Math.round(predictedPrice + 10000);
+  const priceMin = data.price_min ?? Math.round(predictedPrice * 0.9372);
+  const priceMax = data.price_max ?? Math.round(predictedPrice * 1.0628);
+  const priceMedian = data.price_median ?? predictedPrice;
 
   return {
     predictedPrice,
@@ -168,6 +169,11 @@ function normalizeApiResult(data, inputs) {
     conditionScore: data.condition_score ?? 75,
     priceMin,
     priceMax,
+    priceMedian,
+    marketRangeCompCount: data.market_range_comp_count ?? 0,
+    marketRangeStage: data.market_range_stage ?? 0,
+    marketRangeStageLabel: data.market_range_stage_label ?? '',
+    marketRangeSource: data.market_range_source ?? 'mape_fallback',
     ci: data.ci ?? (predictedPrice - priceMin),
     dealerAcqPrice: data.dealer_acq_price ?? recommendedBuyPrice,
     suggestedSellPrice: data.suggested_sell_price ?? recommendedSellPrice,

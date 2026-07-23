@@ -193,7 +193,11 @@ export default function InputScreen() {
     try {
       const payload = {
         ...inputs,
-        model: inputs.variant ? `${inputs.model} ${inputs.variant}` : inputs.model,
+        // Send model and variant as separate clean fields — do NOT concatenate.
+        // Concatenating "Swift" + "VXI" → "Swift VXI" causes an UNKNOWN category
+        // hit in the ML model because the dataset stores them separately.
+        model: inputs.model,
+        variant: inputs.variant || 'unknown',
         modelVariant: selectedVariant,
       };
       const result = await runMLValuation(payload);

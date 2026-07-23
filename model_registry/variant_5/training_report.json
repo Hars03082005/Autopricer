@@ -1,7 +1,7 @@
 {
-    "training_time": "2026-07-22T17:29:04.688562",
-    "dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\processed_pincode_without_owner-4.csv",
-    "rows_used": 34421,
+    "training_time": "2026-07-23T11:40:23.032466",
+    "dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\processed_pincode without owner-4.csv",
+    "rows_used": 20316,
     "features": [
         "brand",
         "model",
@@ -65,34 +65,34 @@
         ]
     },
     "ensemble_weights": {
-        "catboost": 8.326672684688674e-17,
-        "lightgbm": 1.0,
+        "catboost": 0.19865301491144288,
+        "lightgbm": 0.8013469850885572,
         "xgboost": 0.0
     },
     "val_metrics": {
         "CatBoost": {
-            "MAE": 54048.88,
-            "RMSE": 101354.52,
-            "R2": 0.9672,
-            "MAPE": 8.65
+            "MAE": 58397.77,
+            "RMSE": 108751.31,
+            "R2": 0.9596,
+            "MAPE": 9.16
         },
         "LightGBM": {
-            "MAE": 26572.92,
-            "RMSE": 65613.84,
-            "R2": 0.9889,
-            "MAPE": 4.25
+            "MAE": 38364.71,
+            "RMSE": 78655.34,
+            "R2": 0.974,
+            "MAPE": 6.34
         },
         "XGBoost": {
-            "MAE": 32320.37,
-            "RMSE": 73115.32,
-            "R2": 0.9852,
-            "MAPE": 5.2
+            "MAE": 42853.3,
+            "RMSE": 85924.76,
+            "R2": 0.9709,
+            "MAPE": 7.02
         },
         "Ensemble": {
-            "MAE": 26572.92,
-            "RMSE": 65613.84,
-            "R2": 0.9889,
-            "MAPE": 4.25
+            "MAE": 39704.29,
+            "RMSE": 79450.56,
+            "R2": 0.9749,
+            "MAPE": 6.47
         }
     }
 }

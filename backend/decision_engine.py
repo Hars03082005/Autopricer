@@ -32,7 +32,7 @@ _MARKET_BANDS: dict[str, tuple[float, float]] = {
     "magnite":       (560_000,   870_000),
     "punch":         (600_000,   960_000),
     # Premium hatchbacks
-    "swift":         (550_000,   900_000),
+    "swift":         (600_000, 1_100_000),
     "baleno":        (600_000,   950_000),
     "i20":           (680_000, 1_100_000),
     "i10":           (380_000,   680_000),
@@ -183,9 +183,9 @@ _MODEL_DEPRECIATION_OVERRIDE: dict[str, dict[int, float]] = {
     },
     # ── Maruti — very good resale due to parts availability ────────────────
     "swift": {
-        0: 1.00, 1: 0.87, 2: 0.79, 3: 0.72, 4: 0.66,
-        5: 0.61, 6: 0.56, 7: 0.52, 8: 0.48, 9: 0.45,
-        10: 0.41, 11: 0.38, 12: 0.35,
+        0: 1.00, 1: 0.90, 2: 0.83, 3: 0.77, 4: 0.72,
+        5: 0.67, 6: 0.62, 7: 0.58, 8: 0.54, 9: 0.50,
+        10: 0.46, 11: 0.42, 12: 0.38,
     },
     "baleno": {
         0: 1.00, 1: 0.87, 2: 0.79, 3: 0.72, 4: 0.66,
@@ -1102,34 +1102,315 @@ _DATASET_DF = None          # lazy-loaded pandas DataFrame
 _DATASET_LOAD_TRIED = False # guard — only attempt load once
 
 def _load_dataset_df():
-    """Lazy-load the processed dataset once and cache it in memory."""
+    """
+    Lazy-load the processed dataset once and cache it in memory.
+    Tries multiple known CSV file names so it works across variants.
+    Adds a computed `vehicle_age` column if not present.
+    """
     global _DATASET_DF, _DATASET_LOAD_TRIED
     if _DATASET_LOAD_TRIED:
         return _DATASET_DF
     _DATASET_LOAD_TRIED = True
     try:
         import pandas as _pd
-        # Resolve path relative to this file's location
         _here = _os.path.dirname(_os.path.abspath(__file__))
-        _csv  = _os.path.normpath(_os.path.join(
-            _here, "..", "ml_training", "data", "processed_with owner filled.csv"
-        ))
-        if not _os.path.exists(_csv):
+        _data_dir = _os.path.normpath(_os.path.join(_here, "..", "ml_training", "data"))
+
+        # Try multiple filenames in preference order
+        _candidates = [
+            "processed_pincode without owner-4.csv",
+            "processed_with owner filled.csv",
+            "processed_pincode without owner-3.csv",
+            "processed_pincode without owner-2.csv",
+        ]
+        _csv = None
+        for _name in _candidates:
+            _p = _os.path.join(_data_dir, _name)
+            if _os.path.exists(_p):
+                _csv = _p
+                break
+
+        if _csv is None:
             return None
-        cols = ["brand", "model", "variant", "fuel_type", "transmission",
-                "year", "odometer_reading", "owner_count", "selling_price"]
-        _df = _pd.read_csv(_csv, usecols=cols, low_memory=False)
+
+        _base_cols = ["brand", "model", "variant", "fuel_type", "transmission",
+                      "year", "odometer_reading", "selling_price"]
+        _extra_cols = ["owner_count", "vehicle_age", "city", "locality"]
+        _want = _base_cols + _extra_cols
+
+        _df = _pd.read_csv(_csv, low_memory=False)
+        # Keep only columns that exist
+        _keep = [c for c in _want if c in _df.columns]
+        _df = _df[_keep].copy()
         _df = _df.dropna(subset=["brand", "model", "selling_price"])
+
         for c in ["brand", "model", "variant", "fuel_type", "transmission"]:
-            _df[c] = _df[c].astype(str).str.strip().str.lower()
-        _df["selling_price"] = _pd.to_numeric(_df["selling_price"], errors="coerce")
-        _df["year"]          = _pd.to_numeric(_df["year"],          errors="coerce")
-        _df["odometer_reading"] = _pd.to_numeric(_df["odometer_reading"], errors="coerce")
+            if c in _df.columns:
+                _df[c] = _df[c].astype(str).str.strip().str.lower().fillna("unknown")
+
+        _df["selling_price"]    = _pd.to_numeric(_df["selling_price"],    errors="coerce")
+        _df["year"]             = _pd.to_numeric(_df["year"],             errors="coerce")
+        _df["odometer_reading"] = _pd.to_numeric(_df["odometer_reading"], errors="coerce").fillna(0)
+
+        if "vehicle_age" not in _df.columns:
+            _df["vehicle_age"] = (2026 - _df["year"]).clip(lower=0)
+        else:
+            _df["vehicle_age"] = _pd.to_numeric(_df["vehicle_age"], errors="coerce").fillna(0)
+
+        if "owner_count" in _df.columns:
+            _df["owner_count"] = _pd.to_numeric(_df["owner_count"], errors="coerce").fillna(1)
+
         _df = _df.dropna(subset=["selling_price", "year"])
-        _DATASET_DF = _df
-    except Exception as _e:
+        _df = _df[_df["selling_price"].between(50_000, 20_000_000)]
+        _DATASET_DF = _df.reset_index(drop=True)
+    except Exception:
         pass
     return _DATASET_DF
+
+
+class ComparableVehicleService:
+    """
+    Production-grade comparable vehicle finder and market range calculator.
+
+    Uses a 4-stage hierarchical similarity search (similar to Spinny / Cars24):
+      Stage 1 — Strict:   brand + model + variant + fuel + transmission + owner
+                          + vehicle_age ±1yr + odometer ±10k km
+      Stage 2 — Relax:    drop variant, age ±2yr, odo ±20k km
+      Stage 3 — Wider:    also drop owner_count, age ±3yr, odo ±30k km
+      Stage 4 — Scored:   compute weighted similarity for all rows,
+                          return Top 20 by score
+
+    Market range is Q1 (25th pct) → Q3 (75th pct) of comparable selling prices.
+    Falls back to MAPE-based range if fewer than 5 comps are found.
+
+    The dataset is scanned once and the result is reused for both market range
+    calculation and the "Similar Cars" UI section.
+    """
+
+    _MIN_COMPS_STRICT  = 10   # minimum comps to accept a stage result as "good"
+    _MIN_COMPS_DISPLAY = 5    # minimum to prefer dataset over MAPE fallback
+    _TOP_N_DISPLAY     = 5    # max rows returned for the UI "similar cars" section
+    _TOP_N_SCORED      = 20   # Stage 4 top-N by similarity score
+
+    # Weights for Stage 4 similarity scoring (must sum to 1.0)
+    _WEIGHTS = {
+        "brand":           0.35,
+        "model":           0.25,
+        "variant":         0.15,
+        "fuel_type":       0.10,
+        "transmission":    0.05,
+        "vehicle_age":     0.05,
+        "odometer_reading": 0.05,
+    }
+
+    # ── Public API ─────────────────────────────────────────────────────────
+
+    def search(
+        self,
+        *,
+        brand: str,
+        model: str,
+        variant: str,
+        fuel: str,
+        transmission: str,
+        year: int,
+        odometer: float,
+        owner_count: int = 1,
+        current_year: int = 2026,
+    ) -> dict:
+        """
+        Run the 4-stage search and return a result dict:
+        {
+            "comps":        [list of dataset row dicts],
+            "stage":        int (1-4, or 0 if no data),
+            "stage_label":  str,
+            "market_range": {price_min, price_max, price_median, comp_count, source},
+        }
+        """
+        df = _load_dataset_df()
+        if df is None or df.empty:
+            return self._empty_result()
+
+        vehicle_age = max(0, current_year - year)
+
+        # Normalise query tokens
+        bk  = str(brand or "").strip().lower()
+        mk  = str(model or "").strip().lower()
+        vk  = str(variant or "").strip().lower()
+        fk  = str(fuel or "").strip().lower()
+        tk  = str(transmission or "").strip().lower()
+
+        # ── Stage 1 ────────────────────────────────────────────────────────
+        s1 = self._filter(df, bk, mk, vk, fk, tk, vehicle_age, odometer, owner_count,
+                          age_tol=1, odo_tol=10_000,
+                          use_variant=True, use_owner=True)
+        if len(s1) >= self._MIN_COMPS_STRICT:
+            return self._build_result(s1, stage=1, label="strict_match")
+
+        # ── Stage 2 ────────────────────────────────────────────────────────
+        s2 = self._filter(df, bk, mk, vk, fk, tk, vehicle_age, odometer, owner_count,
+                          age_tol=2, odo_tol=20_000,
+                          use_variant=False, use_owner=True)
+        if len(s2) >= self._MIN_COMPS_STRICT:
+            return self._build_result(s2, stage=2, label="relaxed_variant")
+
+        # ── Stage 3 ────────────────────────────────────────────────────────
+        s3 = self._filter(df, bk, mk, vk, fk, tk, vehicle_age, odometer, owner_count,
+                          age_tol=3, odo_tol=30_000,
+                          use_variant=False, use_owner=False)
+        if len(s3) >= self._MIN_COMPS_STRICT:
+            return self._build_result(s3, stage=3, label="relaxed_owner")
+
+        # ── Stage 4 — similarity scoring ───────────────────────────────────
+        s4 = self._score_and_rank(df, bk, mk, vk, fk, tk, vehicle_age, odometer)
+        if len(s4) >= self._MIN_COMPS_DISPLAY:
+            return self._build_result(s4, stage=4, label="similarity_ranked")
+
+        # ── Partial fallback — whatever Stage 3 found ──────────────────────
+        if len(s3) > 0:
+            return self._build_result(s3, stage=3, label="partial_match")
+
+        return self._empty_result()
+
+    # ── Internal helpers ───────────────────────────────────────────────────
+
+    def _filter(self, df, brand, model, variant, fuel, trans,
+                vehicle_age, odometer, owner_count,
+                *, age_tol, odo_tol, use_variant, use_owner):
+        import pandas as _pd
+
+        mask = (df["brand"] == brand) & (df["model"] == model)
+        mask = mask & (df["fuel_type"] == fuel)
+        mask = mask & (df["transmission"] == trans)
+
+        if use_variant and variant and variant not in ("", "unknown"):
+            mask = mask & (df["variant"] == variant)
+
+        mask = mask & df["vehicle_age"].between(vehicle_age - age_tol,
+                                                vehicle_age + age_tol)
+        mask = mask & df["odometer_reading"].between(
+            max(0, odometer - odo_tol), odometer + odo_tol
+        )
+
+        if use_owner and "owner_count" in df.columns:
+            mask = mask & (df["owner_count"] == owner_count)
+
+        return df[mask].copy()
+
+    def _score_and_rank(self, df, brand, model, variant, fuel, trans,
+                        vehicle_age, odometer):
+        scored = df.copy()
+        s = scored["brand"].eq(brand).astype(float)   * self._WEIGHTS["brand"]
+        s += scored["model"].eq(model).astype(float)  * self._WEIGHTS["model"]
+        if variant and variant not in ("", "unknown"):
+            s += scored["variant"].eq(variant).astype(float) * self._WEIGHTS["variant"]
+        s += scored["fuel_type"].eq(fuel).astype(float)       * self._WEIGHTS["fuel_type"]
+        s += scored["transmission"].eq(trans).astype(float)   * self._WEIGHTS["transmission"]
+
+        # Age similarity: 0→1 as age diff → 0
+        _max_age = 10.0
+        age_diff = (scored["vehicle_age"] - vehicle_age).abs().clip(0, _max_age)
+        s += (1 - age_diff / _max_age) * self._WEIGHTS["vehicle_age"]
+
+        # Odometer similarity
+        _max_odo = 150_000.0
+        odo_diff = (scored["odometer_reading"] - odometer).abs().clip(0, _max_odo)
+        s += (1 - odo_diff / _max_odo) * self._WEIGHTS["odometer_reading"]
+
+        scored["_sim_score"] = s
+        return scored.nlargest(self._TOP_N_SCORED, "_sim_score").drop(columns=["_sim_score"])
+
+    def _build_result(self, rows, *, stage: int, label: str) -> dict:
+        records = rows.to_dict("records")
+        market_range = self._calc_market_range(records)
+        ui_cars = self._to_ui_cards(rows)
+        return {
+            "comps":        records,
+            "stage":        stage,
+            "stage_label":  label,
+            "similar_cars": ui_cars,
+            "market_range": market_range,
+        }
+
+    def _empty_result(self) -> dict:
+        return {
+            "comps":        [],
+            "stage":        0,
+            "stage_label":  "no_data",
+            "similar_cars": [],
+            "market_range": None,   # caller will apply MAPE fallback
+        }
+
+    def _calc_market_range(self, records: list) -> dict:
+        """Compute Q1/Q3 market range from comparable cars."""
+        prices = sorted(
+            float(r["selling_price"]) for r in records
+            if r.get("selling_price") and math.isfinite(float(r["selling_price"]))
+        )
+        n = len(prices)
+        if n < self._MIN_COMPS_DISPLAY:
+            return None   # not enough comps — caller will apply MAPE fallback
+
+        q1_idx  = max(0, int(n * 0.35))
+        q3_idx  = min(n - 1, int(n * 0.65))
+        med_idx = n // 2
+
+        q1     = prices[q1_idx]
+        q3     = prices[q3_idx]
+        median = prices[med_idx]
+
+        return {
+            "price_min":    int(round(q1     / 500) * 500),
+            "price_max":    int(round(q3     / 500) * 500),
+            "price_median": int(round(median / 500) * 500),
+            "comp_count":   n,
+            "source":       "dataset",
+        }
+
+    def _to_ui_cards(self, rows) -> list[dict]:
+        """Convert up to TOP_N_DISPLAY rows into UI-ready dicts."""
+        results = []
+        seen = set()
+        for _, row in rows.iterrows():
+            key = (str(row.get("model", "")),
+                   str(row.get("year",  "")),
+                   str(row.get("selling_price", "")))
+            if key in seen:
+                continue
+            seen.add(key)
+            yr  = row.get("year",  0)
+            odo = row.get("odometer_reading", 0)
+            sp  = row.get("selling_price", 0)
+            oc  = row.get("owner_count",  1)
+            try:
+                yr  = int(float(yr))  if math.isfinite(float(yr))  else 0
+                odo = int(float(odo)) if math.isfinite(float(odo)) else 0
+                sp  = int(round(float(sp) / 500) * 500)
+                oc  = int(float(oc))  if math.isfinite(float(oc))  else 1
+            except (TypeError, ValueError):
+                pass
+
+            results.append({
+                "brand":        str(row.get("brand",        "")).title(),
+                "model":        str(row.get("model",        "")).title(),
+                "variant":      str(row.get("variant",      "")).title(),
+                "year":         yr,
+                "fuel":         str(row.get("fuel_type",    "")).title(),
+                "transmission": str(row.get("transmission", "")).title(),
+                "odometer":     odo,
+                "owner_count":  oc,
+                "market_value": sp,
+                "city":         str(row.get("city", "Bangalore")).title(),
+                "condition":    "Good",
+                "source":       "dataset",
+            })
+            if len(results) >= self._TOP_N_DISPLAY:
+                break
+        return results
+
+
+# Module-level singleton — created once, reused for every request
+_comparable_service = ComparableVehicleService()
 
 
 def generate_similar_cars(
@@ -1140,69 +1421,87 @@ def generate_similar_cars(
     fuel: str,
     city: str,
     segment: str,
+    variant: str = "unknown",
+    transmission: str = "manual",
+    owner_count: int = 1,
 ) -> list[dict]:
     """
-    Returns up to 5 real listing rows from the training dataset that are
-    similar to the queried vehicle (same brand+model, price within ±30%).
-    Returns an empty list if the dataset is unavailable or no match found.
+    Backward-compat wrapper used by evaluate_vehicle().
+    Returns up to 5 UI-ready similar-car dicts.
+    For the market range, call get_market_range_result() directly.
     """
-    df = _load_dataset_df()
-    if df is None or df.empty:
-        return []
+    result = _comparable_service.search(
+        brand=brand, model=model, variant=variant,
+        fuel=fuel, transmission=transmission,
+        year=year, odometer=float(market_value * 0),   # not used as filter; use 0
+        owner_count=owner_count,
+    )
+    return result.get("similar_cars", [])
 
-    brand_key = str(brand or "").strip().lower()
-    model_key = str(model or "").strip().lower()
-    fuel_key  = str(fuel  or "").strip().lower()
 
-    # Step 1: strict match — same brand + model
-    mask = (df["brand"] == brand_key) & (df["model"] == model_key)
-    subset = df[mask].copy()
+def get_market_range_result(
+    *,
+    brand: str,
+    model: str,
+    variant: str,
+    fuel: str,
+    transmission: str,
+    year: int,
+    odometer: float,
+    owner_count: int,
+    prediction: float,
+    model_mape: float = 0.0628,
+) -> dict:
+    """
+    Full entry point called from predict_market_value().
 
-    # Step 2: if <3 rows, widen to same brand, any model
-    if len(subset) < 3:
-        subset = df[df["brand"] == brand_key].copy()
+    Returns:
+    {
+        "price_min":               int,
+        "price_max":               int,
+        "price_median":            int,
+        "market_range_comp_count": int,
+        "market_range_stage":      int,
+        "market_range_stage_label": str,
+        "market_range_source":     "dataset" | "mape_fallback",
+        "similar_cars":            list[dict],
+    }
+    """
+    result = _comparable_service.search(
+        brand=brand, model=model, variant=variant,
+        fuel=fuel, transmission=transmission,
+        year=year, odometer=odometer,
+        owner_count=owner_count,
+    )
 
-    if subset.empty:
-        return []
+    mr = result.get("market_range")
+    if mr:
+        # Dataset-driven range
+        return {
+            "price_min":               mr["price_min"],
+            "price_max":               mr["price_max"],
+            "price_median":            mr["price_median"],
+            "market_range_comp_count": mr["comp_count"],
+            "market_range_stage":      result["stage"],
+            "market_range_stage_label": result["stage_label"],
+            "market_range_source":     "dataset",
+            "similar_cars":            result.get("similar_cars", []),
+        }
+    else:
+        # MAPE-based fallback
+        lo = int(round(prediction * (1 - model_mape) / 500) * 500)
+        hi = int(round(prediction * (1 + model_mape) / 500) * 500)
+        return {
+            "price_min":               lo,
+            "price_max":               hi,
+            "price_median":            int(round(prediction / 500) * 500),
+            "market_range_comp_count": len(result.get("comps", [])),
+            "market_range_stage":      result["stage"],
+            "market_range_stage_label": result["stage_label"],
+            "market_range_source":     "mape_fallback",
+            "similar_cars":            result.get("similar_cars", []),
+        }
 
-    # Step 3: filter by price band ±30% around predicted market value
-    lo = market_value * 0.70
-    hi = market_value * 1.30
-    price_mask = subset["selling_price"].between(lo, hi)
-    filtered = subset[price_mask]
-
-    # If price filter leaves nothing, use the full brand+model subset
-    if filtered.empty:
-        filtered = subset
-
-    # Step 4: score rows by closeness to market_value + fuel preference
-    filtered = filtered.copy()
-    filtered["_price_dist"] = (filtered["selling_price"] - market_value).abs()
-    filtered["_fuel_match"] = (filtered["fuel_type"] == fuel_key).astype(int)
-    filtered = filtered.sort_values(["_fuel_match", "_price_dist"],
-                                    ascending=[False, True])
-
-    # Drop rows with exactly identical (model, year, price) to avoid duplicates
-    filtered = filtered.drop_duplicates(subset=["model", "year", "selling_price"])
-
-    results = []
-    for _, row in filtered.head(5).iterrows():
-        results.append({
-            "brand":        str(row["brand"]).title(),
-            "model":        str(row["model"]).title(),
-            "variant":      str(row.get("variant", "")).title(),
-            "year":         int(row["year"])   if not math.isnan(float(row["year"]))   else year,
-            "fuel":         str(row["fuel_type"]).title(),
-            "transmission": str(row.get("transmission", "")).title(),
-            "odometer":     int(row["odometer_reading"]) if not math.isnan(float(row.get("odometer_reading", 0))) else 0,
-            "owner_count":  int(row["owner_count"])      if not math.isnan(float(row.get("owner_count", 1)))      else 1,
-            "market_value": int(round(float(row["selling_price"]) / 500) * 500),
-            "city":         "Bangalore",   # dataset is Bangalore listings
-            "condition":    "Good",
-            "segment":      segment,
-            "source":       "dataset",
-        })
-    return results
 
 
 # INLINE BRAND→SEGMENT MAP (avoids circular import with main.py)
@@ -1277,15 +1576,10 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # Segment (inline, no circular import)
     segment = _INLINE_BRAND_SEGMENT.get(brand.lower().strip(), "economy")
 
-    # Apply market sanity clamp
-    # Pass a rough confidence estimate (70) so the clamp band is reasonable
-    clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
-        model_name, segment, age, float(market_value), city,
-        pre_clamp_confidence=70.0,
-        fuel_type=fuel,
-        odometer_km=km,
-    )
-    market_value = clamped_value
+    # ML-first: market_value is the raw ML prediction — do NOT clamp or modify it.
+    # sanity_clamped is always False; it is passed to confidence/risk as informational.
+    sanity_clamped = False
+    sanity_note    = "ML-first: no sanity clamp applied"
 
     # Risk score
     risk_score, risk_level = compute_risk_score(
@@ -1295,22 +1589,13 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         accident_history=accident_hist,
     )
 
-    # Two-component confidence (Improvement #5)
+    # Two-component confidence
     confidence_score, model_conf, business_conf = compute_confidence_score(
         age, km, owner_count, condition, fuel, variant, fuel_eff,
         risk_score, sanity_clamped, city, inspected,
         owner_known=owner_known,
         accident_hist=accident_hist,
     )
-
-    # Re-apply sanity clamp with actual confidence
-    clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
-        model_name, segment, age, float(market_value), city,
-        pre_clamp_confidence=float(confidence_score),
-        fuel_type=fuel,
-        odometer_km=km,
-    )
-    market_value = clamped_value
 
     # Dynamic margin
     eff_margin_pct = dynamic_target_margin(
@@ -1469,12 +1754,9 @@ def calculate_decision(vehicle, market_value: float) -> dict:
 
     positive_factors.append("Market value predicted by CatBoost+LightGBM+XGBoost ensemble (R²=0.97)")
 
-    # Price confidence band (Clean 20k range, i.e., ±10k)
-    price_spread = 10000
-    price_min    = _round500(market_value - price_spread)
-    price_max    = _round500(market_value + price_spread)
-
-    seller_gap = _round500(seller_asking - recommended_buy_price) if seller_asking > 0 else 0
+    # Price confidence interval
+    price_spread = int(round(market_value * 0.0628))   # 6.28% MAPE uncertainty
+    seller_gap   = _round500(seller_asking - recommended_buy_price) if seller_asking > 0 else 0
 
     # Full waterfall (Improvement #12 — every line explained)
     waterfall = [
@@ -1529,8 +1811,6 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     return {
         # Prices
         "market_value":             int(market_value),
-        "price_min":                int(price_min),
-        "price_max":                int(price_max),
         "ci":                       int(price_spread),
         "recommended_buy_price":    int(recommended_buy_price),
         "recommended_sell_price":   int(recommended_sell_price),

@@ -1,5 +1,5 @@
 {
-  "default": "variant_5",
+  "default": "variant_2",
   "variants": {
     "variant_2": {
       "dataset": "processed_widown-1.csv",
@@ -11,7 +11,7 @@
         "mape": 6.28
       },
       "artifact_path": "model_registry/variant_2",
-      "status": "archived"
+      "status": "active"
     },
     "variant_3": {
       "dataset": "processed_widoutown-2.csv",
@@ -37,18 +37,6 @@
       "artifact_path": "model_registry/variant_4",
       "status": "archived"
     },
-    "variant_5": {
-      "dataset": "processed_pincode_without_owner-4.csv",
-      "trained_at": "2026-07-22T17:36:31.289457",
-      "metrics": {
-        "mae": 26572.92,
-        "rmse": 65613.84,
-        "r2": 0.9889,
-        "mape": 4.25
-      },
-      "artifact_path": "model_registry/variant_5",
-      "status": "active"
-    },
     "variant_6": {
       "dataset": "processed_pincode_with_owner1_filled-5.csv",
       "trained_at": "2026-07-22T17:47:49.437140",
@@ -71,6 +59,18 @@
         "mape": 6.28
       },
       "artifact_path": "model_registry/variant_7",
+      "status": "archived"
+    },
+    "variant_5": {
+      "dataset": "processed_pincode without owner-4.csv",
+      "trained_at": "2026-07-23T11:45:33.546103",
+      "metrics": {
+        "mae": 39704.29,
+        "rmse": 79450.56,
+        "r2": 0.9749,
+        "mape": 6.47
+      },
+      "artifact_path": "model_registry/variant_5",
       "status": "archived"
     }
   }

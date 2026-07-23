@@ -68,17 +68,22 @@ def get_variant_path(variant_id: str) -> Optional[Path]:
 
 
 def _best_variant_id(reg: dict) -> Optional[str]:
-    """Pick variant with lowest test MAPE, break ties with RMSE then R²."""
-    best_id, best_mape, best_rmse, best_r2 = None, float("inf"), float("inf"), -float("inf")
+    """Pick variant with lowest test MAPE, break ties with RMSE then R² then newest trained_at."""
+    best_id, best_mape, best_rmse, best_r2, best_ts = None, float("inf"), float("inf"), -float("inf"), ""
     for vid, info in reg.get("variants", {}).items():
         m = info.get("metrics", {})
-        mape = m.get("mape", 9999)
-        rmse = m.get("rmse", 9999999)
-        r2   = m.get("r2",   -9999)
-        if (mape < best_mape or
-           (mape == best_mape and rmse < best_rmse) or
-           (mape == best_mape and rmse == best_rmse and r2 > best_r2)):
-            best_id, best_mape, best_rmse, best_r2 = vid, mape, rmse, r2
+        mape    = m.get("mape", 9999)
+        rmse    = m.get("rmse", 9999999)
+        r2      = m.get("r2",   -9999)
+        trained = info.get("trained_at", "")  # ISO timestamp string — lexicographic comparison works
+        is_better = (
+            mape < best_mape or
+            (mape == best_mape and rmse < best_rmse) or
+            (mape == best_mape and rmse == best_rmse and r2 > best_r2) or
+            (mape == best_mape and rmse == best_rmse and r2 == best_r2 and trained > best_ts)
+        )
+        if is_better:
+            best_id, best_mape, best_rmse, best_r2, best_ts = vid, mape, rmse, r2, trained
     return best_id
 
 

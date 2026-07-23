@@ -33,9 +33,9 @@ from backend.decision_engine import (
     get_recon_cost,
     get_negotiation_trio,
     get_deal_health,
-    apply_market_sanity_clamp,
     shap_explanation,
     generate_similar_cars,
+    get_market_range_result,
 )
 from backend.ensemble_predictor import EnsemblePredictor
 from backend.brand_catalog import build_brand_catalog
@@ -283,12 +283,76 @@ def _resolve_model_alias(model: str, year: int) -> str:
     return model_key
 
 
+# ── Comprehensive brand alias map — maps user-typed variants to dataset canonical names ──
+# Dataset training used these exact brand strings (from clean-4.py OEM_ALLOWLIST).
+_BRAND_ALIAS_MAP: dict[str, str] = {
+    # Maruti variants
+    "maruti":               "maruti suzuki",
+    "marutisuzuki":         "maruti suzuki",
+    "maruti-suzuki":        "maruti suzuki",
+    "suzuki":               "maruti suzuki",
+    # Mercedes variants
+    "mercedes":             "mercedes-benz",
+    "mercedes benz":        "mercedes-benz",
+    "mercedesbenz":         "mercedes-benz",
+    "merc":                 "mercedes-benz",
+    "mercedes-benz":        "mercedes-benz",
+    # Land Rover
+    "land-rover":           "land rover",
+    "landrover":            "land rover",
+    "range rover":          "land rover",   # brand-level alias
+    # Volkswagen
+    "vw":                   "volkswagen",
+    "volkswagon":           "volkswagen",
+    # Others
+    "hyundai motor":        "hyundai",
+    "tata motors":          "tata",
+    "honda cars":           "honda",
+    "general motors":       "chevrolet",
+    "chevy":                "chevrolet",
+    "bajaj auto":           "bajaj",
+    "fiat chrysler":        "fiat",
+    "citroen":              "citroen",
+}
+
+def _normalize_brand(brand: str) -> str:
+    """Return canonical dataset brand name for any user-typed variant."""
+    b = clean_text(brand)
+    return _BRAND_ALIAS_MAP.get(b, b)
+
+
 def normalize_model_name(brand: str, model_name: str, year: int = 0) -> str:
-    brand_clean = clean_text(brand)
+    brand_clean = _normalize_brand(brand)
     # Resolve generation alias first (e.g. Innova 2019 -> innova crysta)
     model_clean = _resolve_model_alias(model_name, year)
-    if brand_clean != "unknown" and brand_clean not in model_clean:
-        return f"{brand_clean} {model_clean}"
+    # Strip brand prefix if present — dataset stores model WITHOUT brand prefix
+    # e.g. "maruti suzuki swift" → "swift", "hyundai i20" → "i20"
+    for b in [brand_clean] + list(_BRAND_ALIAS_MAP.values()):
+        prefix = f"{b} "
+        if model_clean.startswith(prefix):
+            model_clean = model_clean[len(prefix):].strip()
+            break
+    # Strip known variant suffixes that may leak in from frontend
+    # e.g. "swift vxi" → "swift", "creta sx" → "creta"
+    # Only strip if the resulting base is at least 3 chars (avoid over-stripping)
+    _KNOWN_VARIANT_TOKENS = {
+        "lxi", "vxi", "zxi", "zxi+", "vxi+", "ldi", "vdi", "zdi", "zdi+",
+        "sx", "sx+", "sx(o)", "ex", "ex+", "s", "se", "sv", "sv+",
+        "base", "top", "plus", "amt", "ags", "cvt", "ivtec", "dtec",
+        "xm", "xz", "xz+", "xe", "xt", "xta",
+        "magna", "sportz", "asta", "era", "d-lite", "d lite",
+        "xl", "xls", "xxl",
+        "lx", "vx", "zx",
+        "g", "v", "z", "rs", "gt",
+        "prestige", "luxury", "prime",
+        "anniversary", "limited", "special", "edition",
+        "4wd", "awd", "4x4", "2wd",
+    }
+    parts = model_clean.split()
+    if len(parts) > 1 and parts[-1] in _KNOWN_VARIANT_TOKENS:
+        candidate = " ".join(parts[:-1])
+        if len(candidate) >= 3:
+            model_clean = candidate
     return model_clean
 
 
@@ -379,7 +443,7 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     luxury_brand = 1 if seg_class == "luxury" else 0
     inspected    = 1 if getattr(vehicle, 'inspected', False) else 0
 
-    brand_clean        = clean_text(vehicle.brand)
+    brand_clean        = _normalize_brand(vehicle.brand)
     brand_tier         = _BRAND_TIER_MAP.get(brand_clean, 1)
     age_km_interaction = float(vehicle_age) * float(km)
     is_high_mileage    = 1 if km_per_year > 15_000 else 0
@@ -461,7 +525,7 @@ def get_segment_class(brand: str) -> str:
     Brand is always known at inference time — O(1) dict lookup.
     Unknown brands default to 'economy' (safest prior).
     """
-    return BRAND_SEGMENT_MAP.get(clean_text(brand), "economy")
+    return BRAND_SEGMENT_MAP.get(_normalize_brand(brand), "economy")
 
 
 # Median depreciation ratio from training data (used when list_price is unknown)
@@ -601,41 +665,138 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
 
 
 def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
-    """Return base ML value and final condition-calibrated, sanity-clamped market value."""
+    """
+    ML-first prediction pipeline.
+
+    The market_value returned here equals the raw ML ensemble output with no
+    post-processing price modifications.  All hardcoded rule multipliers
+    (condition, sanity clamp, odometer penalty, fuel modifier) have been removed.
+
+    If condition, fuel, age, or odometer effects are needed in the price, they
+    should be trained into the model as features — not patched in post-hoc.
+
+    The pipeline is:
+        1. build_features() → ML ensemble → base_value
+        2. Soft bounds check (₹50k floor / ₹2Cr cap — physical limits only)
+        3. ComparableVehicleService → Q1/Q3 market range + similar_cars
+        4. Statistical outlier flag (IQR method — display only, never modifies price)
+    """
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
     base_value, routing_note = predict_base_market_value(vehicle, model_variant=model_variant)
     seg_class = get_segment_class(vehicle.brand)
     age       = max(0, CURRENT_YEAR - int(vehicle.year))
 
-    mult     = condition_multiplier(vehicle.condition)
-    adjusted = max(50_000, min(base_value * mult, 20_000_000))
-    adjusted = int(round(adjusted / 500) * 500)
+    # ── Soft physical bounds (no business rule, just sanity) ──────────────────
+    # ₹50k floor = absolute minimum for any registered vehicle.
+    # ₹2Cr cap   = dataset ceiling (no listing above this in training data).
+    # These are NOT market bands — they are data integrity bounds only.
+    final_value = int(round(max(50_000, min(base_value, 20_000_000)) / 500) * 500)
 
-    # Issue 5 fix: pass fuel_type and odometer_km so the new depreciation modifiers apply
-    clamped_value, sanity_clamped, sanity_note = apply_market_sanity_clamp(
-        resolved_model, seg_class, age, float(adjusted),
-        city=str(vehicle.city or ""),
-        fuel_type=str(vehicle.fuel_type or "petrol"),
-        odometer_km=float(vehicle.odometer_reading or 0),
-    )
-    final_value = int(round(clamped_value / 500) * 500)
+    # ── IRDAI note (informational only — no price effect) ────────────────────
+    variant_clean    = clean_text(getattr(vehicle, "variant", None) or "")
+    variant_is_known = variant_clean not in ("", "unknown")
+    irdai_note = ""
+    if not variant_is_known:
+        if age <= 0:    _irdai_dep = 5
+        elif age == 1:  _irdai_dep = 15
+        elif age == 2:  _irdai_dep = 20
+        elif age == 3:  _irdai_dep = 30
+        elif age == 4:  _irdai_dep = 40
+        elif age == 5:  _irdai_dep = 50
+        else:           _irdai_dep = min(80, 50 + (age - 5) * 4)
+        irdai_note = (
+            f"variant unknown — IRDAI schedule reference: "
+            f"{_irdai_dep}% depreciation for {age}-yr vehicle (informational only)"
+        )
+
+    # ── Dataset-driven market range + similar cars ────────────────────────────
+    # 4-stage hierarchical search → Q1/Q3 from real comparable selling prices.
+    # Falls back to MAPE uncertainty band if <5 comps found.
+    # The same comp pool feeds both the market range display and the similar-
+    # cars UI card, so the numbers are always explainable and consistent.
+    _meta_mape = METADATA.get("metrics", {}).get("mape", 0.0628) / 100.0 \
+                 if METADATA.get("metrics", {}).get("mape", 0.0628) > 1 \
+                 else METADATA.get("metrics", {}).get("mape", 0.0628)
+    try:
+        mr_result = get_market_range_result(
+            brand        = str(vehicle.brand),
+            model        = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
+            variant      = variant_clean,
+            fuel         = clean_text(vehicle.fuel_type),
+            transmission = clean_text(vehicle.transmission),
+            year         = int(vehicle.year),
+            odometer     = float(vehicle.odometer_reading or 0),
+            owner_count  = int(vehicle.owner_count or 1),
+            prediction   = float(final_value),
+            model_mape   = float(_meta_mape),
+        )
+    except Exception:
+        _mape = float(_meta_mape)
+        mr_result = {
+            "price_min":               int(round(final_value * (1 - _mape) / 500) * 500),
+            "price_max":               int(round(final_value * (1 + _mape) / 500) * 500),
+            "price_median":            final_value,
+            "market_range_comp_count": 0,
+            "market_range_stage":      0,
+            "market_range_stage_label": "error_fallback",
+            "market_range_source":     "mape_fallback",
+            "similar_cars":            [],
+        }
+
+    similar_cars = mr_result.get("similar_cars", [])
+
+    # ── Statistical outlier flag (IQR method) ────────────────────────────────
+    # If ML prediction falls outside 1.5 × IQR fence of the comparable pool,
+    # flag it as unusual for display in the UI.  The price is NEVER modified.
+    outlier_flagged = False
+    outlier_note    = ""
+    if mr_result["market_range_source"] == "dataset" and mr_result["market_range_comp_count"] >= 5:
+        q1  = mr_result["price_min"]
+        q3  = mr_result["price_max"]
+        iqr = max(q3 - q1, 1)
+        lower_fence = q1 - 1.5 * iqr
+        upper_fence = q3 + 1.5 * iqr
+        if not (lower_fence <= final_value <= upper_fence):
+            outlier_flagged = True
+            outlier_note = (
+                f"ML prediction ₹{final_value/1e5:.2f}L is outside the dataset "
+                f"IQR fence ₹{lower_fence/1e5:.2f}L – ₹{upper_fence/1e5:.2f}L "
+                f"({mr_result['market_range_comp_count']} comps)"
+            )
 
     var_id = model_variant or vehicle.model_variant
     _, seg_models, meta, _, active_id = resolve_variant_data(var_id)
 
     return {
-        "base_market_value":     int(base_value),
-        "market_value":          final_value,
-        "condition_multiplier":  round(mult, 3),
-        "condition_adjustment":  int(adjusted - base_value),
-        "condition_score":       condition_to_score(vehicle.condition),
-        "segment_class":         seg_class,
-        "segment_model_used":    seg_class in seg_models,
-        "routing_note":          routing_note,
-        "sanity_clamped":        sanity_clamped,
-        "sanity_note":           sanity_note,
-        "resolved_model":        resolved_model,
-        "model_variant":         active_id,
+        # ── ML prediction (pure, unmodified) ──
+        "base_market_value":          int(base_value),
+        "market_value":               final_value,   # == base_value (no post-processing)
+        # ── Diagnostic / informational ──
+        "condition_multiplier":       1.0,           # removed — condition must be in training features
+        "condition_adjustment":       0,
+        "condition_score":            condition_to_score(vehicle.condition),
+        "segment_class":              seg_class,
+        "segment_model_used":         seg_class in seg_models,
+        "routing_note":               routing_note,
+        "sanity_clamped":             False,         # clamp removed — price is raw ML output
+        "sanity_note":                "ML-first: no sanity clamp applied",
+        "similar_anchor_note":        "",            # 80/20 blend removed
+        "irdai_note":                 irdai_note,
+        "variant_is_known":           variant_is_known,
+        "resolved_model":             resolved_model,
+        "model_variant":              active_id,
+        # ── Outlier detection (display only, never changes price) ──
+        "outlier_flagged":            outlier_flagged,
+        "outlier_note":               outlier_note,
+        # ── Market range (dataset Q1/Q3 or MAPE fallback) ──
+        "price_min":                  mr_result["price_min"],
+        "price_max":                  mr_result["price_max"],
+        "price_median":               mr_result["price_median"],
+        "market_range_comp_count":    mr_result["market_range_comp_count"],
+        "market_range_stage":         mr_result["market_range_stage"],
+        "market_range_stage_label":   mr_result["market_range_stage_label"],
+        "market_range_source":        mr_result["market_range_source"],
+        "similar_cars":               similar_cars,
     }
 
 
@@ -680,20 +841,12 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
     prediction   = predict_market_value(vehicle, model_variant=model_variant)
     market_value = prediction["market_value"]
     decision     = calculate_decision(vehicle, market_value)
-    seg_class    = prediction.get("segment_class", "economy")
 
     var_id = model_variant or vehicle.model_variant
     _, _, meta, _, active_id = resolve_variant_data(var_id)
 
-    similar = generate_similar_cars(
-        market_value = float(market_value),
-        brand        = vehicle.brand,
-        model        = vehicle.model,
-        year         = int(vehicle.year),
-        fuel         = str(vehicle.fuel_type),
-        city         = str(vehicle.city),
-        segment      = seg_class,
-    )
+    # similar_cars already computed inside predict_market_value by ComparableVehicleService.
+    # Re-use the same pool so market range and similar-cars card are always consistent.
 
     return {
         **prediction,
@@ -706,7 +859,6 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         "overfitting_check":  meta.get("overfitting_check", {}),
         "shap":               shap_like_explanation(vehicle, market_value),
         "warnings":           warnings_for(vehicle, decision),
-        "similar_cars":       similar,
         "model_variant":      active_id,
         **decision,
     }

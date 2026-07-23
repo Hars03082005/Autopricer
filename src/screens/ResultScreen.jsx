@@ -285,6 +285,8 @@ export default function ResultScreen() {
     action = 'BUY',
     segmentClass = 'economy',
     similarCars = [],
+    marketRangeCompCount = 0,
+    marketRangeSource = 'mape_fallback',
   } = valuationResult;
 
   const ac = getAction(action);
@@ -297,11 +299,15 @@ export default function ResultScreen() {
   const ideal    = Number(targetOffer  || buyPrice);
   const walkAway = Number(maxOffer     || buyPrice * 1.05);
 
-  const minP = Number(priceMin || predictedPrice * 0.88);
-  const maxP = Number(priceMax || predictedPrice * 1.12);
+  const minP = Number(priceMin || predictedPrice * 0.9372);
+  const maxP = Number(priceMax || predictedPrice * 1.0628);
 
-  const minBuy = Math.round((buyPrice - 10000) / 500) * 500;
-  const maxBuy = Math.round((buyPrice + 10000) / 500) * 500;
+  const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
+  const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
+
+  const rangeSub = marketRangeSource === 'dataset' && marketRangeCompCount > 0
+    ? `Based on ${marketRangeCompCount} Comparable Vehicles`
+    : `Based on ML Uncertainty (±6.3% MAPE)`;
 
   const km = Number(inputs.mileage || 0);
 
@@ -352,7 +358,7 @@ export default function ResultScreen() {
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Market Selling Range</div>
             <div className="rs2-hero-stat-value rs2-blue">{fmt(minP)} – {fmt(maxP)}</div>
-            <div className="rs2-hero-stat-sub">Based on similar listings</div>
+            <div className="rs2-hero-stat-sub">{rangeSub}</div>
           </div>
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Expected Sell Price</div>
