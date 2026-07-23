@@ -1,14 +1,14 @@
-# Autopricer — AI-Powered Used Vehicle Valuation Engine
+# PriceRef — AI-Powered Used Vehicle Valuation Engine
 
 > **Data-driven valuation, acquisition risk assessment, and deal profitability for used vehicles.**
 
-Autopricer is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a specialized **CatBoost, LightGBM, and XGBoost ensemble (Variant 2)**, Autopricer processes vehicle attributes and returns market valuations in milliseconds.
+PriceRef is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a specialized **CatBoost, LightGBM, and XGBoost ensemble (Variant 2)**, PriceRef processes vehicle attributes and returns market valuations in milliseconds.
 
 ---
 
 ## 🚀 Model Architecture & Build Details (Variant 2)
 
-Autopricer comes pre-packaged with **Variant 2 Model Artifacts** in `model_registry/variant_2`. No training or dataset setup is needed to run the app out of the box.
+PriceRef comes pre-packaged with **Variant 2 Model Artifacts** in `model_registry/variant_2`. No training or dataset setup is needed to run the app out of the box.
 
 | Metric | Benchmark Value |
 | :--- | :--- |
@@ -214,7 +214,7 @@ create policy "own evals insert"   on evaluations for insert with check (auth.ui
 
 ---
 
-## 🔬 Optional: Retraining Model Variant 2 
+## 🔬 Optional: Retraining Model Variant 2
 
 > **Note:** This section is completely optional. The app runs immediately without running these scripts.
 
