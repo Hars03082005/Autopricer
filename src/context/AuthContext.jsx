@@ -22,34 +22,47 @@ export function AuthProvider({ children }) {
 
   // On mount: restore session from Supabase and listen for changes
   useEffect(() => {
-    // Get current session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('name, avatar, role')
-          .eq('id', session.user.id)
-          .single();
-        setCurrentUser(buildUser(session.user, profile));
+    let alive = true;
+    supabase.auth.getSession().then(async ({ data } = {}) => {
+      const session = data?.session;
+      if (alive && session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, avatar, role')
+            .eq('id', session.user.id)
+            .single();
+          setCurrentUser(buildUser(session.user, profile));
+        } catch {
+          setCurrentUser(buildUser(session.user, null));
+        }
       }
-      setLoading(false);
+    }).catch(() => {})
+    .finally(() => {
+      if (alive) setLoading(false);
     });
 
-    // Subscribe to auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('name, avatar, role')
-          .eq('id', session.user.id)
-          .single();
-        setCurrentUser(buildUser(session.user, profile));
-      } else {
+    const { data: { subscription } = {} } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (alive && session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, avatar, role')
+            .eq('id', session.user.id)
+            .single();
+          setCurrentUser(buildUser(session.user, profile));
+        } catch {
+          setCurrentUser(buildUser(session.user, null));
+        }
+      } else if (alive) {
         setCurrentUser(null);
       }
-    });
+    }) || {};
 
-    return () => subscription.unsubscribe();
+    return () => {
+      alive = false;
+      if (subscription?.unsubscribe) subscription.unsubscribe();
+    };
   }, []);
 
   const login = useCallback(async ({ email, password }) => {
