@@ -122,15 +122,31 @@ Frontend will start at `http://localhost:5173`.
 
 ---
 
+## 🍴 How to Fork this Repository
+
+If you want to create your own copy of this repository on GitHub to customize or host under your account:
+
+1. Click the **`Fork`** button at the top right of this repository page ([`github.com/Hars03082005/Autopricer`](https://github.com/Hars03082005/Autopricer)).
+2. Select your account to create an independent copy under your GitHub profile.
+3. You can now clone your forked repository or connect it directly to **Render**, **Railway**, or **Vercel** for 1-click cloud deployment!
+
+```bash
+# Clone your forked copy
+git clone https://github.com/YOUR_USERNAME/Autopricer.git
+cd Autopricer
+```
+
+---
+
 ## 🌐 Deployment & Hosting Guide
 
-Anyone cloning this repository can deploy it online using any of the following methods:
+Anyone cloning or forking this repository can deploy it online using any of the following methods:
 
 ### **Method 1: Render.com (Recommended — 1-Click Auto Blueprint)**
 
 Since `render.yaml` is pre-configured in this repository:
 
-1. Fork or push this repository to your GitHub account.
+1. Fork this repository to your GitHub account.
 2. Sign up at **[render.com](https://render.com)**.
 3. Click **New + → Blueprint** and select your repository.
 4. Click **Apply**. Render will automatically deploy:
