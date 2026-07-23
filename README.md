@@ -6,68 +6,68 @@ PriceRef is a high-performance machine learning system built for instant vehicle
 
 ---
 
-## 🔄 End-to-End Machine Learning Pipeline
+## 🔄 Full End-to-End Project Pipeline
 
-PriceRef implements an end-to-end ML pipeline spanning raw data preprocessing, feature engineering, multi-algorithm ensemble training, segment-wise routing, and financial decision engine processing:
+PriceRef connects a responsive React frontend, a FastAPI REST service, an ML ensemble model, a financial decision engine, and an optional cloud persistence layer into a single unified workflow:
 
 ```mermaid
 graph TD
-    Raw[Raw Vehicle Listings Data] --> Clean[1. Data Cleaning & Normalization]
-    Clean --> FE[2. Feature Engineering & Tier Mapping]
-    FE --> Train[3. Multi-Algorithm Ensemble Training]
-    Train --> Weights[4. SLSQP Constrained Weight Optimization]
-    Weights --> SegRouting[5. Price-Band Segment Routing]
-    SegRouting --> Backend[6. Inference & Decision Engine]
-    Backend --> Output[Market Value, Buy Target, Risk Score & Decision]
+    User([User / Dealer]) -->|Inputs Details| Frontend[1. React Frontend UI]
+    Frontend -->|POST /evaluate| FastAPI[2. FastAPI Backend Gateway]
+    FastAPI -->|Extracts & Sanitizes| FE[3. Feature Engineering & Vectorizer]
+    FE -->|Predicts Log Price| Ensemble[4. Weighted ML Ensemble]
+    Ensemble -->|Routes Price Tier| SegRouting[5. Segment-Wise Sub-Models]
+    SegRouting -->|Raw Market Value| Decision[6. Dealer Financial Decision Engine]
+    Decision -->|Market Value, Buy Target, Risk & Decision| APIResp[7. API JSON Response]
+    APIResp -->|Displays Dashboard & Charts| Frontend
+    Frontend -.->|Cloud Sync / Offline Fallback| Sync[8. History Persistence: Supabase or LocalStorage]
 ```
 
-### 1. Data Preprocessing & Cleaning (`ml_training/clean_data-1.py`)
-- **Outlier Filtering**: IQR filtering on raw selling prices (removing erroneous data entries) and extreme odometer readings (> 250,000 km).
-- **Text Normalization**: Stripping extra whitespaces, lowercasing, and mapping raw text to canonical OEM brand and model names.
-- **Missing Value Handling**: Imputing missing fuel types, transmissions, engine displacement (`cc`), and city names based on model-year medians.
+### 1. User Interface & Data Ingestion (React + Vite Frontend)
+- **Input Modes**: Supports Single Vehicle Evaluation, Enhanced Multi-Grade Inspection, VIN Lookup, Bulk Batch Evaluation, and Reverse Price Calculation.
+- **Client Sanitization**: Automatically normalizes user inputs (trim spacing, title-casing brand/model names, fuel type conversion) before constructing API payloads (`payloadFromInputs`).
 
-### 2. Feature Engineering & Feature Vector Construction
-- **Categorical Encodings**: `brand`, `model`, `variant` (trim), `city`, `locality`, `rto`, `segment_class`, `fuel_type`, `transmission`, `seller_type`.
-- **Numeric Features**:
-  - `vehicle_age`: `current_year - manufacturing_year`
-  - `odometer_reading`: Total kilometers driven
-  - `km_per_year`: `odometer_reading / max(1, vehicle_age)`
-  - `owner_count`: Number of previous owners (1, 2, 3, 4+)
-  - `brand_tier`: Brand classification score (0 = Budget to 4 = Luxury)
-  - `age_km_interaction`: `vehicle_age * (odometer_reading / 10,000)`
-  - `ownership_trust_score`: Trust weight based on owner count and vehicle age
-  - `vehicle_health_score`: Calculated physical condition grade (0–100)
-  - `locality_tier` & `locality_density_norm`: Regional price premium factors
-  - `popularity_score_log`: Log-transformed demand volume for brand/model
+### 2. API Gateway & Request Routing (FastAPI REST API)
+- High-throughput asynchronous Python web server exposing structured endpoints:
+  - `/evaluate`: Standard ML valuation, risk scoring, and profitability breakdown.
+  - `/evaluate-enhanced`: Comprehensive evaluation incorporating component grades (Engine, Tyres, Body, Interior, Electricals).
+  - `/predict`: Lightweight valuation endpoint returning target market value and soft physical range bounds.
+  - `/reverse-calculate`: Computes maximum buy price target given a desired sell price and profit margin.
 
-### 3. Ensemble Model Training (`ml_training/train-1.py`)
-- **Target Transformation**: `log1p(selling_price)` log-normal target transformation to handle heteroskedasticity and skewed vehicle price distributions.
-- **Base Algorithms**:
-  - **CatBoost Regressor**: Handles high-cardinality categoricals natively using target statistics.
-  - **LightGBM Booster**: Fast gradient boosting handling continuous numeric splits and non-linear interactions.
-  - **XGBoost Regressor**: Residual boundary alignment.
+### 3. Feature Construction & Normalization Pipeline (`backend/main.py`)
+- Constructs a 23-column feature DataFrame (`build_features`) in real time:
+  - **Categorical Features**: `brand`, `model`, `variant` (trim), `city`, `locality`, `rto`, `segment_class`, `fuel_type`, `transmission`, `seller_type`.
+  - **Engineered Numeric Features**: `vehicle_age`, `odometer_reading`, `km_per_year`, `owner_count`, `brand_tier`, `age_km_interaction`, `ownership_trust_score`, `vehicle_health_score`, `locality_tier`, `usage_category_num`, `locality_density_norm`, `popularity_score_log`.
 
-### 4. SLSQP Constrained Weight Optimization
-- Uses SciPy's `minimize(method='SLSQP')` to solve for non-negative weights $w_1, w_2, w_3$ summing to 1.0 that minimize validation Mean Squared Error (MSE):
-  $$\min_{w} \frac{1}{N} \sum_{i=1}^{N} \left( y_i - \sum_{k=1}^{3} w_k \hat{y}_{k,i} \right)^2 \quad \text{s.t.} \quad \sum w_k = 1, \: w_k \ge 0$$
-- Resulting Weights: **LightGBM 81.52%**, **CatBoost 18.48%**, **XGBoost < 0.01%**.
+### 4. Weighted ML Ensemble Engine
+- Predicts log-transformed price $\hat{y}_{\text{log}}$ using optimized model weights:
+  $$\hat{y}_{\text{ensemble}} = 0.8152 \times \hat{y}_{\text{LightGBM}} + 0.1848 \times \hat{y}_{\text{CatBoost}}$$
+- **LightGBM (81.52% Weight)**: Processes continuous splits, age-km interaction features, and vehicle usage curves.
+- **CatBoost (18.48% Weight)**: Handles high-cardinality categorical target encoding for brand, model, and trim combinations.
 
 ### 5. Price-Band Segment Routing
-- Evaluates initial ensemble predictions and routes vehicles into 3 specialized price-tier CatBoost sub-models:
+- Evaluates the initial ensemble quote and routes the vehicle into dedicated price-tier CatBoost sub-models:
   - **Budget Tier (`₹0 – ₹6 Lakhs`)**: `segment_0_6_lakh.cbm`
   - **Mid Tier (`₹6 Lakhs – ₹12 Lakhs`)**: `segment_6_12_lakh.cbm`
   - **Luxury Tier (`₹12 Lakhs+`)**: `segment_12_plus_lakh.cbm`
 
 ### 6. Dealer Financial Decision Engine (`backend/decision_engine.py`)
-- **Inverse Log Transform**: $\text{Price} = \exp(\hat{y}_{\text{log}}) - 1$, rounded to the nearest ₹500 step.
-- **Physical Limits Clamp**: Soft data integrity bounds (₹50k floor, ₹20M cap).
-- **Waterfall Profit Calculation**:
+- **Market Value Calculation**: Converts log price back to INR using $\text{Price} = \exp(\hat{y}_{\text{log}}) - 1$, rounded to the nearest ₹500 step.
+- **Dealer Waterfall Model**:
   $$\text{Recommended Buy Price} = \text{Market Value} \times (1 - \text{Margin \%}) - \text{Recon Costs} - \text{Holding/Risk Buffer}$$
-- **Decision Engine**: Computes Risk Score (0–100), Confidence Score (0–100), and outputs actionable decisions (`BUY`, `BUY AFTER INSPECTION`, `NEGOTIATE`, `REJECT`).
+- **Risk & Confidence Engine**: Computes Risk Score (0–100 based on mileage, age, owner count, inspection) and Confidence Score (0–100 based on model metrics and brand popularity).
+- **Decision Output**: Computes clear dealer recommendations (`BUY`, `BUY AFTER INSPECTION`, `NEGOTIATE`, `REJECT`).
+
+### 7. Interactive Response Rendering
+- Renders key financial metrics, price range visualizers, risk breakdown gauges, negotiation opening/walk-away targets, and counterfactual insights on the frontend dashboard.
+
+### 8. Persistence & Dual-Mode History Sync
+- **Authenticated Mode**: Automatically syncs completed valuations to Supabase PostgreSQL database using Row-Level Security (`evaluations` table).
+- **Offline / Guest Mode**: Fallback persistence using browser `localStorage` if Supabase environment variables are unconfigured.
 
 ---
 
-## 📊 Model Performance Results (Variant 2)
+## 📊 Complete Model Results & Benchmarks (Variant 2)
 
 PriceRef comes pre-packaged with **Variant 2 Model Artifacts** in `model_registry/variant_2`.
 
