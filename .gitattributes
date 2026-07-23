@@ -1,2 +1,9 @@
-model_registry/*/ binary
-model_artifacts/*/ binary
+# Model binaries — must never have line endings touched
+*.pkl binary
+*.cbm binary
+model_registry/**/*.txt binary
+model_artifacts/*.txt binary
+
+# Keep these as normal text (JSON/CSV) so diffs still work
+*.json text
+*.csv text
