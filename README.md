@@ -122,6 +122,46 @@ Frontend will start at `http://localhost:5173`.
 
 ---
 
+## 🌐 Deployment & Hosting Guide
+
+Anyone cloning this repository can deploy it online using any of the following methods:
+
+### **Method 1: Render.com (Recommended — 1-Click Auto Blueprint)**
+
+Since `render.yaml` is pre-configured in this repository:
+
+1. Fork or push this repository to your GitHub account.
+2. Sign up at **[render.com](https://render.com)**.
+3. Click **New + → Blueprint** and select your repository.
+4. Click **Apply**. Render will automatically deploy:
+   - **Backend Web Service**: Python FastAPI + Uvicorn server (`price-prediction-backend`).
+   - **Frontend Static Site**: React Vite bundle (`price-prediction-frontend`).
+
+---
+
+### **Method 2: Vercel (Frontend) + Railway (Backend)**
+
+1. **Backend (Railway.app):**
+   - New Project → Deploy from GitHub → Select Repository.
+   - Set Start Command: `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+2. **Frontend (Vercel.com):**
+   - New Project → Import GitHub Repo.
+   - Build Command: `npm run build`, Output Directory: `dist`.
+   - Add Environment Variable: `VITE_API_URL=https://your-backend-railway-url.up.railway.app`
+
+---
+
+### **Method 3: Docker Deployment**
+
+Run using Docker locally or on any Cloud VPS (AWS / DigitalOcean / Hetzner):
+
+```bash
+# Build & Run using docker-compose
+docker-compose up --build
+```
+
+---
+
 ## ⚡ Supabase Setup (Optional — User Accounts & History Sync)
 
 > **Note:** Core ML valuations work **100% offline without Supabase**. Supabase is only required if you want user authentication (login/signup) and persistent cloud evaluation history.
