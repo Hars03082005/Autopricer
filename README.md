@@ -8,11 +8,11 @@ Autopricer is a high-performance machine learning system built for instant vehic
 
 ## 🚀 Model Architecture & Build Details (Variant 2)
 
-Autopricer is built on the **Variant 2 Model Architecture**, which achieved the highest overall accuracy across dataset benchmarks:
+Autopricer comes pre-packaged with **Variant 2 Model Artifacts** in `model_registry/variant_2`. No training or dataset setup is needed to run the app out of the box.
 
 | Metric | Benchmark Value |
 | :--- | :--- |
-| **Active Model** | `Variant 2 Ensemble` |
+| **Active Model** | `Variant 2 Ensemble` *(Pre-trained & ready)* |
 | **MAPE (Mean Absolute Percentage Error)** | **6.28%** |
 | **R² Score** | **0.976** |
 | **MAE (Mean Absolute Error)** | **₹37,988** |
@@ -32,7 +32,7 @@ Autopricer is built on the **Variant 2 Model Architecture**, which achieved the 
 ```mermaid
 graph TD
     UI[Vite + React Dashboard] -->|HTTP / REST API| FastAPI[FastAPI Backend Server]
-    FastAPI -->|Loads Artifacts| Registry[Model Registry: Variant 2]
+    FastAPI -->|Loads Pre-trained Artifacts| Registry[Model Registry: Variant 2]
     Registry -->|Ensemble Ingestion| Predictor[CatBoost + LightGBM + XGBoost Predictor]
     FastAPI -->|Auth & History Sync| Supabase[(Supabase PostgreSQL Database)]
 ```
@@ -57,7 +57,9 @@ graph TD
 
 ---
 
-## 🏁 Quick Start
+## 🏁 Quick Start (Run Out of the Box)
+
+> 💡 **No model training is required after cloning.** The pre-trained Variant 2 model artifacts are included directly in `model_registry/variant_2`.
 
 ### Prerequisites
 * **Python 3.10+**
@@ -97,7 +99,7 @@ ACTIVE_VARIANT_ID=variant_2
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
-Backend will start at `http://127.0.0.1:8000`.
+Backend will start at `http://127.0.0.1:8000` and load pre-trained Variant 2 models automatically.
 
 ### 4. Install & Run Frontend UI
 
@@ -114,19 +116,21 @@ Frontend will start at `http://localhost:5173`.
 
 ---
 
-## 🔬 Model Training & Cleaning Scripts (Variant 2)
+## 🔬 Optional: Retraining Model Variant 2 (Developer Only)
 
-To clean data and train Variant 2 from scratch:
+> **Note:** This section is completely optional. The app runs immediately without running these scripts.
+
+If you wish to clean a raw dataset and retrain Variant 2 from scratch in the future:
 
 ```bash
-# 1. Clean dataset for Variant 2
+# 1. Clean raw dataset for Variant 2
 python ml_training/clean_data-1.py
 
 # 2. Train Variant 2 Ensemble Model
 python ml_training/train-1.py
 ```
 
-*Note: Training outputs are saved directly into `model_registry/variant_2`.*
+*Note: Training outputs will update `model_registry/variant_2`.*
 
 ---
 
