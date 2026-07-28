@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { CITY_DEMAND } from '../utils/mockData.js';
+import { CITY_DEMAND, LOCALITIES } from '../utils/mockData.js';
 import { fetchBrands, fetchCatalog, runMLValuation, fetchRegistry } from '../utils/apiValuation.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
@@ -378,19 +378,14 @@ export default function InputScreen() {
             </div>
           </div>
           <div className="vws-field">
-            <FieldLabel>Repair Budget Estimate</FieldLabel>
-            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <span style={{ position: 'absolute', left: 12, fontSize: 13, color: 'var(--text-3)' }}>₹</span>
-              <input
-                className="vws-input"
-                type="number"
-                value={inputs.repairBuffer || '25000'}
-                onChange={e => updateInput('repairBuffer', e.target.value)}
-                placeholder="25000"
-                min={0}
-                style={{ paddingLeft: 24 }}
-              />
-            </div>
+            <FieldLabel>Locality</FieldLabel>
+            <SearchableDropdown
+              options={LOCALITIES}
+              value={inputs.locality || 'Indiranagar'}
+              onChange={v => updateInput('locality', v)}
+              placeholder="Select Locality"
+              searchPlaceholder="Search locality…"
+            />
           </div>
           <div className="vws-field">
             <FieldLabel>Registration No.</FieldLabel>

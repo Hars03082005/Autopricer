@@ -36,6 +36,7 @@ from backend.decision_engine import (
     shap_explanation,
     generate_similar_cars,
     get_market_range_result,
+    get_locality_demand,
 )
 from backend.ensemble_predictor import EnsemblePredictor
 from backend.brand_catalog import build_brand_catalog
@@ -103,7 +104,7 @@ predictor       = None
 SEGMENT_MODELS  = {}
 METADATA        = {}
 DATASET_CATALOG = {}
-ACTIVE_VARIANT_ID = "variant_2"
+ACTIVE_VARIANT_ID = None
 FEATURES        = []
 CAT_FEATURES    = []
 CURRENT_YEAR    = datetime.now().year
@@ -183,12 +184,13 @@ class VehicleInput(BaseModel):
     owner_count: int = Field(1, ge=1)
     engine_cc: int = Field(1497, ge=0)
     city: str = "Bangalore"
+    locality: str = "Indiranagar"
     color: str = "unknown"          # car colour — from dataset schema; improves accuracy
     inspected: bool = False         # inspection certificate present
     condition: str = "Good"
     seller_asking_price: float = 0
     target_margin_pct: float = 10
-    repair_buffer: float = 25000
+    repair_buffer: float = 0
     model_variant: Optional[str] = None
 
 
@@ -422,91 +424,109 @@ def _usage_category_num(km_per_year: float) -> float:
 
 
 def build_features(vehicle: VehicleInput) -> pd.DataFrame:
+    """
+    Build the ML feature DataFrame for a single vehicle.
+
+    New feature set (matches redesigned preprocessing pipeline):
+      CAT:     brand, model, variant, locality, rto,
+               fuel_type, transmission, seller_type, color
+      NUMERIC: vehicle_age, odometer_reading, km_per_year,
+               owner_count, certified, pincode
+
+    Removed (no longer in training data):
+      - city           → redundant; locality + rto capture geography
+      - age_bucket     → discretised vehicle_age; tree models learn splits natively
+      - make_model_trim→ exact concat of brand+model+variant; redundant
+    """
     vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
     km          = max(0, float(vehicle.odometer_reading or 0))
     owner       = max(1, int(vehicle.owner_count or 1))
-    # Issue 6 fix: use 0.5 floor so a 6-month-old car gets ~2x correct km/yr
     km_per_year = min(km / max(vehicle_age, 0.5), 100_000)
 
-    # Issue 1 fix: match training scale {1:100, 2:75, 3:50, 4:25, 5+:10}
-    _TRUST_MAP = {1: 100, 2: 75, 3: 50, 4: 25, 5: 10, 6: 10}
-    ownership_trust_score = float(_TRUST_MAP.get(owner, 10))
-
-    # Issue 2 fix: match training formula — score 0-100 not 0-1
-    vehicle_health_score = float(max(0.0, min(100.0,
-        100.0 - (vehicle_age * 3) - (km / 10_000) - ((owner - 1) * 8)
-    )))
-
     seg_class    = get_segment_class(vehicle.brand)
-    color        = clean_text(getattr(vehicle, 'color', None) or 'unknown')
+    color        = clean_text(getattr(vehicle, "color", None) or "unknown")
     high_mileage = 1 if km > 93_143 else 0
     luxury_brand = 1 if seg_class == "luxury" else 0
-    inspected    = 1 if getattr(vehicle, 'inspected', False) else 0
+    inspected    = 1 if getattr(vehicle, "inspected", False) else 0
 
-    brand_clean        = _normalize_brand(vehicle.brand)
-    brand_tier         = _BRAND_TIER_MAP.get(brand_clean, 1)
-    age_km_interaction = float(vehicle_age) * float(km)
-    is_high_mileage    = 1 if km_per_year > 15_000 else 0
+    brand_clean = _normalize_brand(vehicle.brand)
+    brand_tier  = _BRAND_TIER_MAP.get(brand_clean, 1)
 
-    # Luxury brand age/km penalty features (used by unified model)
-    brand_age_penalty = float(brand_tier) * float(vehicle_age)
-    brand_km_penalty  = float(brand_tier) * (km / 10_000)
-
-    # ── 7 previously missing features — now properly estimated ──────────────
+    # ── Location: derive locality + rto from city lookup ─────────────────────
     city_clean = clean_text(vehicle.city)
     city_info  = _CITY_FEATURE_MAP.get(city_clean)
-
     if city_info:
         locality_tier_val, density_norm, rto_val, locality_val = city_info
     else:
-        # Unknown city → Tier-2 defaults (conservative middle estimate)
         locality_tier_val, density_norm, rto_val, locality_val = 2, 0.20, "unknown", city_clean
 
-    usage_cat_num   = _usage_category_num(km_per_year)
-    pop_log         = _BRAND_POPULARITY_LOG.get(brand_clean, 3.50)
+    # ── Core identifiers ─────────────────────────────────────────────────────
+    variant_clean = clean_text(vehicle.variant or "unknown")
+    model_clean   = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
+
+    # ── certified: 1 if inspected, else NaN (tree models handle NaN natively) ─
+    certified_val = 1.0 if getattr(vehicle, "inspected", False) else 0.0
+
+    # ── pincode: NaN when missing (matches new preprocessing behaviour) ───────
+    raw_pin = getattr(vehicle, "pincode", None)
+    pincode_val = float(raw_pin) if raw_pin and 100_000 <= float(raw_pin) <= 999_999 else np.nan
+
+    # ── Legacy extras used by the decision engine (NOT model features) ───────
+    ownership_trust_score = float({1: 100, 2: 75, 3: 50, 4: 25, 5: 10, 6: 10}.get(owner, 10))
+    vehicle_health_score  = float(max(0.0, min(100.0,
+        100.0 - (vehicle_age * 3) - (km / 10_000) - ((owner - 1) * 8))))
+    age_km_interaction = float(vehicle_age) * float(km)
+    is_high_mileage    = 1 if km_per_year > 15_000 else 0
+    brand_age_penalty  = float(brand_tier) * float(vehicle_age)
+    brand_km_penalty   = float(brand_tier) * (km / 10_000)
+    pop_log            = _BRAND_POPULARITY_LOG.get(brand_clean, 3.50)
+    usage_cat_num      = _usage_category_num(km_per_year)
 
     row = {
-        # Categorical — core model features
-        "brand":         brand_clean,
-        "model":         normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
-        "variant":       clean_text(vehicle.variant or "unknown"),
-        "city":          city_clean,
-        "locality":      locality_val,               # ← was missing
-        "rto":           rto_val,                    # ← was missing
-        "segment_class": seg_class,
-        "fuel_type":     clean_text(vehicle.fuel_type),
-        "transmission":  clean_text(vehicle.transmission),
-        "seller_type":   "dealer",                   # ← was missing (dealer is majority class in training)
-        "color":         color,
-        # Legacy compat
-        "rto_state":     rto_val,
-        # Numeric — core model features
-        "vehicle_age":           float(vehicle_age),
-        "odometer_reading":      float(km),
-        "km_per_year":           float(km_per_year),
-        "owner_count":           float(owner),
+        # ── Categorical — matches CAT_FEATURES in new training scripts ─────────
+        "brand":        brand_clean,
+        "model":        model_clean,
+        "variant":      variant_clean,
+        "locality":     locality_val,
+        "rto":          rto_val,
+        "fuel_type":    clean_text(vehicle.fuel_type),
+        "transmission": clean_text(vehicle.transmission),
+        "seller_type":  "dealer",   # majority class in training data
+        "color":        color,
+        # ── Numeric — matches NUMERIC_FEATURES in new training scripts ──────────
+        "vehicle_age":      float(vehicle_age),
+        "odometer_reading": float(km),
+        "km_per_year":      float(km_per_year),
+        "owner_count":      float(owner),
+        "certified":        certified_val,
+        "pincode":          pincode_val,
+        # ── Legacy / extra keys (ignored by new models via feature_names_) ──────
+        # Kept so older model variants loaded from registry still work correctly.
+        "segment_class":         seg_class,
+        "rto_state":             rto_val,
         "brand_tier":            float(brand_tier),
         "age_km_interaction":    float(age_km_interaction),
         "ownership_trust_score": float(ownership_trust_score),
         "vehicle_health_score":  float(vehicle_health_score),
         "is_high_mileage":       float(is_high_mileage),
-        "locality_tier":         float(locality_tier_val),       # ← was missing
-        "usage_category_num":    float(usage_cat_num),           # ← was missing
-        "locality_density_norm": float(density_norm),            # ← was missing
-        "popularity_score_log":  float(pop_log),                 # ← was missing
-        # Additional
+        "locality_tier":         float(locality_tier_val),
+        "usage_category_num":    float(usage_cat_num),
+        "locality_density_norm": float(density_norm),
+        "popularity_score_log":  float(pop_log),
         "brand_age_penalty":     brand_age_penalty,
         "brand_km_penalty":      brand_km_penalty,
-        "inspected":      float(inspected),
-        "high_mileage":   float(high_mileage),
-        "luxury_brand":   float(luxury_brand),
-        "has_list_price": 0.0,
+        "inspected":             float(inspected),
+        "high_mileage":          float(high_mileage),
+        "luxury_brand":          float(luxury_brand),
+        "has_list_price":        0.0,
     }
     df = pd.DataFrame([row])
     for col in CAT_FEATURES:
         if col in df.columns:
             df[col] = df[col].astype(str)
     return df
+
+
 
 
 
@@ -604,9 +624,9 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
 
 
 # Core prediction
-def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> tuple[int, str]:
+def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> tuple[int, str, float]:
     """
-    Returns (market_value_inr: int, routing_note: str).
+    Returns (market_value_inr: int, routing_note: str, ensemble_variance: float).
 
     Segment model routing (Issue 4 fix):
     Training saves price-band models keyed as '6_12_lakh', '12_plus_lakh'.
@@ -631,6 +651,8 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     price_band = _SEG_TO_BAND.get(seg_class, "0_6_lakh")
     artifact   = seg_models.get(price_band)
 
+    ensemble_variance = 0.0
+
     if artifact and isinstance(artifact, dict) and "model" in artifact:
         try:
             # Segment model is a raw CatBoost model, not an ensemble
@@ -646,22 +668,34 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
             # Align columns to model's feature names
             for col in seg_m.feature_names_:
                 if col not in cb_f.columns:
-                    cb_f[col] = "unknown" if col in cat_cols else 0.0
+                    cb_f[col] = "unknown" if col in artifact.get("cat_features", []) or col in CAT_FEATURES else 0.0
+                elif col in artifact.get("cat_features", []) or col in CAT_FEATURES:
+                    cb_f[col] = cb_f[col].astype(str)
             log_price    = float(seg_m.predict(cb_f[seg_m.feature_names_])[0])
             routing_note = f"segment model '{price_band}' used [{active_id}]"
+            # Compute ensemble variance from global model as diversity signal
+            try:
+                var_result = pred_obj.predict_with_variance(features)
+                ensemble_variance = var_result.get("variance", 0.0)
+            except Exception:
+                ensemble_variance = 0.0
         except Exception as e:
             log.warning("Segment model failed (%s), falling back to global: %s", price_band, e)
-            log_price    = pred_obj.predict_log_price(features)
+            var_result       = pred_obj.predict_with_variance(features)
+            log_price        = var_result["log_price"]
+            ensemble_variance = var_result.get("variance", 0.0)
             routing_note = f"segment model error — global fallback [{active_id}]"
     else:
-        log_price    = pred_obj.predict_log_price(features)
+        var_result        = pred_obj.predict_with_variance(features)
+        log_price         = var_result["log_price"]
+        ensemble_variance = var_result.get("variance", 0.0)
         routing_note = f"global model ({seg_class}) [{active_id}]"
 
     market_value = float(np.expm1(log_price))
     if not math.isfinite(market_value):
         market_value = 0
     market_value = max(50_000, min(market_value, 20_000_000))
-    return int(round(market_value / 500) * 500), routing_note
+    return int(round(market_value / 500) * 500), routing_note, ensemble_variance
 
 
 def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
@@ -678,19 +712,22 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
     The pipeline is:
         1. build_features() → ML ensemble → base_value
         2. Soft bounds check (₹50k floor / ₹2Cr cap — physical limits only)
-        3. ComparableVehicleService → Q1/Q3 market range + similar_cars
-        4. Statistical outlier flag (IQR method — display only, never modifies price)
+        3. AdaptiveComparableService → ML-anchored market range + similar_cars
+        4. ConfidenceEngine → composite confidence score
+        5. Statistical outlier flag (IQR method — display only, never modifies price)
     """
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
-    base_value, routing_note = predict_base_market_value(vehicle, model_variant=model_variant)
+    base_value, routing_note, ensemble_variance = predict_base_market_value(vehicle, model_variant=model_variant)
     seg_class = get_segment_class(vehicle.brand)
     age       = max(0, CURRENT_YEAR - int(vehicle.year))
 
+    # ── Locality demand adjustment (realistic ±2–5% intracity factor) ────────
+    user_loc    = clean_text(getattr(vehicle, "locality", "") or vehicle.city or "")
+    loc_uplift  = get_locality_demand(user_loc, segment=seg_class)
+    adj_base    = base_value * (1.0 + loc_uplift)
+
     # ── Soft physical bounds (no business rule, just sanity) ──────────────────
-    # ₹50k floor = absolute minimum for any registered vehicle.
-    # ₹2Cr cap   = dataset ceiling (no listing above this in training data).
-    # These are NOT market bands — they are data integrity bounds only.
-    final_value = int(round(max(50_000, min(base_value, 20_000_000)) / 500) * 500)
+    final_value = int(round(max(50_000, min(adj_base, 20_000_000)) / 500) * 500)
 
     # ── IRDAI note (informational only — no price effect) ────────────────────
     variant_clean    = clean_text(getattr(vehicle, "variant", None) or "")
@@ -709,26 +746,27 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             f"{_irdai_dep}% depreciation for {age}-yr vehicle (informational only)"
         )
 
-    # ── Dataset-driven market range + similar cars ────────────────────────────
-    # 4-stage hierarchical search → Q1/Q3 from real comparable selling prices.
-    # Falls back to MAPE uncertainty band if <5 comps found.
-    # The same comp pool feeds both the market range display and the similar-
-    # cars UI card, so the numbers are always explainable and consistent.
+    # ── Adaptive market range + confidence engine ──────────────────────────────
+    # Weighted similarity search → ML-anchored range → composite confidence.
+    # Comp pool feeds both the market range and similar-cars UI card.
     _meta_mape = METADATA.get("metrics", {}).get("mape", 0.0628) / 100.0 \
                  if METADATA.get("metrics", {}).get("mape", 0.0628) > 1 \
                  else METADATA.get("metrics", {}).get("mape", 0.0628)
     try:
         mr_result = get_market_range_result(
-            brand        = str(vehicle.brand),
-            model        = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
-            variant      = variant_clean,
-            fuel         = clean_text(vehicle.fuel_type),
-            transmission = clean_text(vehicle.transmission),
-            year         = int(vehicle.year),
-            odometer     = float(vehicle.odometer_reading or 0),
-            owner_count  = int(vehicle.owner_count or 1),
-            prediction   = float(final_value),
-            model_mape   = float(_meta_mape),
+            brand              = str(vehicle.brand),
+            model              = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
+            variant            = variant_clean,
+            fuel               = clean_text(vehicle.fuel_type),
+            transmission       = clean_text(vehicle.transmission),
+            year               = int(vehicle.year),
+            odometer           = float(vehicle.odometer_reading or 0),
+            owner_count        = int(vehicle.owner_count or 1),
+            prediction         = float(final_value),
+            model_mape         = float(_meta_mape),
+            ensemble_variance  = float(ensemble_variance),
+            seller_type        = clean_text(getattr(vehicle, "seller_type", "") or ""),
+            locality           = clean_text(getattr(vehicle, "locality", "") or getattr(vehicle, "city", "") or ""),
         )
     except Exception:
         _mape = float(_meta_mape)
@@ -741,6 +779,14 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             "market_range_stage_label": "error_fallback",
             "market_range_source":     "mape_fallback",
             "similar_cars":            [],
+            "confidence":              "Low",
+            "confidence_score":        0.0,
+            "market_support":          "Weak",
+            "comparables_used":        0,
+            "average_similarity":      0.0,
+            "ensemble_variance":       round(ensemble_variance, 6),
+            "expected_model_error":    round(_mape * 100, 2),
+            "confidence_case":         "low",
         }
 
     similar_cars = mr_result.get("similar_cars", [])
@@ -788,7 +834,7 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
         # ── Outlier detection (display only, never changes price) ──
         "outlier_flagged":            outlier_flagged,
         "outlier_note":               outlier_note,
-        # ── Market range (dataset Q1/Q3 or MAPE fallback) ──
+        # ── Market range (ML-anchored adaptive range) ──
         "price_min":                  mr_result["price_min"],
         "price_max":                  mr_result["price_max"],
         "price_median":               mr_result["price_median"],
@@ -797,6 +843,15 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
         "market_range_stage_label":   mr_result["market_range_stage_label"],
         "market_range_source":        mr_result["market_range_source"],
         "similar_cars":               similar_cars,
+        # ── Confidence & enrichment (Phase 3/4) ──
+        "confidence":                 mr_result.get("confidence", "Low"),
+        "confidence_score":           mr_result.get("confidence_score", 0.0),
+        "market_support":             mr_result.get("market_support", "Weak"),
+        "comparables_used":           mr_result.get("comparables_used", 0),
+        "average_similarity":         mr_result.get("average_similarity", 0.0),
+        "ensemble_variance":          mr_result.get("ensemble_variance", 0.0),
+        "expected_model_error":       mr_result.get("expected_model_error", 0.0),
+        "confidence_case":            mr_result.get("confidence_case", "low"),
     }
 
 

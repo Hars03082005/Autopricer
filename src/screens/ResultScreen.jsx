@@ -183,6 +183,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
     condition:    c.condition    || 'Good',
     segment:      c.segment      || '',
     ownerCount:   c.owner_count  || '',
+    similarity:   Number(c.similarity || 0),
   }));
 
   return (
@@ -198,7 +199,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
       {/* Table header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
         gap: 8,
         padding: '8px 10px',
         background: 'var(--surface-2)',
@@ -206,7 +207,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
         marginTop: 14,
         marginBottom: 2,
       }}>
-        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'OWNERS', 'LISTED PRICE'].map(h => (
+        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'OWNERS', 'LISTED PRICE', 'MATCH'].map(h => (
           <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px' }}>{h}</div>
         ))}
       </div>
@@ -219,7 +220,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
           return (
             <div key={idx} style={{
               display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
               gap: 8,
               padding: '11px 10px',
               borderBottom: '1px solid var(--border)',
@@ -254,6 +255,20 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   color: isPos ? '#16a34a' : '#dc2626',
                 }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
               </div>
+              {/* Similarity badge */}
+              {car.similarity > 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '3px 6px',
+                  borderRadius: 8,
+                  background: car.similarity >= 85 ? '#dcfce7' : car.similarity >= 65 ? '#dbeafe' : '#fef9c3',
+                  color:      car.similarity >= 85 ? '#15803d' : car.similarity >= 65 ? '#1d4ed8' : '#92400e',
+                }}>
+                  {car.similarity.toFixed(0)}%
+                </div>
+              ) : <div />}
             </div>
           );
         })}
@@ -287,7 +302,23 @@ export default function ResultScreen() {
     similarCars = [],
     marketRangeCompCount = 0,
     marketRangeSource = 'mape_fallback',
+    // Adaptive valuation engine enrichment
+    valuationConfidence = 'Low',
+    marketSupport = 'Weak',
+    comparablesUsed = 0,
+    averageSimilarity = 0,
+    expectedModelError = 6.3,
+    confidenceCase = 'low',
   } = valuationResult;
+
+  // Confidence badge colour for the adaptive valuation confidence
+  const confColor = {
+    'Very High': { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+    'High':      { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+    'Medium':    { bg: '#fef9c3', color: '#92400e', border: '#fde047' },
+    'Low':       { bg: '#ffedd5', color: '#c2410c', border: '#fdba74' },
+    'Very Low':  { bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' },
+  }[valuationConfidence] || { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
 
   const ac = getAction(action);
   const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
@@ -308,9 +339,10 @@ export default function ResultScreen() {
   const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
   const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
 
-  const rangeSub = marketRangeSource === 'dataset' && marketRangeCompCount > 0
-    ? `Based on ${marketRangeCompCount} Comparable Vehicles`
-    : `Based on ML Uncertainty (±6.3% MAPE)`;
+  // Dynamic market range sub-label
+  const rangeSub = comparablesUsed > 0
+    ? `${comparablesUsed} comps · ${averageSimilarity.toFixed(1)}% avg match · ${marketSupport} support`
+    : `ML model uncertainty band · ±${expectedModelError.toFixed(1)}% MAPE`;
 
   const km = Number(inputs.mileage || 0);
 
@@ -343,6 +375,19 @@ export default function ResultScreen() {
               <div className="rs2-hero-badges" style={{ marginTop: '8px' }}>
                 <span className="rs2-badge rs2-badge-seg">{(segmentClass || 'economy').toUpperCase()}</span>
                 <span className="rs2-badge rs2-badge-conf">ML Confidence: {confidenceScore}%</span>
+                <span
+                  className="rs2-badge"
+                  style={{
+                    background: confColor.bg,
+                    color: confColor.color,
+                    border: `1px solid ${confColor.border}`,
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  {valuationConfidence} Confidence
+                </span>
               </div>
             </div>
           </div>
@@ -362,6 +407,23 @@ export default function ResultScreen() {
             <div className="rs2-hero-stat-label">Market Selling Range</div>
             <div className="rs2-hero-stat-value rs2-blue">{fmt(minP)} – {fmt(maxP)}</div>
             <div className="rs2-hero-stat-sub">{rangeSub}</div>
+            {comparablesUsed > 0 && (
+              <div style={{
+                marginTop: 4,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 10,
+                fontWeight: 600,
+                padding: '2px 7px',
+                borderRadius: 10,
+                background: confColor.bg,
+                color: confColor.color,
+                border: `1px solid ${confColor.border}`,
+              }}>
+                {marketSupport} Market Support
+              </div>
+            )}
           </div>
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Expected Sell Price</div>

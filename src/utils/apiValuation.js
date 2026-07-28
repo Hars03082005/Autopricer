@@ -30,7 +30,7 @@ function getApiBase() {
   return (
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_ML_API_URL ||
-    'http://localhost:9000'
+    'http://localhost:8000'
   ).replace(/\/+$/, '');
 }
 
@@ -116,12 +116,13 @@ export function payloadFromInputs(inputs) {
     odometer_reading: Math.trunc(toNumber(inputs.mileage ?? inputs.odometer_reading, 0)),
     owner_count: parseOwnerCount(inputs.ownerCount ?? inputs.owner_count, 1),
     city: titleCase(inputs.city || 'Unknown'),
+    locality: inputs.locality ? String(inputs.locality).trim() : 'Indiranagar',
     color: normalizeColor(inputs.color || ''),
     inspected: Boolean(inputs.inspected),
     condition: normalizeCondition(inputs.condition),
     seller_asking_price: 0,
     target_margin_pct: toNumber(inputs.targetMarginPct ?? inputs.target_margin_pct, 10),
-    repair_buffer: toNumber(inputs.repairBuffer ?? inputs.repair_buffer, 25000),
+    repair_buffer: toNumber(inputs.repairBuffer ?? inputs.repair_buffer, 0),
     ...(inputs.modelVariant && inputs.modelVariant !== 'auto' ? { model_variant: inputs.modelVariant } : {}),
   };
 }
@@ -230,6 +231,15 @@ function normalizeApiResult(data, inputs) {
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     routingNote: data.routing_note ?? '',
+    // ── Adaptive Valuation Engine enrichment ──
+    valuationConfidence:     data.confidence ?? 'Low',
+    valuationConfidenceScore: data.confidence_score ?? 0,
+    marketSupport:           data.market_support ?? 'Weak',
+    comparablesUsed:         data.comparables_used ?? 0,
+    averageSimilarity:       data.average_similarity ?? 0,
+    ensembleVariance:        data.ensemble_variance ?? 0,
+    expectedModelError:      data.expected_model_error ?? 0,
+    confidenceCase:          data.confidence_case ?? 'low',
   };
 }
 

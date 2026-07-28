@@ -6,7 +6,6 @@ import AuthScreen    from './screens/AuthScreen.jsx';
 import HomeScreen     from './screens/HomeScreen.jsx';
 import InputScreen    from './screens/InputScreen.jsx';
 import ResultScreen   from './screens/ResultScreen.jsx';
-import ExplainScreen  from './screens/ExplainScreen.jsx';
 import PricingScreen  from './screens/PricingScreen.jsx';
 import DashboardScreen from './screens/DashboardScreen.jsx';
 import AssistantScreen from './screens/AssistantScreen.jsx';
@@ -111,7 +110,6 @@ function AppShell() {
     'enhanced-result':<EnhancedResultScreen />,
     'reverse-calc':   <ReverseCalculatorScreen />,
     result:           <ResultScreen />,
-    explain:          <ExplainScreen />,
     pricing:          <PricingScreen />,
     dashboard:        <DashboardScreen />,
     assistant:        <AssistantScreen />,

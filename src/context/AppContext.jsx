@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabaseClient.js';
 const DEFAULT_INPUTS = {
   brand: 'Honda', model: 'City', variant: '', year: '2021',
   fuel: 'Petrol', transmission: 'Manual', mileage: '28000', fuelEfficiency: '17.5',
-  city: 'Bangalore', vin: '',
+  city: 'Bangalore', locality: 'Indiranagar', vin: '',
   ownerCount: '1', engineCc: '1497', condition: 'Good',
   color: 'White', inspected: false,
   sellerAskingPrice: '0', targetMarginPct: '10', repairBuffer: '25000',
@@ -72,6 +72,7 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
     fuel: inputs?.fuel || inputs?.fuel_type || result?.fuel || 'Unknown',
     transmission: inputs?.transmission || result?.transmission || 'Unknown',
     city: inputs?.city || result?.city || 'Unknown',
+    locality: inputs?.locality || result?.locality || 'Indiranagar',
     odometer,
     kmDriven: odometer,
     mileage: odometer,

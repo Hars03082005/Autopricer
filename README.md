@@ -2,30 +2,34 @@
 
 > **Data-driven valuation, acquisition risk assessment, and deal profitability for used vehicles.**
 
-PriceRef is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a specialized **CatBoost, LightGBM, and XGBoost ensemble (Variant 2)**, PriceRef processes vehicle attributes and returns market valuations in milliseconds.
+PriceRef is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a specialized **CatBoost, LightGBM, and XGBoost ensemble (Variant 1)**, PriceRef processes vehicle attributes and returns market valuations in milliseconds across Web and Mobile platforms.
 
 ---
 
 ## 🔄 Full End-to-End Project Pipeline
 
-PriceRef connects a responsive React frontend, a FastAPI REST service, an ML ensemble model, a financial decision engine, and an optional cloud persistence layer into a single unified workflow:
+PriceRef connects a responsive React frontend, a Flutter mobile shell, a FastAPI REST service, an ML ensemble model, an adaptive financial decision engine, and an optional cloud persistence layer into a single unified workflow:
 
 ```mermaid
 graph TD
-    User([User / Dealer]) -->|Inputs Details| Frontend[1. React Frontend UI]
+    User([User / Dealer]) -->|Web / App User| UISelector{Platform Interface}
+    UISelector -->|Browser| Frontend[1. React Frontend UI]
+    UISelector -->|Android / iOS| MobileApp[1b. Flutter Mobile Shell]
+    MobileApp -->|WebView Bundle| Frontend
     Frontend -->|POST /evaluate| FastAPI[2. FastAPI Backend Gateway]
     FastAPI -->|Extracts & Sanitizes| FE[3. Feature Engineering & Vectorizer]
-    FE -->|Predicts Log Price| Ensemble[4. Weighted ML Ensemble]
+    FE -->|Predicts Log Price| Ensemble[4. Weighted ML Ensemble - Variant 1]
     Ensemble -->|Routes Price Tier| SegRouting[5. Segment-Wise Sub-Models]
-    SegRouting -->|Raw Market Value| Decision[6. Dealer Financial Decision Engine]
+    SegRouting -->|Raw Market Value| Decision[6. Adaptive Dealer Financial Decision Engine]
     Decision -->|Market Value, Buy Target, Risk & Decision| APIResp[7. API JSON Response]
-    APIResp -->|Displays Dashboard & Charts| Frontend
+    APIResp -->|Displays Dashboard & Analytics| Frontend
     Frontend -.->|Cloud Sync / Offline Fallback| Sync[8. History Persistence: Supabase or LocalStorage]
 ```
 
-### 1. User Interface & Data Ingestion (React + Vite Frontend)
-- **Input Modes**: Supports Single Vehicle Evaluation, Enhanced Multi-Grade Inspection, VIN Lookup, Bulk Batch Evaluation, and Reverse Price Calculation.
-- **Client Sanitization**: Automatically normalizes user inputs (trim spacing, title-casing brand/model names, fuel type conversion) before constructing API payloads (`payloadFromInputs`).
+### 1. User Interface & Data Ingestion
+- **React + Vite Web App**: Supports Single Vehicle Evaluation, Enhanced Multi-Grade Inspection, VIN Lookup, Bulk Batch Evaluation, AI Dealer Assistant, and Reverse Price Calculation.
+- **Flutter Mobile Shell (`mobile/`)**: Native cross-platform mobile application wrapping the Vite build in an embedded WebView with seamless API URL injection.
+- **Client Sanitization**: Automatically normalizes user inputs (trim spacing, title-casing brand/model names, fuel type conversion) before constructing API payloads.
 
 ### 2. API Gateway & Request Routing (FastAPI REST API)
 - High-throughput asynchronous Python web server exposing structured endpoints:
@@ -33,6 +37,8 @@ graph TD
   - `/evaluate-enhanced`: Comprehensive evaluation incorporating component grades (Engine, Tyres, Body, Interior, Electricals).
   - `/predict`: Lightweight valuation endpoint returning target market value and soft physical range bounds.
   - `/reverse-calculate`: Computes maximum buy price target given a desired sell price and profit margin.
+  - `/api/brands`: Fetches canonical brand catalog and valid model variants.
+  - `/api/registry`: Returns active model variant configuration (**Variant 1**).
 
 ### 3. Feature Construction & Normalization Pipeline (`backend/main.py`)
 - Constructs a 23-column feature DataFrame (`build_features`) in real time:
@@ -44,6 +50,7 @@ graph TD
   $$\hat{y}_{\text{ensemble}} = 0.8152 \times \hat{y}_{\text{LightGBM}} + 0.1848 \times \hat{y}_{\text{CatBoost}}$$
 - **LightGBM (81.52% Weight)**: Processes continuous splits, age-km interaction features, and vehicle usage curves.
 - **CatBoost (18.48% Weight)**: Handles high-cardinality categorical target encoding for brand, model, and trim combinations.
+- **XGBoost (< 0.01% Weight)**: Provides subtle residual boundary adjustment.
 
 ### 5. Price-Band Segment Routing
 - Evaluates the initial ensemble quote and routes the vehicle into dedicated price-tier CatBoost sub-models:
@@ -53,13 +60,15 @@ graph TD
 
 ### 6. Dealer Financial Decision Engine (`backend/decision_engine.py`)
 - **Market Value Calculation**: Converts log price back to INR using $\text{Price} = \exp(\hat{y}_{\text{log}}) - 1$, rounded to the nearest ₹500 step.
+- **Configurable Adaptive Parameters (`backend/valuation_config.json`)**: Allows zero-code tuning of similarity weights, age/odometer sigmas, confidence limits, and luxury brand thresholds.
 - **Dealer Waterfall Model**:
   $$\text{Recommended Buy Price} = \text{Market Value} \times (1 - \text{Margin \%}) - \text{Recon Costs} - \text{Holding/Risk Buffer}$$
-- **Risk & Confidence Engine**: Computes Risk Score (0–100 based on mileage, age, owner count, inspection) and Confidence Score (0–100 based on model metrics and brand popularity).
-- **Decision Output**: Computes clear dealer recommendations (`BUY`, `BUY AFTER INSPECTION`, `NEGOTIATE`, `REJECT`).
+- **Locality & RTO Demand Adjustment**: Dynamic geographic price micro-tuning based on intracity demand signals.
+- **Risk & Confidence Engine**: Computes Risk Score (0–100 based on mileage, age, owner count, physical inspection) and Confidence Score (0–100 based on comparable market matches and dataset density).
+- **Decision Output**: Generates clear dealer actions (`BUY`, `BUY AFTER INSPECTION`, `NEGOTIATE`, `REJECT`).
 
 ### 7. Interactive Response Rendering
-- Renders key financial metrics, price range visualizers, risk breakdown gauges, negotiation opening/walk-away targets, and counterfactual insights on the frontend dashboard.
+- Renders key financial metrics, price range visualizers, risk breakdown gauges, negotiation opening/walk-away targets, and counterfactual insights on both web and mobile dashboards.
 
 ### 8. Persistence & Dual-Mode History Sync
 - **Authenticated Mode**: Automatically syncs completed valuations to Supabase PostgreSQL database using Row-Level Security (`evaluations` table).
@@ -67,19 +76,19 @@ graph TD
 
 ---
 
-## 📊 Complete Model Results & Benchmarks (Variant 2)
+## 📊 Complete Model Results & Benchmarks (Variant 1)
 
-PriceRef comes pre-packaged with **Variant 2 Model Artifacts** in `model_registry/variant_2`.
+PriceRef comes pre-packaged with **Variant 1 Model Artifacts** in `model_registry/variant_1`.
 
 ### 1. Overall Global Ensemble Metrics
 
 | Metric | Result | Benchmark Quality |
 | :--- | :---: | :--- |
-| **Active Engine** | `Variant 2 Ensemble` | Active Default |
-| **MAPE (Mean Absolute Percentage Error)** | **`6.28%`** | 🌟 Top Precision (< 7% error) |
-| **R² Score (Variance Explained)** | **`0.9760` (97.6%)** | 🎯 High Overall Accuracy |
-| **MAE (Mean Absolute Error)** | **`₹37,988.79`** | Average deviation per quote |
-| **RMSE (Root Mean Squared Error)** | **`₹75,207.06`** | Outlier-penalized error |
+| **Active Engine** | `Variant 1 Ensemble` | Active Default |
+| **MAPE (Mean Absolute Percentage Error)** | **`6.16%`** | 🌟 Top Precision (< 6.2% error) |
+| **R² Score (Variance Explained)** | **`0.9777` (97.77%)** | 🎯 High Overall Accuracy |
+| **MAE (Mean Absolute Error)** | **`₹38,273.16`** | Average deviation per quote |
+| **RMSE (Root Mean Squared Error)** | **`₹98,254.21`** | Outlier-penalized error |
 
 ### 2. Weighted Ensemble Breakdown
 
@@ -97,16 +106,46 @@ PriceRef comes pre-packaged with **Variant 2 Model Artifacts** in `model_registr
 | **Mid Tier** (`₹6L – ₹12 Lakhs`) | 6,525 listings | **`5.64%`** | **`0.8522`** | `segment_6_12_lakh.cbm` |
 | **Luxury / High-Value** (`₹12L+`) | 1,993 listings | **`5.09%`** | **`0.8872`** | `segment_12_plus_lakh.cbm` |
 
-### 4. 6-Variant Benchmark Comparison
+### 4. Registered Variant Benchmark Comparison
 
-| Rank | Model Variant | Training Dataset | MAPE (%) | R² Score | MAE (₹) | Status |
-| :---: | :--- | :--- | :---: | :---: | :---: | :---: |
-| 🥇 **1** | **`variant_2` (Selected)** | `processed_widown-1.csv` | **`6.28%`** | **`0.9760`** | **₹37,988** | **Active Default** |
-| 🥈 **2** | **`variant_7`** | `processed_widown1-6.csv` | **`6.28%`** | **`0.9760`** | **₹37,988** | Retrained Checkpoint |
-| 🥉 **3** | **`variant_4`** | `processed_pincode_with_owner-3.csv` | **`6.36%`** | **`0.9756`** | **₹38,933** | Comparative Split |
-| 4 | **`variant_6`** | `processed_pincode_with_owner1_filled-5.csv` | **`6.36%`** | **`0.9756`** | **₹38,933** | Imputed Split |
-| 5 | **`variant_3`** | `processed_widoutown-2.csv` | **`6.37%`** | **`0.9756`** | **₹38,623** | No-Owner Split |
-| 6 | **`variant_5`** | `processed_pincode without owner-4.csv` | **`6.47%`** | **`0.9749`** | **₹39,704** | Base Pincode Split |
+| Rank | Model Variant | Training Dataset | MAPE (%) | R² Score | MAE (₹) | RMSE (₹) | System Status |
+| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| 🥇 **1** | **`variant_1` (Selected)** | `processed_overall.csv` | **`6.16%`** | **`0.9777`** | **₹38,273** | **₹98,254** | **Active Default** |
+| 🥈 **2** | **`variant_3`** | `processed_s1_s4_owner_1.csv` | **`6.50%`** | **`0.9755`** | **₹39,829** | **₹79,227** | Archived Variant |
+| 🥉 **3** | **`variant_2`** | `processed_s1_s4_owner.csv` | **`6.67%`** | **`0.9741`** | **₹40,661** | **₹83,619** | Archived Variant |
+
+---
+
+## 📱 Flutter Mobile Application (`mobile/`)
+
+PriceRef includes a dedicated **Flutter cross-platform shell** located in `mobile/`. It wraps the compiled React web bundle into a native WebView container for deployment on Android and iOS devices.
+
+### Mobile Build & Execution Pipeline
+
+```powershell
+# 1. Bundle web UI for mobile
+npm run build:mobile
+
+# 2. Run Flutter app on Android emulator
+cd mobile
+flutter pub get
+flutter run
+
+# 3. Run on a physical device connected to your network
+flutter run --dart-define=API_URL=http://192.168.1.10:8000
+
+# 4. Generate Production Release Packages
+flutter build apk --release
+flutter build appbundle --release
+flutter build ios --release
+```
+
+### Mobile Configuration Flags (`--dart-define`)
+
+| Configuration Flag | Description | Default Value |
+| :--- | :--- | :--- |
+| `API_URL` | FastAPI backend base URL accessible by emulator/device | `http://10.0.2.2:8000` (Android) / `http://localhost:8000` (iOS) |
+| `WEB_URL` | Development live-reload server URL (optional) | Bundled `assets/web/` |
 
 ---
 
@@ -114,15 +153,18 @@ PriceRef comes pre-packaged with **Variant 2 Model Artifacts** in `model_registr
 
 ```mermaid
 graph TD
-    UI[Vite + React Dashboard] -->|HTTP / REST API| FastAPI[FastAPI Backend Server]
-    FastAPI -->|Loads Pre-trained Artifacts| Registry[Model Registry: Variant 2]
+    WebUI[Vite + React Dashboard] -->|HTTP / REST API| FastAPI[FastAPI Backend Server]
+    MobileShell[Flutter WebView Shell] -->|Embedded Web Assets| WebUI
+    FastAPI -->|Loads Pre-trained Artifacts| Registry[Model Registry: Variant 1]
     Registry -->|Ensemble Ingestion| Predictor[CatBoost + LightGBM + XGBoost Predictor]
-    UI -.->|Optional Auth & History Sync| Supabase[(Supabase PostgreSQL Database)]
+    FastAPI -->|Reads Engine Configuration| Config[valuation_config.json / engine_config.json]
+    WebUI -.->|Optional Auth & History Sync| Supabase[(Supabase PostgreSQL Database)]
 ```
 
 ### Connection Details
-* **Frontend**: React (Vite) running on `http://localhost:5173` (or production port).
-* **Backend API**: FastAPI server running on `http://127.0.0.1:8000` (`http://localhost:8000`).
+* **Frontend Web**: React (Vite) running on `http://localhost:5173`.
+* **Mobile Shell**: Flutter app running on Android / iOS device.
+* **Backend API**: FastAPI server running on `http://127.0.0.1:8000`.
 * **Swagger API Docs**: `http://localhost:8000/docs`.
 
 ---
@@ -136,17 +178,38 @@ graph TD
 | `/predict` | `POST` | Fast ML market value prediction with price range bounds. |
 | `/reverse-calculate` | `POST` | Calculates maximum buy price target given a desired sell price and profit margin. |
 | `/api/brands` | `GET` | Fetches canonical brand catalog and valid models. |
-| `/api/registry` | `GET` | Returns active model variant configuration (**Variant 2**). |
+| `/api/registry` | `GET` | Returns active model variant configuration (**Variant 1**). |
+
+---
+
+## ⚙️ Configuration & Utility Scripts
+
+### Configurable Engine Parameters (`backend/valuation_config.json`)
+The adaptive decision engine allows zero-code adjustment of similarity weights and thresholds without code modification:
+- `similarity_weights`: Feature weights for brand, model, variant, age, odometer, fuel, locality, transmission, owner count.
+- `luxury_brands`: Explicit list of luxury brands receiving tailored geographic dampening and similarity thresholds.
+- `confidence_weights` & `confidence_labels`: Tuning confidence score ranges and market support thresholds.
+
+### Diagnostic & Operational Helper Scripts (`scripts/`)
+
+| Script File | Command | Description |
+| :--- | :--- | :--- |
+| `system_health_check.py` | `python scripts/system_health_check.py` | Validates model files, backend imports, decision engine logic, and mock valuation requests. |
+| `validate_models.py` | `python scripts/validate_models.py` | Runs automated prediction verification across all variant artifacts. |
+| `generate_engine_config.py` | `python scripts/generate_engine_config.py` | Regenerates statistical market percentiles and locality demand tables into `engine_config.json`. |
+| `show_buy_price.py` | `python scripts/show_buy_price.py` | CLI tool to calculate dealer buy prices, margins, and risk buffers interactively. |
+| `feature_sensitivity_test.py` | `python scripts/feature_sensitivity_test.py` | Tests model sensitivity to individual feature changes (mileage, age, condition). |
 
 ---
 
 ## 🏁 Quick Start (Run Out of the Box)
 
-> 💡 **No model training is required after cloning.** The pre-trained Variant 2 model artifacts are included directly in `model_registry/variant_2`.
+> 💡 **No model training is required after cloning.** The pre-trained Variant 1 model artifacts are included directly in `model_registry/variant_1`.
 
 ### Prerequisites
 * **Python 3.10+**
 * **Node.js 18+**
+* **Flutter SDK 3.44+** *(Optional: required only for mobile app)*
 * **Git**
 
 ### 1. Clone & Set Up Backend
@@ -180,7 +243,7 @@ Or create `.env` manually:
 ```env
 VITE_SUPABASE_URL=https://placeholder-project.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0MDAwMDAsImV4cCI6MTkwMDA0MDAwMH0.placeholder
-ACTIVE_VARIANT_ID=variant_2
+ACTIVE_VARIANT_ID=variant_1
 ```
 
 ### 3. Run FastAPI Backend
@@ -188,9 +251,9 @@ ACTIVE_VARIANT_ID=variant_2
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
-Backend will start at `http://127.0.0.1:8000` and load pre-trained Variant 2 models automatically.
+Backend will start at `http://127.0.0.1:8000` and load pre-trained Variant 1 models automatically.
 
-### 4. Install & Run Frontend UI
+### 4. Install & Run Frontend Web UI
 
 Open a second terminal:
 
@@ -202,6 +265,20 @@ npm install
 npm run dev
 ```
 Frontend will start at `http://localhost:5173`.
+
+### 5. Build & Run Mobile Shell (Optional)
+
+Open a third terminal:
+
+```bash
+# Bundle React web assets for mobile WebView
+npm run build:mobile
+
+# Launch Flutter mobile application
+cd mobile
+flutter pub get
+flutter run
+```
 
 ---
 
@@ -307,18 +384,19 @@ create policy "own evals insert"   on evaluations for insert with check (auth.ui
 
 ---
 
-## 🔬 Optional: Retraining Model Variant 2
+## 🔬 Optional: Retraining Model Variants
 
 > **Note:** This section is completely optional. The app runs immediately without running these scripts.
 
-If you wish to clean a raw dataset and retrain Variant 2 from scratch in the future:
+If you wish to clean a raw dataset and retrain model variants from scratch in the future:
 
 ```bash
-# 1. Clean raw dataset for Variant 2
-python ml_training/clean_data-1.py
+# 1. Clean raw dataset for training
+python ml_training/clean-1.py
 
-# 2. Train Variant 2 Ensemble Model
+# 2. Train Variant Ensemble Model
 python ml_training/train-1.py
 ```
 
-*Note: Training outputs will update `model_registry/variant_2`.*
+*Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`.*
+

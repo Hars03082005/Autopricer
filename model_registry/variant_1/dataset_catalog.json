@@ -10,14 +10,18 @@
       "2.0 tdi (177bhp) premium plus",
       "35 tdi premium",
       "35 tfsi premium",
-      "technology 40 tfsi"
+      "40 tfsi premium plus",
+      "premium plus 40 tfsi",
+      "technology 40 tfsi",
+      "unknown"
     ],
     "a6": [
       "2.0 tdi",
       "2.0 tdi premium",
       "2.0 tdi premium plus",
       "2.7 tdi",
-      "35 tdi s line matrix"
+      "35 tdi s line matrix",
+      "unknown"
     ],
     "a8l": [
       "3.0 tdi quattro"
@@ -26,17 +30,14 @@
       "2.0 tdi quattro",
       "35 tdi quattro premium plus"
     ],
-    "q3 sportback": [
-      "40 tfsi q"
-    ],
     "q5": [
       "2.0 tdi quattro",
-      "3.0 tdi quattro",
-      "45 tfsi q tech"
+      "3.0 tdi quattro"
     ],
     "q7": [
       "3.0 tdi quattro",
-      "35 tdi premium"
+      "35 tdi premium",
+      "4.2 tdi quattro"
     ]
   },
   "bajaj": {
@@ -55,6 +56,9 @@
       "320d luxury line",
       "320d sportline",
       "325i"
+    ],
+    "3 series gt": [
+      "330i m sport"
     ],
     "5 series": [
       "520d 2.0",
@@ -75,7 +79,8 @@
       "xdrive20d m sport"
     ],
     "x5": [
-      "xdrive 30 d"
+      "xdrive 30 d",
+      "xdrive30d pure experience (5 seater)"
     ]
   },
   "chevrolet": {
@@ -105,6 +110,7 @@
       "ltz at"
     ],
     "optra magnum": [
+      "ls 2.0 tcdi",
       "lt 2.0 tcdi"
     ],
     "sail": [
@@ -141,13 +147,19 @@
       "t (o)",
       "t(o) cvt"
     ],
+    "go plus": [
+      "a(o)",
+      "t",
+      "t(o)"
+    ],
     "redi go": [
       "a",
       "gold limited edition",
       "s 1.0",
       "s 1.0 amt",
       "t (o)",
-      "t(o) 1.0"
+      "t(o) 1.0",
+      "t(o) 1.0 amt"
     ],
     "redi-go": [
       "d",
@@ -168,7 +180,8 @@
       "dynamic 1.2",
       "dynamic 1.3",
       "emotion 1.3",
-      "emotion pack 1.3"
+      "emotion pack 1.3",
+      "emotion pack 1.3 90 hp"
     ],
     "linea": [
       "classic 1.4 l",
@@ -202,11 +215,13 @@
       "titanium + 1.5l tdci",
       "titanium + 1.5l ti-vct",
       "titanium + 1.5l ti-vct at",
+      "titanium + se 1.5l diesel",
       "titanium 1.0 ecoboost",
       "titanium 1.0 ecoboost (opt)",
       "titanium 1.0l ecoboost",
       "titanium 1.0l ecoboost (opt)",
       "titanium 1.0l ecoboost sports(sunroof)",
+      "titanium 1.5 sports(sunroof) petrol",
       "titanium 1.5 tdci",
       "titanium 1.5 tdci (opt)",
       "titanium 1.5 ti-vct",
@@ -232,6 +247,7 @@
       "trend 1.5 ti-vct",
       "trend 1.5l diesel",
       "trend 1.5l petrol",
+      "trend 1.5l tdci",
       "trend 1.5l ti-vct",
       "trend+ 1.5l diesel"
     ],
@@ -254,6 +270,7 @@
       "sxi 1.6 petrol"
     ],
     "figo": [
+      "ambiente 1.5 tdci",
       "duratec petrol exi 1.2",
       "duratec petrol titanium 1.2",
       "duratec petrol zxi 1.2",
@@ -267,6 +284,7 @@
       "titanium 1.2 ti-vct",
       "titanium 1.4 diesel",
       "titanium 1.5 ti-vct at",
+      "titanium blu 1.2 ti-vct",
       "titanium plus 1.5 tdci",
       "titanium1.5 tdci",
       "trend 1.2 ti-vct",
@@ -276,6 +294,7 @@
     ],
     "figo aspire": [
       "ambiente 1.2 petrol",
+      "ambiente 1.5 diesel",
       "titanium 1.2 petrol",
       "titanium 1.2 ti-vct",
       "titanium 1.2 ti-vct opt",
@@ -283,13 +302,15 @@
       "titanium 1.5 petrol at",
       "titanium 1.5 ti-vct at",
       "titanium plus 1.2 petrol",
+      "titanium plus 1.2 ti-vct",
       "titanium1.5 diesel",
       "titanium1.5 tdci",
       "trend 1.2 petrol",
-      "trend 1.2 ti-vct"
+      "trend 1.2 ti-vct",
+      "trend 1.5 diesel",
+      "trend 1.5 tdci"
     ],
     "freestyle": [
-      "12 titanium mt",
       "flair edition 1.2 ti-vct",
       "flair edition 1.5 diesel",
       "titanium 1.2 petrol",
@@ -315,7 +336,10 @@
       "titanium 1.5 petrol at",
       "titanium blu 1.2 petrol",
       "titanium plus 1.2 petrol",
-      "trend 1.2 petrol"
+      "titanium plus 1.2 petrol at",
+      "titanium1.5 diesel",
+      "trend 1.2 petrol",
+      "trend 1.5l diesel"
     ]
   },
   "honda": {
@@ -330,11 +354,13 @@
       "1.2 s mt petrol",
       "1.2 sx i-vtec",
       "1.2 v cvt petrol",
+      "1.2 v mt petrol",
       "1.2 vx at i-vtec",
       "1.2 vx cvt petrol",
       "1.2 vx i-vtec",
       "1.2 vx mt petrol",
       "1.2l i-vtec e",
+      "1.2l i-vtec ex",
       "1.2l i-vtec s",
       "1.2l i-vtec s at",
       "1.2l i-vtec sx",
@@ -353,7 +379,8 @@
       "1.5l i-dtec sx",
       "1.5l i-dtec v",
       "1.5l i-dtec vx",
-      "12 v cvt",
+      "2nd generation vx 1.2 petrol cvt",
+      "vx 1.2 petrol cvt",
       "vx 1.2 petrol mt",
       "vx cvt 1.2 petrol",
       "vx mt 1.2 petrol",
@@ -365,6 +392,8 @@
       "1.5l i-vtec v",
       "1.5l i-vtec v cvt",
       "1.5l i-vtec vx",
+      "v cvt petrol",
+      "v diesel",
       "v petrol",
       "vx petrol"
     ],
@@ -385,6 +414,7 @@
       "1.5l exi",
       "1.5l gxi",
       "1.5l i-dtec sv",
+      "1.5l i-dtec v",
       "1.5l i-dtec vx",
       "1.5l i-dtec zx",
       "1.5l i-vte v cvt",
@@ -399,6 +429,7 @@
       "1.5l i-vtec v mt 4th gen",
       "1.5l i-vtec v mt 5th gen",
       "1.5l i-vtec vx",
+      "1.5l i-vtec vx (o) mt",
       "1.5l i-vtec vx cvt",
       "1.5l i-vtec zx",
       "1.5l i-vtec zx cvt",
@@ -410,6 +441,7 @@
       "v diesel",
       "v mt",
       "v petrol",
+      "v petrol mt",
       "vx",
       "vx (o) mt",
       "vx cvt",
@@ -437,13 +469,13 @@
       "2.4l 2wd mt"
     ],
     "elevate": [
-      "vx mt",
       "zx cvt",
       "zx cvt dual tone"
     ],
     "jazz": [
       "1.2l i-vtec base",
       "1.2l i-vtec s",
+      "1.2l i-vtec s at",
       "1.2l i-vtec sv",
       "1.2l i-vtec v",
       "1.2l i-vtec v at",
@@ -455,7 +487,6 @@
       "1.5l i-dtec s",
       "1.5l i-dtec sv",
       "1.5l i-dtec vx",
-      "12 v cvt",
       "s at",
       "sv petrol",
       "v at petrol",
@@ -473,7 +504,9 @@
       "1.5l i-dtec s",
       "1.5l i-dtec v",
       "1.5l i-vtec v",
-      "s petrol"
+      "s diesel",
+      "s petrol",
+      "v diesel"
     ],
     "wr-v": [
       "1.2l i-vtec s mt",
@@ -496,7 +529,7 @@
     "alcazar": [
       "1.5 prestige exe 6s",
       "1.5 signature (o) at 6str",
-      "15 prestige exe 7s mt",
+      "2.0 signature (o) at 6str",
       "executive 7 str 1.5 turbo gdi petrol mt",
       "platinum (o) 6 str 1.5 diesel at",
       "platinum (o) 6 str 2.0 petrol at",
@@ -506,19 +539,21 @@
       "platinum 7 str 1.5 turbo petrol",
       "platinum 7 str 2.0 petrol",
       "platinum(o) 7str 1.5 at",
+      "prestige (o) 6 str 2.0 petrol at",
       "prestige (o) 6str 2.0 at",
+      "prestige exe 7 str 2.0 petrol",
       "signature (o) 6 str 2.0 petrol at",
       "signature (o) 7 seater 1.5 diesel at",
       "signature (o) 7 str 1.5 petrol dct"
     ],
     "aura": [
-      "12 kappa s amt",
       "s 1.2 amt",
       "s 1.2 cng",
       "s 1.2 crdi",
       "sx 1.2",
       "sx 1.2 (o)",
       "sx 1.2 (o) petrol",
+      "sx 1.2 cng",
       "sx 1.2 petrol",
       "sx plus 1.0 petrol",
       "sx plus 1.2 amt",
@@ -528,7 +563,10 @@
     ],
     "creta": [
       "1.4 s",
+      "1.5 crdi diesel at dsl sx(o)",
       "1.5 crdi diesel mt dsl sx(o)",
+      "1.5 mpi petrol ivt sx(o)",
+      "1.5 mpi petrol mt e",
       "1.5 s (o) mpi ivt",
       "1.5 turbo petrol dct sx(o)",
       "1.6 sx at",
@@ -536,12 +574,8 @@
       "1.6 sx plus at petrol",
       "1.6 sx plus petrol",
       "1.6 sx plus petrol special edition",
-      "15 mpi ivt sx",
-      "15 mpi sx mt",
-      "16 e plus",
-      "16 s vtvt mt",
-      "16 vtvt sx at",
       "base 1.6 petrol",
+      "creta sx (o) 1.5 mpi ivt",
       "e 1.5 diesel",
       "e 1.5 petrol",
       "e 1.6 vtvt",
@@ -564,12 +598,15 @@
       "sx (o) 1.4 turbo 7 dct",
       "sx (o) 1.4 turbo 7 dct dual tone",
       "sx (o) 1.4 turbo dct",
+      "sx (o) 1.4 turbo dct dual tone",
       "sx (o) 1.5 diesel",
       "sx (o) 1.5 diesel automatic",
       "sx (o) 1.5 petrol ivt",
+      "sx (o) 1.5 petrol ivt knight",
       "sx (o) 1.6 diesel",
       "sx (o) 1.6 petrol",
       "sx (o) at 1.5 diesel",
+      "sx (o) executive 1.6 diesel",
       "sx (o) executive 1.6 petrol",
       "sx (o) ivt 1.5 petrol",
       "sx 1.5 diesel",
@@ -586,8 +623,6 @@
       "sx 1.6 petrol dual tone",
       "sx at 1.6 diesel",
       "sx at 1.6 petrol",
-      "sx crdi at",
-      "sx executive",
       "sx executive 1.5 petrol",
       "sx ivt 1.5 petrol",
       "sx opt turbo dct petrol",
@@ -629,10 +664,12 @@
       "sportz 1.2 (o)",
       "sportz 1.4 crdi",
       "sportz plus 1.2",
-      "sportz plus 1.2 cvt"
+      "sportz plus 1.2 cvt",
+      "sportz plus 1.2 dual tone"
     ],
     "eon": [
       "1.0 kappa magna +",
+      "d-lite",
       "d-lite +",
       "d-lite + lpg",
       "d-lite+",
@@ -647,6 +684,7 @@
       "sportz"
     ],
     "exter": [
+      "s 1.2 amt",
       "sx (o) connect 1.2 amt",
       "sx (o) connect 1.2 mt dual tone",
       "sx 1.2 amt",
@@ -694,9 +732,9 @@
       "sportz at 1.2 kappa vtvt"
     ],
     "grand i10 nios": [
-      "12 amt kappa sportz",
       "asta",
       "asta 1.2",
+      "asta 1.2 kappa amt",
       "asta 1.2 kappa vtvt",
       "asta amt 1.2 kappa vtvt",
       "magna 1.2 kappa vtvt",
@@ -710,7 +748,8 @@
       "sportz 1.2 kappa vtvt",
       "sportz 1.2 kappa vtvt cng",
       "sportz 1.2 kappa vtvt dual tone",
-      "sportz amt 1.2 kappa vtvt"
+      "sportz amt 1.2 kappa vtvt",
+      "sportz u2 1.2 crdi"
     ],
     "i10": [
       "1.2 l kappa magna special edition",
@@ -725,6 +764,7 @@
       "magna",
       "magna 1.1",
       "magna 1.1 irde2",
+      "magna 1.1 lpg",
       "magna 1.2",
       "magna 1.2 at",
       "magna 1.2 kappa2",
@@ -738,8 +778,10 @@
     "i20": [
       "asta",
       "asta (o) 1.0 turbo dct",
+      "asta (o) 1.2 ivt",
       "asta 1.0 turbo imt",
       "asta 1.2",
+      "asta 1.2 ivt",
       "asta 1.4 at",
       "asta 1.4 crdi",
       "era 1.2",
@@ -748,15 +790,13 @@
       "magna (o) 1.4 crdi",
       "magna 1.2",
       "magna 1.4 crdi",
-      "new new sportz mt",
       "sportz",
       "sportz (o) 1.2",
       "sportz 1.2",
       "sportz 1.2 bs-iv",
       "sportz 1.2 mt",
       "sportz 1.4 at",
-      "sportz 1.4 crdi",
-      "sportz 12 kappa"
+      "sportz 1.4 crdi"
     ],
     "i20 active": [
       "1.2 base",
@@ -770,9 +810,7 @@
     "i20 n line": [
       "n6 1.0 turbo mt dual tone",
       "n8 1.0 turbo dct",
-      "n8 1.0 turbo dct dual tone",
-      "n8 10 turbo dct",
-      "n8 10 turbo dct dt"
+      "n8 1.0 turbo dct dual tone"
     ],
     "ioniq": [
       "5"
@@ -793,6 +831,7 @@
       "asta (o) 1.2 at",
       "asta (o) 1.2 ivt",
       "asta (o) 1.2 mt",
+      "asta (o) 1.2 mt dual tone",
       "asta (o) 1.5 crdi mt",
       "asta 1.0 gdi turbo dct",
       "asta 1.0 gdi turbo imt",
@@ -803,6 +842,7 @@
       "sportz 1.2 at",
       "sportz 1.2 ivt",
       "sportz 1.2 mt",
+      "sportz 1.2 mt dual tone",
       "sportz 1.5 mt"
     ],
     "new i20 n line": [
@@ -815,6 +855,7 @@
     "new santro": [
       "asta amt",
       "era executive",
+      "magna",
       "magna amt",
       "sportz amt",
       "sportz executive mt cng",
@@ -827,8 +868,8 @@
       "4 wd at"
     ],
     "santro": [
-      "11 corporate amt 2021regd",
       "gl",
+      "magna",
       "magna amt",
       "sportz",
       "sportz amt"
@@ -846,11 +887,13 @@
       "xp"
     ],
     "sonata": [
+      "2.4 gdi at",
       "2.4 gdi mt"
     ],
     "tucson": [
       "1.6 vtvt s at",
       "2wd at gl diesel",
+      "2wd at gl petrol",
       "2wd mt diesel",
       "gl",
       "gls 2wd at diesel",
@@ -859,12 +902,13 @@
       "signature 2.0 at petrol"
     ],
     "venue": [
-      "10 turbo gdi sx mt",
       "e 1.2",
       "s (o) 1.0 turbo dct",
       "s (o) 1.0 turbo imt",
+      "s (o) 1.0 turbo mt",
       "s (o) 1.0 turbo petrol dct",
       "s (o) plus 1.2 petrol",
+      "s 1.0 at turbo petrol",
       "s 1.0 turbo dct",
       "s 1.0 turbo mt",
       "s 1.0 turbo petrol",
@@ -872,15 +916,18 @@
       "s 1.2 petrol",
       "s 1.5 crdi",
       "s mt",
+      "s plus 1.2 petrol",
       "s(o) 1.2",
       "s+ 1.2",
       "sx (o) 1.0 turbo dct",
       "sx (o) 1.0 turbo dct dual tone",
       "sx (o) 1.5 crdi",
+      "sx (o) 1.5 crdi executive",
       "sx 1.0 (o) turbo",
       "sx 1.0 (o) turbo imt",
       "sx 1.0 (o) turbo petrol",
       "sx 1.0 turbo",
+      "sx 1.0 turbo dual tone",
       "sx 1.0 turbo imt",
       "sx 1.0 turbo petrol",
       "sx 1.2 petrol",
@@ -892,6 +939,7 @@
       "turbo"
     ],
     "venue n line": [
+      "n6 1.0 turbo mt",
       "n8 1.0 turbo dct"
     ],
     "venue n-line": [
@@ -907,18 +955,20 @@
       "1.6 crdi sx + at",
       "1.6 sx (o) crdi mt",
       "1.6 vtvt",
+      "1.6 vtvt s",
       "1.6 vtvt sx",
       "1.6 vtvt sx (o)",
       "1.6 vtvt sx (o) at",
       "1.6 vtvt sx + at",
       "1.6 vtvt sx o",
-      "16 sx o at",
       "ex",
       "fluidic 1.4 vtvt",
       "fluidic 1.4 vtvt cx",
       "fluidic 1.6 crdi ex",
+      "fluidic 1.6 crdi s 4s",
       "fluidic 1.6 crdi s(o) 4s",
       "fluidic 1.6 crdi sx",
+      "fluidic 1.6 crdi sx 4s",
       "fluidic 1.6 crdi sx at",
       "fluidic 1.6 crdi sx opt",
       "fluidic 1.6 crdi sx opt at",
@@ -949,8 +999,11 @@
       "sx 1.5 mpi",
       "sx 1.5 petrol ivt",
       "sx 1.5 petrol mt",
+      "sx 1.5 turbo dct",
       "sx 1.5 vtvt",
       "sx 1.5 vtvt ivt",
+      "sx 1.6 vtvt",
+      "sx plus 1.5 petrol mt",
       "sx plus 1.6 crdi at",
       "sx plus 1.6 vtvt at",
       "sx(o) 1.5 mpi ivt",
@@ -979,6 +1032,9 @@
       "2.2 diesel",
       "2.2 diesel luxury",
       "petrol 2.0"
+    ],
+    "xj l": [
+      "3.0 diesel"
     ]
   },
   "jeep": {
@@ -989,10 +1045,6 @@
       "limited (o) 2.0 diesel",
       "limited 1.4 petrol at",
       "limited 2.0 diesel",
-      "limited mair ddct",
-      "limited o 44 at",
-      "limited o at",
-      "limited plus 44 at",
       "limited plus diesel",
       "limited plus diesel 4x4",
       "limited plus petrol at",
@@ -1004,8 +1056,6 @@
       "model s (o) 1.4 petrol dct",
       "model s (o) 2.0 diesel",
       "model s (o) diesel 4x4 at",
-      "model s o2 at",
-      "s 02 14 mair ddct",
       "sport 1.4 petrol",
       "sport plus 1.4 petrol",
       "sport plus 2.0 diesel"
@@ -1016,10 +1066,12 @@
   },
   "kia": {
     "carens": [
+      "gravity 1.5 petrol mt",
       "luxury (o)1.5 turbo dct 7 str",
       "luxury 1.4 petrol 7 str",
       "luxury 1.5 turbo petrol imt 7 str",
       "luxury plus 1.4 petrol 7 str",
+      "luxury plus 1.4 petrol dct 6 str",
       "luxury plus 1.4 petrol dct 7 str",
       "luxury plus 1.5 diesel 7 str",
       "luxury plus 1.5 diesel at 6 str",
@@ -1028,16 +1080,24 @@
       "luxury plus 1.5 turbo petrol dct 7 str",
       "premium (o) 1.5 petrol 7 str",
       "premium 1.4 petrol 7 str",
+      "premium 1.5 diesel imt 7 str",
+      "premium 1.5 petrol 7 str",
+      "prestige (o) 1.5 petrol 7 str",
       "prestige 1.4 petrol 7 str",
+      "prestige 1.4 petrol mt 7 str",
       "prestige 1.5 diesel 7 str",
+      "prestige 1.5 diesel mt 7 str",
       "prestige 1.5 petrol 7 str",
+      "prestige 1.5 petrol mt 7 str",
       "prestige 1.5 turbo petrol imt 7 str",
       "prestige plus 1.4 petrol 7 str",
       "prestige plus 1.4 petrol mt 7 str",
       "prestige plus 1.5 diesel 7 str",
       "prestige plus 1.5 diesel mt 7 str",
+      "prestige plus 1.5 imt diesel 7 str",
       "prestige plus 1.5 petrol dct 7 str",
-      "prestige plus 1.5 petrol imt 7 str"
+      "prestige plus 1.5 petrol imt 7 str",
+      "prestige plus 1.5 turbo petrol dct 7 str"
     ],
     "carens clavis": [
       "hte(o) 1.5 petrol mt",
@@ -1045,21 +1105,13 @@
       "htx plus 1.5 turbo petrol 6str dct",
       "htx plus 1.5 turbo petrol 7str dct"
     ],
-    "carnival": [
-      "d 22 8 at limousine 7"
-    ],
     "seltos": [
-      "15 gtx plus at",
-      "15 htx plus mt",
-      "g 15 6 mt htx",
-      "g 15 6mt htx",
-      "g 15 htk o",
-      "g 15 htx ivt",
-      "g15 6 mt htk",
+      "gtk 1.4",
       "gtk 1.4 petrol",
       "gtx (o) 1.4 petrol",
       "gtx 1.4 petrol",
       "gtx at 1.4 petrol",
+      "gtx dct 1.4",
       "gtx plus 1.4",
       "gtx plus 1.4 petrol",
       "gtx plus 1.5 diesel at",
@@ -1082,6 +1134,7 @@
       "htk plus at 1.5 diesel",
       "htx 1.5",
       "htx 1.5 diesel",
+      "htx 1.5 diesel at",
       "htx 1.5 diesel imt",
       "htx 1.5 ivt",
       "htx 1.5 petrol",
@@ -1090,6 +1143,7 @@
       "htx anniversary edition 1.5 petrol",
       "htx anniversary edition 1.5 petrol ivt",
       "htx diesel 1.5",
+      "htx ivt 1.5",
       "htx ivt 1.5 petrol",
       "htx ivt g",
       "htx petrol 1.5",
@@ -1098,6 +1152,7 @@
       "htx plus 1.5 imt diesel",
       "htx plus 1.5 turbo petrol imt",
       "htx plus at 1.5 diesel",
+      "htx plus at1.5 diesel",
       "x line 1.4 dct",
       "x line 1.4 petrol dct",
       "x line 1.5 diesel at"
@@ -1121,6 +1176,7 @@
       "htk plus 1.0 imt",
       "htk plus 1.0 turbo petrol imt",
       "htk plus 1.2",
+      "htk plus 1.2 petrol mt",
       "htk plus 1.5",
       "htx 1.0 dct",
       "htx 1.0 imt",
@@ -1131,6 +1187,7 @@
       "htx 1.5 at",
       "htx 1.5 diesel imt",
       "htx 1.5 diesel mt",
+      "htx anniversary edition 1.0 dct",
       "htx anniversary edition 1.0 imt",
       "htx anniversary edition 1.5",
       "htx anniversary edition 1.5 at",
@@ -1186,6 +1243,7 @@
       "n 10",
       "n 10 (o)",
       "n 4",
+      "n10 (o)",
       "n10 r"
     ],
     "bolero neo plus": [
@@ -1204,6 +1262,7 @@
       "4*2"
     ],
     "kuv 100 nxt": [
+      "k4+ d 6 str",
       "k4+ p 6 str",
       "k6+ p 6 str",
       "k8 d 6 str",
@@ -1226,6 +1285,7 @@
       "k2 6 str",
       "k4 plus 6 str",
       "k8 6 str",
+      "k8 d 6 str",
       "k8 d 6 str dual tone"
     ],
     "logan": [
@@ -1233,6 +1293,7 @@
     ],
     "marazzo": [
       "m 6 + 8 str",
+      "m2 7str",
       "m2 8 str",
       "m6 7 str",
       "m6 8 str",
@@ -1257,6 +1318,7 @@
       "s4 plus",
       "s5",
       "sle",
+      "sle 2.6 crde",
       "vlx 2wd airbag bs-iii"
     ],
     "scorpio classic": [
@@ -1272,14 +1334,16 @@
       "z8 petrol mt 7 str"
     ],
     "scorpio-n": [
+      "z2 petrol mt 7 str",
+      "z4 petrol at 7 str",
       "z6 diesel mt 2wd 7 str",
       "z8 petrol at 7 str"
     ],
     "thar": [
       "lx d 4wd at convertible",
       "lx d 4wd mt convertible",
-      "lx d at 4wd 4s ht",
       "lx d at 4wd ht",
+      "lx d ht 2wd mt",
       "lx hard top 4wd mt",
       "lx hard top diesel at 4wd",
       "lx hard top petrol at 4wd",
@@ -1291,6 +1355,7 @@
       "lx petrol ht 4wd at"
     ],
     "thar roxx": [
+      "ax5 l diesel at 2wd",
       "ax7 l diesel mt 4wd"
     ],
     "tuv300": [
@@ -1298,19 +1363,24 @@
       "t6",
       "t6 plus",
       "t8",
-      "t8 amt"
+      "t8 amt",
+      "t8 dual tone"
     ],
     "verito": [
       "1.5 d4 bs iii"
     ],
     "xuv 300": [
+      "1.5 w8 (o)",
       "w8 (o) 1.2 petrol",
+      "w8 (o) 1.5 diesel",
+      "w8 (o) 1.5 diesel amt",
       "w8 1.2 petrol",
       "w8 1.5 diesel"
     ],
     "xuv 3xo": [
       "ax5 1.2 l tcmpfi",
       "ax5 1.5 turbo diesel",
+      "ax5l 1.2 petrol",
       "ax5l 1.2 tgdi",
       "ax5l 1.2 tgdi at",
       "ax7 1.2 tgdi",
@@ -1319,10 +1389,10 @@
       "ax7l 1.2 tgdi",
       "mx2 pro 1.2 l tcmpfi at",
       "mx3 1.2 l tcmpfi",
+      "mx3 1.2 petrol",
       "revx a 1.2 petrol at"
     ],
     "xuv300": [
-      "gasoline w6 mt",
       "w4 1.2 petrol",
       "w4 1.5 diesel",
       "w6 1.2 petrol",
@@ -1343,8 +1413,8 @@
       "el 7.2 kw"
     ],
     "xuv500": [
-      "fwd w11 mt",
       "w10",
+      "w10 1.99",
       "w10 at",
       "w10 at 1.99",
       "w11",
@@ -1359,7 +1429,6 @@
       "w8",
       "w8 at",
       "w8 awd",
-      "w8 mt",
       "w9",
       "w9 at"
     ],
@@ -1373,6 +1442,7 @@
       "ax 5 p mt 7 str",
       "ax 5 petrol at 5 str",
       "ax 7 diesel at luxury pack 7 str",
+      "ax 7 diesel mt luxury pack 7 str",
       "ax 7 luxury d at 7 str",
       "ax 7 luxury p at 7 str",
       "ax 7 luxury pack d at 6 str",
@@ -1380,18 +1450,18 @@
       "ax 7 luxury pack petrol at 7 str",
       "ax 7 p at 7 str",
       "ax 7 p mt 7 str",
+      "ax 7 petrol at 7 str",
       "ax 7 petrol at luxury pack 7 str",
       "ax5 diesel at 5 str",
       "ax5 diesel at 7 str",
       "ax5 diesel mt 7 str",
-      "ax5 mt 7s",
-      "ax5 pet at 5 seater",
       "ax5 petrol at 7 str",
       "ax5 select diesel at 7 str",
-      "ax7 7s",
       "ax7 luxury pack diesel at 6 str",
+      "ax7 luxury pack diesel at 7 str",
       "ax7 luxury pack diesel at awd 7 str",
       "ax7 petrol at 6 str",
+      "ax7 petrol at 7 str",
       "mx d mt 5 str",
       "mx p mt 5 str"
     ],
@@ -1413,7 +1483,8 @@
     "a-star": [
       "vxi",
       "vxi (abs) at",
-      "vxi at"
+      "vxi at",
+      "zxi"
     ],
     "alto": [
       "lx",
@@ -1429,6 +1500,7 @@
       "lxi",
       "lxi (o)",
       "lxi o",
+      "std",
       "vxi",
       "vxi plus"
     ],
@@ -1458,7 +1530,6 @@
       "alpha diesel 1.3",
       "alpha mt",
       "alpha petrol 1.2",
-      "aplha ags",
       "delta",
       "delta 1.2",
       "delta 1.2 ags",
@@ -1496,11 +1567,14 @@
       "vxi s-cng",
       "vxi smart hybrid",
       "zdi",
+      "zdi +",
       "zdi+",
       "zdi+ amt",
       "zxi",
       "zxi + at smart hybrid",
       "zxi + smart hybrid",
+      "zxi + smart hybrid dual tone",
+      "zxi at",
       "zxi plus",
       "zxi plus at",
       "zxi plus dual tone",
@@ -1520,6 +1594,7 @@
       "vxi amt",
       "vxi amt (o)",
       "vxi cng",
+      "zdi",
       "zxi",
       "zxi (o)",
       "zxi (o) amt",
@@ -1531,8 +1606,10 @@
       "zxi plus amt"
     ],
     "celerio x": [
+      "vxi (o) amt",
       "zxi",
       "zxi (o) amt",
+      "zxi (opt)",
       "zxi amt"
     ],
     "ciaz": [
@@ -1545,12 +1622,15 @@
       "alpha 1.5 shvs petrol",
       "alpha at 1.4 petrol",
       "alpha at 1.5 shvs petrol",
+      "alpha automatic",
       "alpha diesel 1.3",
       "alpha diesel 1.5",
       "alpha hybrid 1.5",
       "alpha hybrid 1.5 at",
       "automatic zxi",
+      "delta",
       "delta 1.4 at",
+      "delta 1.4 at petrol",
       "delta 1.4 mt",
       "delta 1.4 mt petrol",
       "delta 1.5 diesel",
@@ -1561,11 +1641,13 @@
       "s 1.4 mt",
       "s 1.5 mt petrol",
       "sigma 1.4 mt petrol",
+      "unknown",
+      "vdi +",
       "vdi+ shvs",
       "vxi",
-      "vxi plus",
       "vxi+",
       "vxi+ at",
+      "vxi+at",
       "zdi",
       "zdi+ shvs",
       "zdi+ shvs rs",
@@ -1581,9 +1663,12 @@
       "zxi+ rs"
     ],
     "dzire": [
+      "automatic",
       "lxi",
+      "tour",
       "tour s",
       "tour s std cng",
+      "unknown",
       "vdi",
       "vdi amt",
       "vxi",
@@ -1592,39 +1677,45 @@
       "zdi amt",
       "zdi plus",
       "zdi plus amt",
+      "zdi+",
       "zxi",
       "zxi amt",
       "zxi cng",
       "zxi plus",
       "zxi plus ags",
       "zxi plus amt",
+      "zxi+",
       "zxi+ amt"
     ],
     "eeco": [
       "5 str",
       "5 str ac",
       "5 str ac (o)",
+      "5 str ac cng",
       "5 str std",
       "5 str with a/c+htr",
       "5-str",
+      "6 str",
       "7 str",
       "7 str std 1.2",
       "7 str std(o)",
       "cargo cng",
-      "std 5-str"
+      "std 5-str",
+      "std 7-str"
     ],
     "ertiga": [
       "smart hybrid 1.5 petrol",
       "smart hybrid vxi 1.5l 5mt",
-      "smart hybrid zxi at",
       "vdi",
       "vdi 1.3",
       "vdi 1.3 diesel",
+      "vdi 1.5",
       "vdi shvs",
       "vxi",
       "vxi (o)",
       "vxi 4at",
       "vxi 6at",
+      "vxi abs",
       "vxi at",
       "vxi at shvs",
       "vxi cng",
@@ -1633,6 +1724,7 @@
       "zdi + shvs",
       "zdi plus 1.3 diesel",
       "zdi plus 1.5 diesel",
+      "zdi shvs",
       "zdi+",
       "zdi+ 1.3",
       "zxi",
@@ -1640,7 +1732,6 @@
       "zxi 6at",
       "zxi at shvs",
       "zxi cng",
-      "zxi plus smart hybrid",
       "zxi shvs",
       "zxi+",
       "zxi+ at shvs",
@@ -1665,7 +1756,6 @@
       "delta plus 1.2l ags",
       "delta plus 1.2l mt",
       "delta plus 1.2mt",
-      "delta plus ags",
       "zeta 1.0 turbo mt",
       "zeta 1.0l turbo 6 at"
     ],
@@ -1676,15 +1766,15 @@
       "alpha plus intelligent hybrid ecvt",
       "alpha smart hybrid",
       "alpha smart hybrid allgrip",
+      "alpha smart hybrid allgrip dual tone",
       "alpha smart hybrid at",
+      "delta",
       "delta smart hybrid",
       "delta smart hybrid at",
       "ie strong hybrid alpha+ cvt",
       "ie strong hybrid zeta+ cvt",
       "sigma",
       "sigma smart hybrid",
-      "smart hybrid alpha at",
-      "strong hybrid alpha plus at",
       "zeta",
       "zeta plus intelligent hybrid ecvt",
       "zeta smart hybrid"
@@ -1699,7 +1789,8 @@
       "zeta",
       "zeta 1.2",
       "zeta 1.2 amt",
-      "zeta 1.2 mt"
+      "zeta 1.2 mt",
+      "zeta amt"
     ],
     "invicto": [
       "zeta plus 7 str strong hybrid"
@@ -1709,6 +1800,7 @@
       "alpha all grip pro mt"
     ],
     "maruti 800": [
+      "d lx",
       "std"
     ],
     "new ertiga": [
@@ -1722,6 +1814,7 @@
       "vxi (o) 1.2 amt",
       "vxi 1.0",
       "vxi 1.0 amt",
+      "vxi 1.2 amt",
       "vxi cng 1.0",
       "zxi 1.2",
       "zxi 1.2 amt",
@@ -1732,17 +1825,20 @@
     "omni": [
       "5 str",
       "5-str",
+      "lpg std",
       "std"
     ],
     "omni e": [
       "std"
     ],
     "ritz": [
+      "ldi",
       "lxi",
       "lxi bs-iv",
       "vdi",
       "vxi",
       "vxi bs-iv",
+      "zdi",
       "zxi",
       "zxi bs-iv"
     ],
@@ -1757,6 +1853,7 @@
       "zeta at 1.5"
     ],
     "s presso": [
+      "lxi",
       "lxi (o) cng",
       "std(o)",
       "vxi",
@@ -1770,7 +1867,9 @@
       "alpha",
       "alpha 1.3",
       "alpha automatic",
-      "s cross s cross smart hybrid alpha mt",
+      "delta 1.3",
+      "delta 1.6",
+      "sigma",
       "sigma 1.3",
       "zeta",
       "zeta 1.3",
@@ -1778,6 +1877,7 @@
       "zeta automatic"
     ],
     "s-presso": [
+      "vxi",
       "vxi plus",
       "vxi plus (o) amt",
       "vxi plus amt",
@@ -1789,6 +1889,7 @@
       "lxi",
       "lxi (o)",
       "lxi 1.3",
+      "unknown",
       "vdi",
       "vdi (o)",
       "vxi",
@@ -1801,6 +1902,7 @@
       "zdi",
       "zdi amt",
       "zdi plus",
+      "zdi+",
       "zxi",
       "zxi 1.3",
       "zxi ags",
@@ -1810,10 +1912,13 @@
       "zxi plus amt dual tone",
       "zxi plus dual tone",
       "zxi plus dual tone amt",
-      "zxi+"
+      "zxi+",
+      "zxi+ ags",
+      "zxi+ amt"
     ],
     "swift dzire": [
       "automatic",
+      "lxi",
       "tour diesel",
       "tour s-cng (o)",
       "vdi",
@@ -1858,23 +1963,31 @@
       "duo lxi",
       "lxi",
       "lxi cng",
+      "lxi duo",
       "lxi lpg",
       "lxi minor",
+      "unknown",
       "vxi",
       "vxi (o) 1.2 amt",
       "vxi 1.0 ags",
+      "vxi ags",
       "vxi amt",
+      "vxi minor",
       "vxi+",
       "vxi+ amt",
       "vxi+ amt (o)",
+      "zxi 1.2",
       "zxi 1.2 ags",
       "zxi 1.2 amt",
       "zxi ags",
+      "zxi plus 1.2",
       "zxi plus 1.2 ags",
+      "zxi plus 1.2 ags dual tone",
       "zxi+"
     ],
     "wagon r 1.0": [
       "lxi",
+      "lxi lpg",
       "vxi",
       "vxi + (o) amt",
       "vxi amt",
@@ -1895,7 +2008,6 @@
       "alpha mt petrol",
       "alpha plus at petrol",
       "alpha plus mt",
-      "smart hybrid zeta mt",
       "zeta",
       "zeta at",
       "zeta mt",
@@ -1927,8 +2039,7 @@
       "200 cgi avantgarde",
       "c 200 cgi elegance",
       "c 220 cdi avantagarde",
-      "c 250 cdi",
-      "c200 at"
+      "c 250 cdi"
     ],
     "e class": [
       "220 cdi at",
@@ -1963,7 +2074,6 @@
   },
   "mg": {
     "astor": [
-      "220turbo 6at savvyred",
       "savvy 1.3 turbo at s red",
       "savvy 1.5 cvt s red",
       "savvy pro 1.5 cvt (ivory)",
@@ -1972,32 +2082,26 @@
       "sharp 1.5 cvt",
       "sharp 1.5 mt",
       "sharp ex 1.5 mt",
+      "sharp pro 1.5 cvt (ivory)",
       "style 1.5 mt",
-      "super 1.5 mt",
-      "vti tech cvt savvy red",
-      "zs vti tech savvy cvt",
-      "zs vti tech style mt"
+      "super 1.5 mt"
     ],
-    "gloster": [
-      "44 7 str sharp"
+    "comet": [
+      "plush"
     ],
     "hector": [
       "savvy pro 1.5 turbo cvt petrol",
-      "savvy pro cvt",
       "sharp 1.5 dct petrol",
       "sharp 1.5 petrol cvt",
       "sharp 1.5 petrol turbo dct",
       "sharp 2.0 diesel",
       "sharp 2.0 diesel dual tone",
       "sharp 2.0 diesel turbo mt",
-      "sharp dct",
       "sharp ex 1.5 petrol cvt",
       "sharp hybrid 1.5 petrol",
-      "sharp mt",
-      "sharp pro",
+      "sharp pro 1.5 petrol turbo cvt petrol",
       "sharp pro 1.5 turbo mt petrol",
       "shine 1.5 petrol turbo cvt",
-      "shine cvt",
       "smart 1.5 dct petrol",
       "smart 1.5 petrol turbo dct",
       "smart 2.0 diesel",
@@ -2007,10 +2111,15 @@
       "super hybrid 1.5 petrol"
     ],
     "hector plus": [
+      "savvy pro 1.5 turbo cvt 7 str",
       "savvy pro 1.5 turbo petrol cvt 7 str",
       "select 2.0 diesel turbo mt 7-str",
+      "sharp 1.5 petrol turbo cvt 6-str",
+      "sharp 1.5 petrol turbo dct 6-str",
       "sharp 1.5 petrol turbo hybrid mt 6-str",
       "sharp 2.0 diesel turbo mt 6-str",
+      "sharp pro 1.5 petrol turbo cvt 6 str",
+      "sharp pro 1.5 turbo mt 7 str",
       "sharp pro 2.0 turbo diesel 7 str",
       "smart 1.5 petrol turbo cvt 6-str",
       "smart 1.5 petrol turbo dct 6-str"
@@ -2042,6 +2151,9 @@
       "tekna b4d 1.0 petrol amt dual tone",
       "tekna hrao 1.0 turbo petrol mt",
       "tekna plus hrao 1.0 turbo petrol cvt",
+      "tekna plus hrao 1.0 turbo petrol mt",
+      "unknown",
+      "visia plus b4d 1.0 petrol mt",
       "xe",
       "xe amt ez shift",
       "xl",
@@ -2053,6 +2165,7 @@
       "xv mt",
       "xv premium",
       "xv premium amt",
+      "xv premium dual tone",
       "xv premium turbo",
       "xv premium turbo (o)",
       "xv premium turbo (o) cvt",
@@ -2086,11 +2199,14 @@
       "xl (d)",
       "xl (p)",
       "xl d plus",
-      "xv d thp 110 ps"
+      "xl o (d)",
+      "xv d thp 110 ps",
+      "xv d thp premium 110 ps"
     ]
   },
   "renault": {
     "captur": [
+      "platine diesel",
       "platine mono diesel",
       "platine petrol dual tone",
       "rxe petrol",
@@ -2105,6 +2221,7 @@
       "110 ps rxz 4x4 mt adventure edition",
       "110 ps rxz 4x4 mt diesel",
       "110 ps rxz diesel",
+      "85 ps rxe 4x2 mt diesel",
       "85 ps rxe diesel",
       "85 ps rxl 4x2 mt",
       "85 ps rxl 4x2 mt adventure edition",
@@ -2138,6 +2255,7 @@
       "rxt (o) amt dual tone",
       "rxt (o) mt",
       "rxt (o) mt dual tone",
+      "rxt (o) turbo cvt dual tone",
       "rxt 1.0 turbo mt",
       "rxt amt",
       "rxt amt dual tone",
@@ -2152,7 +2270,8 @@
       "rxz mt",
       "rxz turbo cvt",
       "rxz turbo cvt dual tone",
-      "rxz turbo mt"
+      "rxz turbo mt",
+      "rxz turbo mt dual tone"
     ],
     "koleos": [
       "4x4 at"
@@ -2168,6 +2287,7 @@
       "climber 1.0 (o)",
       "climber 1.0 amt",
       "climber 1.0 amt (o)",
+      "climber 1.0 amt (o) dual tone",
       "climber 1.0 amt dual tone",
       "climber 1.0 amt opt",
       "climber 1.0 mt",
@@ -2183,6 +2303,7 @@
       "rxl 1.0",
       "rxl 1.0 (o)",
       "rxl 1.0 amt",
+      "rxl 1.0 mt",
       "rxl(o) 1.0l",
       "rxl(o) 1.0l amt",
       "rxt",
@@ -2195,12 +2316,12 @@
       "rxt 1.0 amt (o)",
       "rxt 1.0l",
       "rxt 1.0l amt",
-      "rxt 10 easy r bs iv",
       "rxt opt"
     ],
     "lodgy": [
       "110 ps rxl 7 str",
-      "85 ps rxz"
+      "85 ps rxz",
+      "85 ps rxz stepway 8 str"
     ],
     "pulse": [
       "rxe petrol",
@@ -2214,6 +2335,7 @@
       "rxz diesel"
     ],
     "triber": [
+      "evolution",
       "rxe mt",
       "rxl",
       "rxl amt",
@@ -2244,24 +2366,22 @@
       "style 2.0 tdi 4x4 at"
     ],
     "kushaq": [
-      "15 style tsi at",
       "active 1.0l tsi mt",
       "active plus 1.0 tsi",
+      "active plus 1.0l tsi at",
       "ambition",
       "ambition 1.0 tsi at",
       "ambition 1.0l tsi at",
       "ambition 1.0l tsi mt",
+      "ambition 1.5 tsi mt",
       "ambition 1.5l tsi mt",
       "style 1.0l tsi at",
       "style 1.0l tsi at (6 airbags)",
       "style 1.0l tsi mt",
       "style 1.5l tsi dsg",
-      "style 1.5l tsi mt",
-      "style 10 tsi at",
-      "style 15 tsi at"
+      "style 1.5l tsi mt"
     ],
     "kylaq": [
-      "10 signaturetsi at",
       "signature",
       "signature at",
       "signature plus at"
@@ -2277,6 +2397,7 @@
       "2.0 tdi cr style plus at",
       "2.0 tdi l&k",
       "ambiente 1.9 tdi",
+      "ambition 1.4 tsi",
       "ambition 2.0 tdi",
       "ambition 2.0 tdi at",
       "elegance 1.8 tsi at",
@@ -2286,7 +2407,6 @@
       "rider 1.9 tdi",
       "rider 1.9 tdi classic",
       "style 1.8 tsi at",
-      "style 18 tsi at",
       "style plus at 1.8 tsi"
     ],
     "rapid": [
@@ -2310,6 +2430,7 @@
       "active 1.6 tdi cr mt plus",
       "ambition 1.5 tdi",
       "ambition 1.5 tdi at",
+      "ambition 1.6 mpi",
       "ambition 1.6 mpi at",
       "ambition 1.6 mpi mt",
       "ambition 1.6 mpi mt plus",
@@ -2322,24 +2443,22 @@
       "style 1.5 tdi",
       "style 1.5 tdi at",
       "style 1.6 mpi",
-      "style 1.6 mpi at"
+      "style 1.6 mpi at",
+      "style at"
     ],
     "slavia": [
+      "ambition 1.0l tsi at",
       "ambition 1.0l tsi mt",
       "ambition 1.5l tsi",
       "monte carlo 1.0l tsi mt",
       "style 1.0l tsi at",
       "style 1.0l tsi mt",
       "style 1.5l tsi dsg",
-      "style 1.5l tsi mt",
-      "style 10 tsi at",
-      "style 10 tsi mt",
-      "style 15 tsi mt"
+      "style 1.5l tsi mt"
     ],
     "superb": [
       "2.0 tdi pd",
       "2.5 tdi at",
-      "20 lk tsi at",
       "elegance 1.8 tsi at",
       "elegance 1.8 tsi mt",
       "elegance 2.0 tdi cr at",
@@ -2355,17 +2474,19 @@
     "altroz": [
       "accomplished plus s petrol 6dct",
       "creative s diesel 5mt",
-      "dca xz plus 12 p fixed",
-      "dca xz plus sunroof",
+      "pure diesel 5mt",
       "xe diesel",
       "xe petrol",
       "xm petrol",
       "xm plus petrol",
       "xma plus (s) dct",
+      "xt diesel",
       "xt i-turbo petrol",
       "xt petrol",
+      "xz (o) petrol",
       "xz + sunroof",
       "xz diesel",
+      "xz i-turbo petrol",
       "xz petrol",
       "xz plus (o) (s)",
       "xz plus (s)",
@@ -2374,6 +2495,7 @@
       "xz plus i-turbo petrol dark edition",
       "xz plus petrol",
       "xz plus petrol dark edition",
+      "xza",
       "xza + sunroof",
       "xza plus",
       "xza plus (s)",
@@ -2383,6 +2505,7 @@
     ],
     "aria": [
       "prestige 4x2",
+      "pure 4x2",
       "pure lx 4x2"
     ],
     "bolt": [
@@ -2393,9 +2516,14 @@
       "accomplished plus a 1.2 hyperion gdi petrol 6mt",
       "accomplished plus a 1.5 kryojet diesel 6mt",
       "accomplished s 1.2 petrol 6mt",
-      "accomplished s 1.2 revotron petrol 6mt"
+      "accomplished s 1.2 petrol 7dca",
+      "accomplished s 1.2 revotron petrol 6mt",
+      "creative plus s 1.2 revotron petrol 7dca",
+      "pure plus 1.2 petrol 6mt",
+      "pure plus 1.2 revotron petrol 6mt"
     ],
     "harrier": [
+      "fearless plus dark edition",
       "xm 2.0l kryotec",
       "xma 2.0l kryotec",
       "xt",
@@ -2407,14 +2535,15 @@
       "xz dual tone",
       "xz plus 2.0l",
       "xz plus 2.0l dark edition",
+      "xz plus 2.0lkryotec halo dark edition",
       "xza 2.0l",
       "xza 2.0l dark edition",
       "xza dark edition",
       "xza plus",
       "xza plus (o)",
       "xza plus 2.0l",
+      "xza plus 2.0l dual tone",
       "xza plus 2.0l kaziranga",
-      "xza plus 20 kryotec",
       "xza plus dual tone"
     ],
     "hexa": [
@@ -2444,6 +2573,7 @@
     ],
     "indica vista": [
       "aqua quadrajet",
+      "aura 1.3 quadrajet",
       "lx tdi",
       "vx quadrajet"
     ],
@@ -2457,6 +2587,7 @@
     "manza": [
       "aura abs quadrajet",
       "aura quadrajet",
+      "elan quadrajet",
       "elan safire"
     ],
     "nano": [
@@ -2469,7 +2600,6 @@
       "twist xta"
     ],
     "nexon": [
-      "12 xma rtn",
       "creative + 1.2 petrol",
       "creative + sunroof 1.2 petrol",
       "creative 1.2 petrol",
@@ -2478,10 +2608,18 @@
       "creative amt dual tone 1.2 petrol",
       "creative dual tone 1.2 petrol",
       "creative plus (ps) 1.2 petrol dual tone",
+      "creative plus (s) 1.2 petrol 7dca dark edition",
       "creative plus 1.2 revotron 6mt",
+      "creative plus 1.2 revotron 7 dca",
+      "creative plus 1.2 revotron 7dca dark edition",
+      "creative plus 1.2 revotron petrol 7dca",
+      "creative plus s 1.2 revotron 6 amt dt",
+      "creative plus s 1.2 revotron petrol 6mt dt",
+      "creative plus s 1.2 revotron petrol 7dca",
       "creative+ amt 1.2 petrol",
       "creative+ dca 1.2 petrol",
       "creative+ sunroof dca 1.2 petrol",
+      "fearless + dca dual tone 1.2 petrol",
       "fearless + dual tone 1.5 diesel",
       "fearless + sunroof amt dual tone 1.5 diesel",
       "fearless + sunroof dca dual tone 1.2 petrol",
@@ -2493,11 +2631,14 @@
       "fearless purple + sunroof amt dual tone 1.5 diesel",
       "fearless s purple 1.2 revotron petrol 7dca dual tone",
       "fearless sunroof dual tone 1.2 petrol",
+      "pure 1.2 revotron petrol 6mt",
       "pure plus (s) 1.2 icng 6mt",
       "pure plus (s) 1.2 petrol 6amt",
       "pure plus (s) 1.2 petrol 6mt",
+      "pure s 1.2 revotron 6mt",
       "pure sunroof 1.2 petrol",
       "smart plus 1.2 revotron 6 amt",
+      "unknown",
       "xe petrol",
       "xm (s) diesel",
       "xm diesel",
@@ -2509,19 +2650,19 @@
       "xma diesel",
       "xma petrol",
       "xma plus sunroof diesel",
-      "xma s",
       "xma sunroof petrol",
       "xt petrol",
       "xz",
-      "xz 12 rtn",
       "xz diesel",
-      "xz mt",
       "xz petrol",
       "xz plus",
       "xz plus (hs) petrol",
+      "xz plus (hs) petrol dark edition",
       "xz plus (l)",
+      "xz plus (o)",
       "xz plus (o) dark edition",
       "xz plus (o) diesel",
+      "xz plus (o) diesel dual tone",
       "xz plus (o) dual tone",
       "xz plus (o) petrol",
       "xz plus (o) petrol dark edition",
@@ -2536,6 +2677,7 @@
       "xz plus diesel sunroof",
       "xz plus dual tone",
       "xz plus lux",
+      "xz plus luxs jet",
       "xz plus luxury sunroof petrol",
       "xz plus petrol",
       "xz plus petrol dark edition",
@@ -2556,9 +2698,11 @@
       "xza plus (premium) kaziranga petrol",
       "xza plus (premium) petrol",
       "xza plus (s)",
-      "xza plus 12 rtn",
       "xza plus diesel",
+      "xza plus diesel dark edition",
       "xza plus diesel dual tone",
+      "xza plus lux sunroof dark petrol",
+      "xza plus lux sunroof red dark petrol",
       "xza plus luxury sunroof diesel",
       "xza plus petrol",
       "xza plus petrol dark edition",
@@ -2574,6 +2718,9 @@
       "xz plus lux",
       "xz plus lux dark edition"
     ],
+    "nexon ev max": [
+      "xz plus 3.3 kw"
+    ],
     "punch": [
       "accomplished amt",
       "accomplished amt camo edition",
@@ -2582,13 +2729,16 @@
       "accomplished dazzle sunroof cng mt",
       "accomplished mt",
       "accomplished mt cng",
+      "adventure (s)",
       "adventure amt",
       "adventure mt",
       "adventure mt cng",
       "adventure plus amt",
+      "adventure plus icng",
       "adventure rhythm pack amt",
       "adventure rhythm pack mt",
       "adventure sunroof amt",
+      "camo accomplished amt",
       "creative 1.2 mt kaziranga edition",
       "creative 1.2 rtn dual tone",
       "creative amt",
@@ -2617,8 +2767,7 @@
       "4x2 lx dicor 2.2 vtt",
       "4x2 vx dicor 2.2 vtt",
       "4x4 vx dicor",
-      "7s a bs6 p2 d acc",
-      "7s a bs6 p2 d acc 2024regd",
+      "xma",
       "xma sunroof",
       "xt plus",
       "xz",
@@ -2627,6 +2776,7 @@
       "xz plus kaziranga",
       "xza plus",
       "xza plus gold",
+      "xza plus kaziranga",
       "xza plus o 6str"
     ],
     "sumo gold": [
@@ -2636,21 +2786,25 @@
       "lx"
     ],
     "tiago": [
+      "limited edition",
       "revotorq xm",
       "revotorq xt",
       "revotorq xz plus",
+      "revotron xe",
+      "revotron xm",
       "revotron xt",
       "revotron xta",
       "revotron xz",
+      "revotron xz plus",
       "revotron xz w/o alloy",
       "revotron xza",
+      "wizz edition petrol",
       "xe diesel",
       "xe petrol",
       "xm petrol",
       "xt",
       "xt cng",
       "xt diesel",
-      "xt mt",
       "xt petrol",
       "xt rhythm",
       "xt rhythm petrol",
@@ -2661,15 +2815,22 @@
       "xz petrol",
       "xz plus",
       "xz plus cng",
+      "xz plus dual tone",
+      "xz plus dual tone petrol",
       "xz plus petrol",
+      "xza",
       "xza petrol",
       "xza plus",
       "xza plus cng",
       "xza plus petrol"
     ],
     "tiago ev": [
+      "xt medium range",
       "xz plus tech lux long range",
       "xz plus tech lux long range fast charger"
+    ],
+    "tiago jtp": [
+      "1.2"
     ],
     "tiago nrg": [
       "petrol",
@@ -2678,7 +2839,11 @@
     ],
     "tigor": [
       "revotorq xm",
+      "revotron xza",
       "xe petrol",
+      "xm petrol",
+      "xt petrol",
+      "xz",
       "xz (o) petrol",
       "xz petrol",
       "xz plus petrol",
@@ -2702,6 +2867,7 @@
   "toyota": {
     "camry": [
       "2.5l at",
+      "hybrid",
       "v1",
       "v3",
       "w1 mt",
@@ -2727,6 +2893,7 @@
       "g sp",
       "gd",
       "gd sp",
+      "v",
       "vd",
       "vx-d",
       "vxd"
@@ -2735,9 +2902,12 @@
       "g",
       "gd",
       "v",
-      "vx"
+      "v dual tone",
+      "vx",
+      "vx dual tone"
     ],
     "fortuner": [
+      "3.0 4x2 at",
       "3.0 4x2 mt",
       "3.0 4x4 mt",
       "3.0 sportivo 4x2 at"
@@ -2748,12 +2918,12 @@
       "g amt",
       "g cvt",
       "g isg",
-      "g mt",
       "v",
       "v amt",
       "v cvt"
     ],
     "innova": [
+      "2.5 g bs iii 8 str",
       "2.5 g3",
       "2.5 g4 7 str",
       "2.5 gx 7 str",
@@ -2763,7 +2933,8 @@
       "2.5 zx 7 str",
       "gx 2.5 7 str",
       "v 2.5 7 str",
-      "vx 2.5 7 str"
+      "vx 2.5 7 str",
+      "vx 2.5 8 str"
     ],
     "innova crysta": [
       "2.4 gx 7 str",
@@ -2773,26 +2944,28 @@
       "2.4 zx 7 str",
       "2.4 zx 7str",
       "2.4 zx at 7 str",
+      "2.7 vx 7 str",
       "2.7 zx at 7 str",
       "2.8 gx at 7 str",
       "gx 2.7 at 8 str",
       "zx 2.7 at 7 str"
     ],
     "innova hycross": [
-      "hybrid zx opt7s",
       "vx hybrid 7 str"
     ],
     "urban cruiser": [
       "high grade at",
       "high grade mt",
       "premium grade at",
+      "premium grade at dual tone",
       "premium grade mt"
     ],
     "urban cruiser hyryder": [
-      "e mt",
       "e neo drive",
       "g at neo drive",
+      "g at neodrive",
       "g hybrid",
+      "g neo drive",
       "s at neo drive",
       "s hybrid",
       "s neo drive",
@@ -2801,10 +2974,12 @@
       "v neo drive"
     ],
     "urban cruiser taisor": [
+      "s 1.2 petrol mt",
       "s plus 1.2 petrol amt",
       "v 1.0 petrol at"
     ],
     "yaris": [
+      "g cvt",
       "j mt",
       "v mt",
       "vx cvt"
@@ -2813,6 +2988,7 @@
   "volkswagen": {
     "ameo": [
       "comfortline 1.2l",
+      "comfortline 1.5l",
       "comfortline 1.5l (d)",
       "highline 1.5l at",
       "highline dsg 1.5 diesel",
@@ -2820,8 +2996,12 @@
       "highline plus 1.5l at (d)16 alloy",
       "highline plus 1.5l at 16 alloy",
       "highline1.2l",
+      "highline1.2l (p)",
+      "highline1.2l plus 16 alloy",
       "highline1.5l",
-      "trendline 1.2l"
+      "trendline 1.2l",
+      "trendline 1.2l (p)",
+      "trendline 1.5l (d)"
     ],
     "jetta": [
       "comfortline tdi",
@@ -2835,11 +3015,9 @@
     ],
     "polo": [
       "1.0 gt tsi at",
-      "10 highline plus mpi",
-      "10 highline plus tsi",
-      "12 comfortline",
       "comfortline 1.0l (p)",
       "comfortline 1.0l mpi",
+      "comfortline 1.2 diesel",
       "comfortline 1.2l",
       "comfortline 1.2l (p)",
       "comfortline 1.2l petrol",
@@ -2852,8 +3030,10 @@
       "highline plus 1.0 (p)",
       "highline plus 1.0 16 alloy",
       "highline plus 1.0l tsi",
+      "highline plus 1.0l tsi at",
       "highline plus 1.2( p)16 alloy",
       "highline plus 1.5 16 alloy",
+      "highline1.0l (p)",
       "highline1.2l",
       "highline1.2l (p)",
       "highline1.5l",
@@ -2868,16 +3048,13 @@
       "comfortline 1.0 tsi mt",
       "gt line 1.0l tsi mt",
       "gt plus 1.5 tsi dsg",
-      "gt plus 15 tsi dsg",
+      "gt plus 1.5 tsi dsg (with ventilated seats)",
       "highline 1.0 tsi at",
       "highline 1.0 tsi mt",
-      "highline 10 tsi at",
       "topline 1.0 tsi at",
-      "topline 1.0 tsi mt",
-      "topline 10 tsi at"
+      "topline 1.0 tsi mt"
     ],
     "tiguan": [
-      "20l tsi elegance",
       "all space 2.0 tsi",
       "comfortline tdi at",
       "highline tdi at"
@@ -2885,9 +3062,12 @@
     "vento": [
       "1.2 tsi highline plus at",
       "comfortline 1.5 (d)",
+      "comfortline 1.6",
+      "comfortline diesel",
       "comfortline diesel 1.6",
       "comfortline petrol at",
       "highline 1.0l tsi",
+      "highline 1.2 (p) at",
       "highline 1.5 (d)",
       "highline 1.5 (d) at",
       "highline 1.5 at",
@@ -2896,6 +3076,7 @@
       "highline diesel",
       "highline diesel 1.5",
       "highline diesel 1.6",
+      "highline diesel at",
       "highline petrol",
       "highline petrol at",
       "highline plus 1.0l tsi",
@@ -2912,14 +3093,14 @@
       "gt line 1.0l tsi at",
       "gt pius 1.5 tsi",
       "gt plus 1.5 tsi evo dsg",
-      "gt plus 15 tsi dsg",
       "gt plus tsi 1.5 evo dsg",
+      "highline 1.0 tsi at",
       "highline 1.0 tsi mt",
+      "highline plus 1.0 tsi mt",
       "highline tsi 1.0 at",
       "highline tsi 1.0 mt",
       "topline 1.0 tsi at",
       "topline 1.0 tsi mt",
-      "topline 10 tsi at",
       "topline tsi 1.0 at",
       "topline tsi 1.0 mt"
     ]

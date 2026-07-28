@@ -25,11 +25,11 @@ class EnsemblePredictor:
     def __init__(self, artifact_dir: Path, metadata: dict) -> None:
         self.artifact_dir = artifact_dir
         self.metadata = metadata
-        self.features = metadata["features"]
-        self.cat_features = metadata["categorical_features"]
+        self.features = metadata.get("features", [])
+        self.cat_features = metadata.get("categorical_features", metadata.get("cat_features", []))
         ensemble = metadata.get("ensemble", {})
-        self.enabled = bool(ensemble.get("enabled", False))
-        self.weights = ensemble.get("weights", {"catboost": 1.0})
+        self.enabled = bool(ensemble.get("enabled", True))
+        self.weights = ensemble.get("weights", metadata.get("ensemble_weights", {"catboost": 1.0}))
         self.category_levels: Dict[str, list[str]] = ensemble.get("category_levels", {})
 
         catboost_path = artifact_dir / "vehicle_price_catboost.cbm"
@@ -41,13 +41,15 @@ class EnsemblePredictor:
         if self.enabled:
             lgb_path = artifact_dir / "vehicle_price_lightgbm.txt"
             xgb_path = artifact_dir / "vehicle_price_xgboost.json"
-            if lgb is None or xgb is None:
-                raise ImportError("Ensemble requires lightgbm and xgboost to be installed.")
-            if not lgb_path.exists() or not xgb_path.exists():
-                raise FileNotFoundError("Ensemble model artifacts are missing.")
-            self.lightgbm = lgb.Booster(model_file=str(lgb_path))
-            self.xgboost = xgb.XGBRegressor()
-            self.xgboost.load_model(str(xgb_path))
+            if self.weights.get("lightgbm", 0.0) > 0 and lgb_path.exists():
+                if lgb is None:
+                    raise ImportError("Ensemble requires lightgbm to be installed.")
+                self.lightgbm = lgb.Booster(model_file=str(lgb_path))
+            if self.weights.get("xgboost", 0.0) > 0 and xgb_path.exists():
+                if xgb is None:
+                    raise ImportError("Ensemble requires xgboost to be installed.")
+                self.xgboost = xgb.XGBRegressor()
+                self.xgboost.load_model(str(xgb_path))
 
     def _prepare_frame(self, features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         # Use the model's own feature list as source of truth — avoids stale metadata mismatch
@@ -129,6 +131,52 @@ class EnsemblePredictor:
             blended += weights["xgboost"] * float(self.xgboost.predict(xgb_frame)[0])
 
         return float(blended)
+
+    def predict_with_variance(self, features: pd.DataFrame) -> dict:
+        """
+        Returns individual model log-price predictions plus the blended result and
+        ensemble variance (std of contributing predictions).
+
+        XGBoost is evaluated even when its ensemble weight is 0, since its
+        prediction diversity provides a useful confidence signal.
+        """
+        import numpy as _np
+
+        catboost_frame, lgb_frame, xgb_frame = self._prepare_frame(features)
+        cb_log  = float(self.catboost.predict(catboost_frame)[0])
+        lgb_log = None
+        xgb_log = None
+
+        if self.lightgbm is not None:
+            lgb_log = float(self.lightgbm.predict(lgb_frame)[0])
+        if self.xgboost is not None:
+            try:
+                xgb_log = float(self.xgboost.predict(xgb_frame)[0])
+            except Exception:
+                xgb_log = None
+
+        # Blended prediction (same logic as predict_log_price)
+        if not self.enabled:
+            blended = cb_log
+        else:
+            weights = self.weights
+            blended = weights.get("catboost", 0.0) * cb_log
+            if lgb_log is not None and weights.get("lightgbm", 0.0) > 0:
+                blended += weights["lightgbm"] * lgb_log
+            if xgb_log is not None and weights.get("xgboost", 0.0) > 0:
+                blended += weights["xgboost"] * xgb_log
+
+        # Variance: std of all available individual predictions (diversity signal)
+        preds = [p for p in [cb_log, lgb_log, xgb_log] if p is not None]
+        variance = float(_np.std(preds)) if len(preds) > 1 else 0.0
+
+        return {
+            "log_price":     float(blended),
+            "catboost_log":  cb_log,
+            "lightgbm_log":  lgb_log,
+            "xgboost_log":   xgb_log,
+            "variance":      round(variance, 6),
+        }
 
 
     @classmethod
