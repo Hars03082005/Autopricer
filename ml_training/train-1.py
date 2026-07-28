@@ -651,11 +651,53 @@ def train_all_models() -> dict:
         _cdf = _cdf.dropna(subset=["brand", "model"])
         for c in ["brand", "model", "variant"]:
             _cdf[c] = _cdf[c].astype(str).str.strip().str.lower()
+
+        _STRIP_TOKENS = set([
+            "petrol", "diesel", "crdi", "cng", "lpg", "electric", "ev", "vtvt", "tdci", "mpi", "dci", "ddis",
+            "tsi", "tdi", "gdi", "tgdi", "cdti", "idtec", "ivtec", "k10", "k12", "k15", "boostjet", "smart", "hybrid",
+            "at", "mt", "cvt", "dct", "amt", "ivt", "dsg", "automatic", "manual", "str", "shvs",
+            "dsl", "ptl", "bs6", "bs4", "bsiv", "bs3", "unknown", "nan", "null", "none", "car", "model", "variant",
+            "5sp", "6sp", "5-speed", "6-speed", "7-speed", "8-speed", "5mt", "6mt", "6at", "5at", "speed",
+            "drive", "2wd", "4wd", "awd", "4x2", "4x4", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+        ])
+        _ENGINE_PAT = re.compile(r"\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b")
+
+        def _norm_var(v_raw: str, m_name: str = "") -> str:
+            if not v_raw or not isinstance(v_raw, str):
+                return ""
+            t = v_raw.lower().strip()
+            if t in ("unknown", "nan", "null", "none", "-", "", "base model"):
+                return ""
+            if m_name:
+                for w in m_name.lower().split():
+                    if len(w) > 2:
+                        t = t.replace(w, "")
+            t = _ENGINE_PAT.sub("", t)
+            t = re.sub(r"[\(\)\[\]\/\-\,\_\.\+]", " ", t)
+            toks = [tk for tk in t.split() if tk not in _STRIP_TOKENS and not tk.isdigit() and len(tk) > 0]
+            if not toks:
+                return ""
+            res = " ".join(toks).upper()
+            res = re.sub(r"\bSX\s+O\b", "SX (O)", res)
+            res = re.sub(r"\bS\s+O\b", "S (O)", res)
+            res = re.sub(r"\bZX\s+O\b", "ZX (O)", res)
+            res = re.sub(r"\bZXI\s+PLUS\b", "ZXI+", res)
+            res = re.sub(r"\bVXI\s+PLUS\b", "VXI+", res)
+            res = re.sub(r"\bLXI\s+PLUS\b", "LXI+", res)
+            res = re.sub(r"\bXZ\s+PLUS\b", "XZ+", res)
+            res = re.sub(r"\bXT\s+PLUS\b", "XT+", res)
+            return res
+
         catalog: dict = {}
         for brand, bdf in _cdf.groupby("brand"):
             catalog[brand] = {}
             for model_, mdf in bdf.groupby("model"):
-                catalog[brand][model_] = sorted(mdf["variant"].dropna().unique().tolist())
+                norm_vars = set()
+                for v in mdf["variant"].dropna():
+                    nv = _norm_var(v, model_)
+                    if nv:
+                        norm_vars.add(nv)
+                catalog[brand][model_] = sorted(list(norm_vars), key=str.casefold)
         with open(ARTIFACT_DIR / "dataset_catalog.json", "w", encoding="utf-8") as f:
             json.dump(catalog, f, indent=2)
         log.debug(f"Saved dataset_catalog.json ({len(catalog)} brands)")

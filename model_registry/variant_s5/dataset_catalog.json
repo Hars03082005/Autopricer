@@ -1,258 +1,243 @@
 {
   "mg": {
     "hector": [
-      "15 sharp cvt",
-      "shine cvt",
-      "sharp pro",
-      "savvy pro cvt",
-      "sharp dct",
-      "sharp mt"
+      "SAVVY PRO",
+      "SHARP",
+      "SHARP PRO",
+      "SHINE"
     ],
     "astor": [
-      "zs vti tech savvy cvt",
-      "220turbo 6at savvyred",
-      "vti tech cvt savvy red",
-      "zs vti tech style mt"
+      "220TURBO SAVVYRED",
+      "VTI TECH SAVVY RED",
+      "ZS VTI TECH SAVVY",
+      "ZS VTI TECH STYLE"
     ],
     "gloster": [
-      "44 7 str sharp"
+      "SHARP"
     ]
   },
   "skoda": {
     "octavia": [
-      "lk 20 tsi at"
+      "LK"
     ],
     "kushaq": [
-      "15 style tsi at",
-      "style 10 tsi at",
-      "style 15 tsi at"
+      "STYLE"
     ],
     "slavia": [
-      "style 10 tsi at",
-      "style 10 tsi mt",
-      "style 15 tsi mt"
+      "STYLE"
     ],
     "superb": [
-      "20 lk tsi at"
+      "LK"
     ],
     "kylaq": [
-      "10 signaturetsi at"
+      "SIGNATURETSI"
     ]
   },
   "tata": {
     "altroz": [
-      "dca xz plus 12 p fixed",
-      "dca xz plus sunroof"
+      "DCA XZ+ P FIXED",
+      "DCA XZ+ SUNROOF"
     ],
     "tiago": [
-      "xt mt"
+      "XT"
     ],
     "nexon": [
-      "xz mt",
-      "xz 12 rtn",
-      "xma s",
-      "12 xma rtn"
+      "XMA RTN",
+      "XMA S",
+      "XZ",
+      "XZ RTN"
     ],
     "safari": [
-      "7s a bs6 p2 d acc 2024regd",
-      "7s a bs6 p2 d acc"
+      "7S A P2 D ACC",
+      "7S A P2 D ACC 2024REGD"
     ],
     "harrier": [
-      "xza plus 20 kryotec"
+      "XZA PLUS KRYOTEC"
     ]
   },
   "kia": {
     "seltos": [
-      "g 14 7dct gtx plus",
-      "15 htx plus mt",
-      "g15 6 mt htk",
-      "g 15 htx ivt",
-      "g 15 6mt htx",
-      "g 15 htk o",
-      "g 15 6 mt htx",
-      "15 gtx plus at"
+      "G 7DCT GTX PLUS",
+      "G HTK O",
+      "G HTX",
+      "G15 HTK",
+      "GTX PLUS",
+      "HTX PLUS"
     ],
     "sonet": [
-      "5mt hte o mt",
-      "10 turbo 7dct gtx plus",
-      "g 10 turbo 7dct gtx"
+      "G TURBO 7DCT GTX",
+      "HTE O",
+      "TURBO 7DCT GTX PLUS"
     ],
     "carens": [
-      "15 6mt prestige plus 7"
+      "PRESTIGE PLUS"
     ],
     "carnival": [
-      "limousine 7s at",
-      "d 22 8 at limousine 7"
+      "D LIMOUSINE",
+      "LIMOUSINE 7S"
     ]
   },
   "maruti suzuki": {
     "xl6": [
-      "smart hybrid zeta mt"
+      "ZETA"
     ],
     "fronx": [
-      "delta plus ags",
-      "delta ags"
+      "DELTA AGS",
+      "DELTA PLUS AGS"
     ],
     "celerio": [
-      "zxi ags"
+      "ZXI AGS"
     ],
     "brezza": [
-      "vxi mt"
+      "VXI"
     ],
     "baleno": [
-      "aplha ags",
-      "alpha mt",
-      "alpha ags"
+      "ALPHA",
+      "ALPHA AGS",
+      "APLHA AGS"
     ],
     "ertiga": [
-      "zxi plus smart hybrid",
-      "smart hybrid zxi at"
+      "ZXI",
+      "ZXI+"
     ],
     "grand vitara": [
-      "smart hybrid alpha at",
-      "strong hybrid alpha plus at"
+      "ALPHA",
+      "STRONG ALPHA PLUS"
     ],
     "s-cross": [
-      "s cross s cross smart hybrid alpha mt"
+      "S CROSS S CROSS ALPHA"
     ]
   },
   "volkswagen": {
     "taigun": [
-      "15 gt plus tsi dsg",
-      "gt plus 15 tsi dsg",
-      "topline 10 tsi at",
-      "highline 10 tsi at"
+      "GT PLUS",
+      "HIGHLINE",
+      "TOPLINE"
     ],
     "polo": [
-      "10 highline plus tsi",
-      "gt tsi at"
+      "GT",
+      "HIGHLINE PLUS"
     ],
     "virtus": [
-      "topline 10 tsi at",
-      "gt plus 15 tsi dsg"
+      "GT PLUS",
+      "TOPLINE"
     ],
     "tiguan": [
-      "20l tsi elegance"
+      "20L ELEGANCE"
     ]
   },
   "hyundai": {
     "creta": [
-      "1 4 turbo gdi dct sx o",
-      "15 crdi ex mt",
-      "sx executive",
-      "15 mpi sx mt",
-      "sx crdi at",
-      "16 vtvt sx at",
-      "15 mpi ivt sx"
+      "EX",
+      "SX",
+      "SX EXECUTIVE",
+      "TURBO SX (O)"
     ],
     "creta n line": [
-      "n8 15 turbo dct"
+      "N8 TURBO"
     ],
     "grand i10 nios": [
-      "sportz amt",
-      "sportz 12 amt",
-      "12 amt kappa sportz"
+      "KAPPA SPORTZ",
+      "SPORTZ"
     ],
     "venue": [
-      "10 turbo dct sx plus",
-      "10 turbo gdi sx mt"
+      "TURBO SX",
+      "TURBO SX PLUS"
     ],
     "i20": [
-      "sportz ivt",
-      "new new sportz mt",
-      "sportz 12 kappa"
+      "NEW NEW SPORTZ",
+      "SPORTZ",
+      "SPORTZ KAPPA"
     ],
     "alcazar": [
-      "15 prestige exe 7s mt"
+      "PRESTIGE EXE 7S"
     ],
     "tucson": [
-      "20 platinum at"
+      "PLATINUM"
     ],
     "aura": [
-      "12 kappa s amt"
+      "KAPPA S"
     ],
     "i20 n line": [
-      "n8 10 turbo dct",
-      "n8 10 turbo dct dt"
+      "N8 TURBO",
+      "N8 TURBO DT"
     ],
     "santro": [
-      "11 corporate amt 2021regd"
+      "CORPORATE 2021REGD"
     ]
   },
   "toyota": {
     "urban cruiser hyryder": [
-      "e mt"
+      "E"
     ],
     "innova hycross": [
-      "hybrid zx opt 7s",
-      "hybrid zx opt7s"
+      "ZX OPT 7S",
+      "ZX OPT7S"
     ],
     "glanza": [
-      "g mt"
+      "G"
     ]
   },
   "jeep": {
     "compass": [
-      "limited o 44 at",
-      "model s o2 at",
-      "limited o at",
-      "limited mair ddct",
-      "s 02 14 mair ddct",
-      "limited plus 44 at"
+      "LIMITED MAIR DDCT",
+      "LIMITED O",
+      "LIMITED PLUS",
+      "S MAIR DDCT",
+      "S O2"
     ]
   },
   "mahindra": {
     "xuv700": [
-      "ax5 pet at 5 seater",
-      "ax7 7s at",
-      "ax7 7s",
-      "ax5 mt 7s"
+      "AX5 7S",
+      "AX5 PET SEATER",
+      "AX7 7S"
     ],
     "xuv300": [
-      "gasoline w6 mt"
+      "GASOLINE W6"
     ],
     "thar": [
-      "lx d at 4wd 4s ht",
-      "lx 4wd ht"
+      "LX D 4S HT",
+      "LX HT"
     ]
   },
   "honda": {
     "amaze": [
-      "rde vx cvt"
+      "RDE VX"
     ],
     "elevate": [
-      "vx mt"
+      "VX"
     ]
   },
   "ford": {
     "freestyle": [
-      "12 titanium mt"
+      "TITANIUM"
     ],
     "ecosport": [
-      "15 titanium se sunroof"
+      "TITANIUM SE SUNROOF"
     ]
   },
   "bmw": {
     "x1": [
-      "s drive20i x line"
+      "S DRIVE20I X LINE"
     ]
   },
   "mercedes-benz": {
     "c class": [
-      "c200 at"
+      "C200"
     ]
   },
   "renault": {
     "kwid": [
-      "rxlo mt 10 sce"
+      "RXLO SCE"
     ]
   },
   "audi": {
     "q3 sportback": [
-      "40 tfsi q"
+      "TFSI Q"
     ],
     "q5": [
-      "45 tfsi q tech"
+      "TFSI Q TECH"
     ]
   }
 }

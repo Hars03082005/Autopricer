@@ -98,6 +98,46 @@ function FieldLabel({ children, required }) {
   );
 }
 
+const STRIP_TOKENS = new Set([
+  'petrol', 'diesel', 'crdi', 'cng', 'lpg', 'electric', 'ev', 'vtvt', 'tdci', 'mpi', 'dci', 'ddis',
+  'tsi', 'tdi', 'gdi', 'tgdi', 'cdti', 'idtec', 'ivtec', 'k10', 'k12', 'k15', 'boostjet', 'smart', 'hybrid',
+  'at', 'mt', 'cvt', 'dct', 'amt', 'ivt', 'dsg', 'automatic', 'manual', 'str', 'shvs',
+  'dsl', 'ptl', 'bs6', 'bs4', 'bsiv', 'bs3', 'unknown', 'nan', 'null', 'none', 'car', 'model', 'variant',
+  '5sp', '6sp', '5-speed', '6-speed', '7-speed', '8-speed', '5mt', '6mt', '6at', '5at', 'speed',
+  'drive', '2wd', '4wd', 'awd', '4x2', '4x4', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
+]);
+
+function normalizeVariant(raw, modelName = '') {
+  if (!raw || typeof raw !== 'string') return '';
+  let text = raw.toLowerCase().trim();
+  if (['unknown', 'nan', 'null', 'none', '-', '', 'base model'].includes(text)) return '';
+
+  if (modelName) {
+    modelName.toLowerCase().split(/\s+/).forEach(word => {
+      if (word.length > 2) text = text.replace(word, '');
+    });
+  }
+
+  // Remove engine sizes like 1.6, 1.5, 1.4, 2.0, 1.2, 1200cc
+  text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, '');
+  text = text.replace(/[\(\)\[\]\/\-\,\_\.\+]/g, ' ');
+
+  const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
+  if (tokens.length === 0) return '';
+
+  let res = tokens.join(' ').toUpperCase();
+  res = res.replace(/\bSX\s+O\b/g, 'SX (O)')
+           .replace(/\bS\s+O\b/g, 'S (O)')
+           .replace(/\bZX\s+O\b/g, 'ZX (O)')
+           .replace(/\bZXI\s+PLUS\b/g, 'ZXI+')
+           .replace(/\bVXI\s+PLUS\b/g, 'VXI+')
+           .replace(/\bLXI\s+PLUS\b/g, 'LXI+')
+           .replace(/\bXZ\s+PLUS\b/g, 'XZ+')
+           .replace(/\bXT\s+PLUS\b/g, 'XT+');
+
+  return res;
+}
+
 /* ─── Main Component ────────────────────────────────────────────── */
 export default function InputScreen() {
   const {
@@ -131,13 +171,21 @@ export default function InputScreen() {
     }
 
     if (brandModels) {
-      let variants = brandModels[modelKey];
-      if (!variants) {
+      let rawVariants = brandModels[modelKey];
+      if (!rawVariants) {
         const foundM = Object.keys(brandModels).find(m => m.includes(modelKey) || modelKey.includes(m));
-        if (foundM) variants = brandModels[foundM];
+        if (foundM) rawVariants = brandModels[foundM];
       }
-      if (Array.isArray(variants) && variants.length > 0) {
-        return variants.map(v => String(v).toUpperCase());
+      if (Array.isArray(rawVariants) && rawVariants.length > 0) {
+        const uniqueSet = new Set();
+        rawVariants.forEach(v => {
+          const nv = normalizeVariant(v, inputs.model);
+          if (nv && nv.length > 0) uniqueSet.add(nv);
+          else if (v && typeof v === 'string' && !['unknown', 'nan', 'null', 'none'].includes(v.toLowerCase().trim())) {
+            uniqueSet.add(v.trim().toUpperCase());
+          }
+        });
+        return Array.from(uniqueSet).sort((a, b) => a.localeCompare(b));
       }
     }
 
