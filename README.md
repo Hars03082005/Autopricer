@@ -216,8 +216,8 @@ The adaptive decision engine allows zero-code adjustment of similarity weights a
 
 ```bash
 # Clone repository
-git clone https://github.com/Hars03082005/Autopricer.git
-cd Autopricer
+git clone https://github.com/UmaDamotharan/Price-Prediction.git
+cd Price-Prediction
 
 # Create and activate Python virtual environment
 python -m venv venv
@@ -286,7 +286,7 @@ flutter run
 
 If you want to create your own copy of this repository on GitHub to customize or host under your account:
 
-1. Click the **`Fork`** button at the top right of this repository page ([`github.com/Hars03082005/Autopricer`](https://github.com/Hars03082005/Autopricer)).
+1. Click the **`Fork`** button at the top right of this repository page ([`github.com/UmaDamotharan/Price-Prediction`](https://github.com/UmaDamotharan/Price-Prediction)).
 2. Select your account to create an independent copy under your GitHub profile.
 3. You can now clone your forked repository or connect it directly to **Render**, **Railway**, or **Vercel** for 1-click cloud deployment!
 
