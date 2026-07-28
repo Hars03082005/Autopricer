@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
+import { runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = (n) => {
@@ -28,6 +29,125 @@ const ACTION_CFG = {
 const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
   { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
+
+/* ─── S5_MAX_AGE — must match train-s5.py ───────────────────── */
+const S5_MAX_AGE = 7;
+
+/* ─── Variant config ────────────────────────────────────────── */
+const MAIN_VARIANTS = [
+  { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
+  { id: 'variant_2', label: 'Variant 2', mape: '6.67%', emoji: '🥈' },
+  { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
+];
+
+/* ─── Variant Switcher Bar ──────────────────────────────────── */
+function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Active, onS5Toggle, s5Switching }) {
+  return (
+    <div style={{
+      background: 'var(--surface-1)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '14px 18px',
+      marginBottom: 12,
+    }}>
+      {/* Main model switcher */}
+      <div style={{ marginBottom: s5Eligible ? 12 : 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
+          ML MODEL ENGINE
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {MAIN_VARIANTS.map(v => {
+            const active = activeVariant === v.id && !s5Active;
+            return (
+              <button
+                key={v.id}
+                onClick={() => onSwitch(v.id)}
+                disabled={switching || s5Switching}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 8,
+                  border: active ? '2px solid #2563eb' : '1.5px solid var(--border)',
+                  background: active ? '#eff6ff' : 'var(--surface-2)',
+                  color: active ? '#1d4ed8' : 'var(--text-2)',
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 13,
+                  cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
+                  opacity: (switching || s5Switching) ? 0.6 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span>{v.emoji}</span>
+                <span>{v.label}</span>
+                <span style={{ fontSize: 10, color: active ? '#3b82f6' : 'var(--text-3)', fontWeight: 600 }}>
+                  {v.mape}
+                </span>
+                {active && (
+                  <span style={{
+                    fontSize: 9, background: '#2563eb', color: 'white',
+                    borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+                  }}>ACTIVE</span>
+                )}
+              </button>
+            );
+          })}
+          {switching && (
+            <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center', marginLeft: 4 }}>
+              Switching…
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* S5 Quality Toggle — only shown when vehicle qualifies */}
+      {s5Eligible && (
+        <div style={{
+          paddingTop: 12,
+          borderTop: '1px solid var(--border)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 2 }}>
+                S5 QUALITY SHOP MODEL
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                Specialized benchmark from quality dealer dataset (age ≤ 7 yrs)
+              </div>
+            </div>
+            <button
+              onClick={onS5Toggle}
+              disabled={switching || s5Switching}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 16px',
+                borderRadius: 8,
+                border: s5Active ? '2px solid #7c3aed' : '1.5px solid var(--border)',
+                background: s5Active ? '#f5f3ff' : 'var(--surface-2)',
+                color: s5Active ? '#7c3aed' : 'var(--text-2)',
+                fontWeight: s5Active ? 700 : 500,
+                fontSize: 13,
+                cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
+                opacity: (switching || s5Switching) ? 0.6 : 1,
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span>✨</span>
+              <span>{s5Active ? 'S5 Active' : 'View S5 Prediction'}</span>
+              {s5Switching && <span style={{ fontSize: 11, color: '#64748b' }}>Loading…</span>}
+              {s5Active && (
+                <span style={{
+                  fontSize: 9, background: '#7c3aed', color: 'white',
+                  borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+                }}>ACTIVE</span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─── Loading State ────────────────────────────────────────── */
 function LoadingState() {
@@ -280,10 +400,58 @@ function SimilarCarsSection({ cars, predictedPrice }) {
 
 /* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
-  const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
+  const { valuationResult, inputs, isLoading, setActiveScreen } = useApp();
+
+  // Variant switcher state
+  const [activeVariant, setActiveVariant] = useState('variant_1');
+  const [displayResult, setDisplayResult] = useState(null);
+  const [switching, setSwitching] = useState(false);
+  const [s5Active, setS5Active] = useState(false);
+  const [s5Switching, setS5Switching] = useState(false);
+
+  // Use displayResult if set (from switcher), otherwise use valuationResult from context
+  const result = displayResult || valuationResult;
+
+  // Determine vehicle age for S5 eligibility
+  const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
+  const s5Eligible = vehicleAge <= S5_MAX_AGE;
+
+  const handleVariantSwitch = useCallback(async (variantId) => {
+    if (variantId === activeVariant && !s5Active) return;
+    setSwitching(true);
+    setS5Active(false);
+    try {
+      const result = await runMLValuationWithVariant(inputs, variantId);
+      setDisplayResult(result);
+      setActiveVariant(variantId);
+    } catch (e) {
+      console.error('Variant switch failed:', e);
+    } finally {
+      setSwitching(false);
+    }
+  }, [activeVariant, s5Active, inputs]);
+
+  const handleS5Toggle = useCallback(async () => {
+    if (s5Active) {
+      // Switch back to main active variant
+      setS5Active(false);
+      setDisplayResult(null); // Revert to original result
+      return;
+    }
+    setS5Switching(true);
+    try {
+      const s5Result = await runS5Valuation(inputs);
+      setDisplayResult(s5Result);
+      setS5Active(true);
+    } catch (e) {
+      console.error('S5 model fetch failed:', e);
+    } finally {
+      setS5Switching(false);
+    }
+  }, [s5Active, inputs]);
 
   if (isLoading) return <LoadingState />;
-  if (!valuationResult) return <EmptyState setActiveScreen={setActiveScreen} />;
+  if (!result) return <EmptyState setActiveScreen={setActiveScreen} />;
 
   const {
     predictedPrice = 0,
@@ -309,7 +477,7 @@ export default function ResultScreen() {
     averageSimilarity = 0,
     expectedModelError = 6.3,
     confidenceCase = 'low',
-  } = valuationResult;
+  } = result;
 
   // Confidence badge colour for the adaptive valuation confidence
   const confColor = {
@@ -348,6 +516,40 @@ export default function ResultScreen() {
 
   return (
     <div className="rs2-root">
+
+      {/* ── VARIANT SWITCHER BAR ─────────────────────────── */}
+      <VariantSwitcher
+        activeVariant={activeVariant}
+        onSwitch={handleVariantSwitch}
+        switching={switching}
+        s5Eligible={s5Eligible}
+        s5Active={s5Active}
+        onS5Toggle={handleS5Toggle}
+        s5Switching={s5Switching}
+      />
+
+      {/* S5 active banner */}
+      {s5Active && (
+        <div style={{
+          background: '#f5f3ff',
+          border: '1.5px solid #c4b5fd',
+          borderRadius: 10,
+          padding: '10px 16px',
+          marginBottom: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 13,
+          fontWeight: 600,
+          color: '#6d28d9',
+        }}>
+          <span style={{ fontSize: 16 }}>✨</span>
+          <span>
+            S5 Quality Shop Model — Pricing from specialized quality dealer dataset (age ≤ 7 yrs).
+            These prices reflect premium quality shop benchmarks and may be higher than the general market.
+          </span>
+        </div>
+      )}
 
       {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
       <div className="rs2-card rs2-hero-card">
@@ -388,6 +590,22 @@ export default function ResultScreen() {
                 >
                   {valuationConfidence} Confidence
                 </span>
+                {s5Active && (
+                  <span className="rs2-badge" style={{
+                    background: '#f5f3ff', color: '#7c3aed',
+                    border: '1px solid #c4b5fd', fontWeight: 700, fontSize: '10px',
+                  }}>
+                    ✨ S5 Quality Model
+                  </span>
+                )}
+                {!s5Active && (
+                  <span className="rs2-badge" style={{
+                    background: '#eff6ff', color: '#1d4ed8',
+                    border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
+                  }}>
+                    {MAIN_VARIANTS.find(v => v.id === activeVariant)?.emoji} {MAIN_VARIANTS.find(v => v.id === activeVariant)?.label}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -449,7 +667,7 @@ export default function ResultScreen() {
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
-        color="#2563eb"
+        color={s5Active ? '#7c3aed' : '#2563eb'}
         min={minP}
         max={maxP}
         confidenceScore={confidenceScore}
@@ -491,3 +709,4 @@ export default function ResultScreen() {
     </div>
   );
 }
+

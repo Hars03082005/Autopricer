@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { CITY_DEMAND, LOCALITIES } from '../utils/mockData.js';
-import { fetchBrands, fetchCatalog, runMLValuation, fetchRegistry } from '../utils/apiValuation.js';
+import { fetchBrands, fetchCatalog, runMLValuation } from '../utils/apiValuation.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
 
@@ -107,8 +107,7 @@ export default function InputScreen() {
 
   const [brandCatalog, setBrandCatalog] = useState({});
   const [datasetCatalog, setDatasetCatalog] = useState({});
-  const [registry, setRegistry]         = useState({ default: null, variants: [] });
-  const [selectedVariant, setSelectedVariant] = useState('auto');
+
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [submitting, setSubmitting]     = useState(false);
@@ -163,9 +162,6 @@ export default function InputScreen() {
     fetchCatalog()
       .then(cat => { if (alive && cat) setDatasetCatalog(cat); })
       .catch(() => {});
-    fetchRegistry()
-      .then(r => { if (alive && r) setRegistry(r); })
-      .catch(() => {});
     return () => { alive = false; };
   }, []);
 
@@ -198,7 +194,6 @@ export default function InputScreen() {
         // hit in the ML model because the dataset stores them separately.
         model: inputs.model,
         variant: inputs.variant || 'unknown',
-        modelVariant: selectedVariant,
       };
       const result = await runMLValuation(payload);
 
@@ -518,35 +513,7 @@ export default function InputScreen() {
 
           <div style={{ flex: 1 }} />
 
-          {/* Model Registry Selector */}
-          <div className="vwsp-card" style={{ marginBottom: 16 }}>
-            <div className="vwsp-stat-label" style={{ marginBottom: 6 }}>Model Variant Engine</div>
-            <select
-              value={selectedVariant}
-              onChange={(e) => setSelectedVariant(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                background: '#f8fafc',
-                color: '#1e293b',
-                fontWeight: '500',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="auto">
-                ⚡ Automatic (Best Model — {registry.default ? registry.default.replace('_', ' ').toUpperCase() : 'Default'})
-              </option>
-              {registry.variants && registry.variants.map((v) => (
-                <option key={v.variant_id} value={v.variant_id}>
-                  {v.variant_id.replace('_', ' ').toUpperCase()} ({v.dataset}) — MAPE: {v.metrics?.mape ? `${v.metrics.mape}%` : 'N/A'} {v.is_default ? '★ Active' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+
 
           {/* CTA */}
           <div className="vwsp-cta">

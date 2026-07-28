@@ -293,6 +293,32 @@ export async function runMLValuation(inputs) {
   return normalizeApiResult(data, inputs);
 }
 
+/**
+ * Run valuation with a specific model variant.
+ * Used by the Result page variant switcher to switch between variant_1/2/3.
+ */
+export async function runMLValuationWithVariant(inputs, variantId) {
+  const payload = {
+    ...payloadFromInputs(inputs),
+    model_variant: variantId,
+  };
+  const data = await postJson('/evaluate', payload);
+  return normalizeApiResult(data, inputs);
+}
+
+/**
+ * Run valuation using the S5 quality shop model (variant_s5).
+ * Only call this when the vehicle qualifies (age <= 7).
+ */
+export async function runS5Valuation(inputs) {
+  const payload = {
+    ...payloadFromInputs(inputs),
+    model_variant: 'variant_s5',
+  };
+  const data = await postJson('/evaluate', payload);
+  return normalizeApiResult(data, inputs);
+}
+
 function normalizeEnhancedResult(data, inputs) {
   const base = normalizeApiResult(data, inputs);
   return {

@@ -36,6 +36,20 @@
       },
       "artifact_path": "model_registry/variant_3",
       "status": "archived"
+    },
+    "variant_s5": {
+      "dataset": "processed_s5.csv",
+      "trained_at": "2026-07-28T18:36:19.636077",
+      "metrics": {
+        "mae": 272323.82,
+        "rmse": 504874.65,
+        "r2": 0.3429,
+        "mape": 16.38
+      },
+      "artifact_path": "model_registry/variant_s5",
+      "status": "s5_quality",
+      "s5_max_age": 7,
+      "description": "S5 Quality Shop \u2014 specialized model for 0-7 year premium vehicles"
     }
   }
 }
