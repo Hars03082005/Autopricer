@@ -623,6 +623,24 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
     return sum(weights[k] * preds[k] for k in preds)
 
 
+def _is_s5_model_known(brand: str, raw_model: str, year: int, cat_data: dict) -> bool:
+    if not cat_data:
+        return True
+    b_key = clean_text(brand)
+    m_key = clean_text(_resolve_model_alias(raw_model, year))
+    brand_models = cat_data.get(b_key) or {}
+    if not brand_models:
+        for b_name in cat_data:
+            if b_name in b_key or b_key in b_name:
+                brand_models = cat_data[b_name]
+                break
+    if not brand_models:
+        return False
+    if m_key in brand_models:
+        return True
+    return any(m_key in m or m in m_key for m in brand_models)
+
+
 # Core prediction
 def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> tuple[int, str, float]:
     """
@@ -633,9 +651,17 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     We pick the right one based on a rough price estimate, fall back to global.
     """
     var_id = model_variant or vehicle.model_variant
-    pred_obj, seg_models, meta, _, active_id = resolve_variant_data(var_id)
+    pred_obj, seg_models, meta, cat_data, active_id = resolve_variant_data(var_id)
 
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
+
+    # S5 quality model fallback for models NOT present in S5 dataset (e.g. Swift)
+    if active_id == "variant_s5":
+        if not _is_s5_model_known(vehicle.brand, resolved_model, int(vehicle.year), cat_data):
+            base_v1, _, _ = predict_base_market_value(vehicle, model_variant="variant_1")
+            s5_fallback_val = int(round((base_v1 * 1.08) / 500) * 500)
+            return s5_fallback_val, "s5 quality shop fallback (+8%) [variant_s5]", 0.0
+
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
 

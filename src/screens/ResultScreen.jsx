@@ -398,6 +398,9 @@ function SimilarCarsSection({ cars, predictedPrice }) {
 }
 
 
+import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+
 /* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
   const { valuationResult, inputs, isLoading, setActiveScreen } = useApp();
@@ -408,13 +411,39 @@ export default function ResultScreen() {
   const [switching, setSwitching] = useState(false);
   const [s5Active, setS5Active] = useState(false);
   const [s5Switching, setS5Switching] = useState(false);
+  const [s5Catalog, setS5Catalog] = useState(null);
+
+  // Fetch S5 dataset catalog on mount
+  useEffect(() => {
+    let alive = true;
+    fetchCatalog('variant_s5')
+      .then(cat => { if (alive && cat) setS5Catalog(cat); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // Use displayResult if set (from switcher), otherwise use valuationResult from context
   const result = displayResult || valuationResult;
 
-  // Determine vehicle age for S5 eligibility
-  const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
-  const s5Eligible = vehicleAge <= S5_MAX_AGE;
+  // Determine vehicle age & dataset model match for S5 eligibility
+  const s5Eligible = useMemo(() => {
+    const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
+    if (vehicleAge > S5_MAX_AGE) return false;
+    if (!s5Catalog) return true; // fallback to age-only while catalog is loading
+
+    const bKey = String(inputs?.brand || '').trim().toLowerCase();
+    const mKey = String(inputs?.model || '').trim().toLowerCase();
+    if (!bKey || !mKey) return false;
+
+    let brandModels = s5Catalog[bKey];
+    if (!brandModels) {
+      const foundB = Object.keys(s5Catalog).find(k => k.includes(bKey) || bKey.includes(k));
+      if (foundB) brandModels = s5Catalog[foundB];
+    }
+    if (!brandModels) return false;
+    if (brandModels[mKey]) return true;
+    return Object.keys(brandModels).some(m => m.includes(mKey) || mKey.includes(m));
+  }, [inputs?.brand, inputs?.model, inputs?.year, s5Catalog]);
 
   const handleVariantSwitch = useCallback(async (variantId) => {
     if (variantId === activeVariant && !s5Active) return;

@@ -267,8 +267,11 @@ export async function fetchBrands() {
 }
 
 /** Fetch the full dataset catalog: brand → { model → [variants] } */
-export async function fetchCatalog() {
-  const response = await fetch(`${getApiBase()}/api/catalog`);
+export async function fetchCatalog(variantId) {
+  const url = variantId
+    ? `${getApiBase()}/api/catalog?model_variant=${encodeURIComponent(variantId)}`
+    : `${getApiBase()}/api/catalog`;
+  const response = await fetch(url);
   if (!response.ok) {
     const message = await response.text().catch(() => '');
     throw new Error(`Catalog API error ${response.status}${message ? `: ${message}` : ''}`);

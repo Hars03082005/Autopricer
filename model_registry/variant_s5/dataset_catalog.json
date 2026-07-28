@@ -1,0 +1,258 @@
+{
+  "mg": {
+    "hector": [
+      "15 sharp cvt",
+      "shine cvt",
+      "sharp pro",
+      "savvy pro cvt",
+      "sharp dct",
+      "sharp mt"
+    ],
+    "astor": [
+      "zs vti tech savvy cvt",
+      "220turbo 6at savvyred",
+      "vti tech cvt savvy red",
+      "zs vti tech style mt"
+    ],
+    "gloster": [
+      "44 7 str sharp"
+    ]
+  },
+  "skoda": {
+    "octavia": [
+      "lk 20 tsi at"
+    ],
+    "kushaq": [
+      "15 style tsi at",
+      "style 10 tsi at",
+      "style 15 tsi at"
+    ],
+    "slavia": [
+      "style 10 tsi at",
+      "style 10 tsi mt",
+      "style 15 tsi mt"
+    ],
+    "superb": [
+      "20 lk tsi at"
+    ],
+    "kylaq": [
+      "10 signaturetsi at"
+    ]
+  },
+  "tata": {
+    "altroz": [
+      "dca xz plus 12 p fixed",
+      "dca xz plus sunroof"
+    ],
+    "tiago": [
+      "xt mt"
+    ],
+    "nexon": [
+      "xz mt",
+      "xz 12 rtn",
+      "xma s",
+      "12 xma rtn"
+    ],
+    "safari": [
+      "7s a bs6 p2 d acc 2024regd",
+      "7s a bs6 p2 d acc"
+    ],
+    "harrier": [
+      "xza plus 20 kryotec"
+    ]
+  },
+  "kia": {
+    "seltos": [
+      "g 14 7dct gtx plus",
+      "15 htx plus mt",
+      "g15 6 mt htk",
+      "g 15 htx ivt",
+      "g 15 6mt htx",
+      "g 15 htk o",
+      "g 15 6 mt htx",
+      "15 gtx plus at"
+    ],
+    "sonet": [
+      "5mt hte o mt",
+      "10 turbo 7dct gtx plus",
+      "g 10 turbo 7dct gtx"
+    ],
+    "carens": [
+      "15 6mt prestige plus 7"
+    ],
+    "carnival": [
+      "limousine 7s at",
+      "d 22 8 at limousine 7"
+    ]
+  },
+  "maruti suzuki": {
+    "xl6": [
+      "smart hybrid zeta mt"
+    ],
+    "fronx": [
+      "delta plus ags",
+      "delta ags"
+    ],
+    "celerio": [
+      "zxi ags"
+    ],
+    "brezza": [
+      "vxi mt"
+    ],
+    "baleno": [
+      "aplha ags",
+      "alpha mt",
+      "alpha ags"
+    ],
+    "ertiga": [
+      "zxi plus smart hybrid",
+      "smart hybrid zxi at"
+    ],
+    "grand vitara": [
+      "smart hybrid alpha at",
+      "strong hybrid alpha plus at"
+    ],
+    "s-cross": [
+      "s cross s cross smart hybrid alpha mt"
+    ]
+  },
+  "volkswagen": {
+    "taigun": [
+      "15 gt plus tsi dsg",
+      "gt plus 15 tsi dsg",
+      "topline 10 tsi at",
+      "highline 10 tsi at"
+    ],
+    "polo": [
+      "10 highline plus tsi",
+      "gt tsi at"
+    ],
+    "virtus": [
+      "topline 10 tsi at",
+      "gt plus 15 tsi dsg"
+    ],
+    "tiguan": [
+      "20l tsi elegance"
+    ]
+  },
+  "hyundai": {
+    "creta": [
+      "1 4 turbo gdi dct sx o",
+      "15 crdi ex mt",
+      "sx executive",
+      "15 mpi sx mt",
+      "sx crdi at",
+      "16 vtvt sx at",
+      "15 mpi ivt sx"
+    ],
+    "creta n line": [
+      "n8 15 turbo dct"
+    ],
+    "grand i10 nios": [
+      "sportz amt",
+      "sportz 12 amt",
+      "12 amt kappa sportz"
+    ],
+    "venue": [
+      "10 turbo dct sx plus",
+      "10 turbo gdi sx mt"
+    ],
+    "i20": [
+      "sportz ivt",
+      "new new sportz mt",
+      "sportz 12 kappa"
+    ],
+    "alcazar": [
+      "15 prestige exe 7s mt"
+    ],
+    "tucson": [
+      "20 platinum at"
+    ],
+    "aura": [
+      "12 kappa s amt"
+    ],
+    "i20 n line": [
+      "n8 10 turbo dct",
+      "n8 10 turbo dct dt"
+    ],
+    "santro": [
+      "11 corporate amt 2021regd"
+    ]
+  },
+  "toyota": {
+    "urban cruiser hyryder": [
+      "e mt"
+    ],
+    "innova hycross": [
+      "hybrid zx opt 7s",
+      "hybrid zx opt7s"
+    ],
+    "glanza": [
+      "g mt"
+    ]
+  },
+  "jeep": {
+    "compass": [
+      "limited o 44 at",
+      "model s o2 at",
+      "limited o at",
+      "limited mair ddct",
+      "s 02 14 mair ddct",
+      "limited plus 44 at"
+    ]
+  },
+  "mahindra": {
+    "xuv700": [
+      "ax5 pet at 5 seater",
+      "ax7 7s at",
+      "ax7 7s",
+      "ax5 mt 7s"
+    ],
+    "xuv300": [
+      "gasoline w6 mt"
+    ],
+    "thar": [
+      "lx d at 4wd 4s ht",
+      "lx 4wd ht"
+    ]
+  },
+  "honda": {
+    "amaze": [
+      "rde vx cvt"
+    ],
+    "elevate": [
+      "vx mt"
+    ]
+  },
+  "ford": {
+    "freestyle": [
+      "12 titanium mt"
+    ],
+    "ecosport": [
+      "15 titanium se sunroof"
+    ]
+  },
+  "bmw": {
+    "x1": [
+      "s drive20i x line"
+    ]
+  },
+  "mercedes-benz": {
+    "c class": [
+      "c200 at"
+    ]
+  },
+  "renault": {
+    "kwid": [
+      "rxlo mt 10 sce"
+    ]
+  },
+  "audi": {
+    "q3 sportback": [
+      "40 tfsi q"
+    ],
+    "q5": [
+      "45 tfsi q tech"
+    ]
+  }
+}
