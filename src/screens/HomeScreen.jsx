@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatINR } from '../utils/mockData.js';
+import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -134,6 +135,15 @@ export default function HomeScreen() {
             <Icon name="chart" size={15} color="#475569" strokeWidth={2} />
             Analytics
           </button>
+          {evaluations.length > 0 && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportEvaluationsToCSV(evaluations)}
+              title="Download all stored evaluations as CSV"
+            >
+              Export CSV
+            </button>
+          )}
         </div>
       </div>
 

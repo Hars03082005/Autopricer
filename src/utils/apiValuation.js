@@ -290,6 +290,30 @@ export async function fetchBrandModels(brand) {
   return data || { brand, models: {} };
 }
 
+/**
+ * Fetch the available fuel types, transmissions, and manufacture years
+ * that actually exist in the dataset for the given brand/model/variant.
+ * Returns { fuel_types, transmissions, years } with safe fallbacks.
+ */
+export async function fetchOptions({ brand, model, variant } = {}) {
+  const params = new URLSearchParams();
+  if (brand)   params.set('brand',   brand);
+  if (model)   params.set('model',   model);
+  if (variant) params.set('variant', variant);
+
+  try {
+    const response = await fetch(`${getApiBase()}/api/options?${params.toString()}`);
+    if (!response.ok) throw new Error('options api failed');
+    return await response.json();
+  } catch {
+    return {
+      fuel_types:    ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'],
+      transmissions: ['Manual', 'Automatic', 'AMT', 'CVT', 'DCT', 'IMT'],
+      years:         Array.from({ length: 20 }, (_, i) => String(new Date().getFullYear() - i)),
+    };
+  }
+}
+
 
 export async function runMLValuation(inputs) {
   const data = await postJson('/evaluate', payloadFromInputs(inputs));

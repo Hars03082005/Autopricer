@@ -113,6 +113,34 @@ _CONF_BASELINE: dict = _cfg_get("confidence_baseline", {
     "r2": 0.97,
 })
 
+# ── Dataset loader (lazy, cached) ─────────────────────────────────────────────
+_DATASET_DF = None
+
+def _load_dataset_df():
+    """
+    Load the processed dataset CSV for live option filtering.
+    Cached in-process after first load. Returns None on error.
+    """
+    global _DATASET_DF
+    if _DATASET_DF is not None:
+        return _DATASET_DF
+    import pandas as pd
+    _here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.normpath(os.path.join(_here, "..", "ml_training", "data", "processed_s1_s4_owner.csv")),
+        os.path.normpath(os.path.join(_here, "..", "ml_training", "data", "processed_overall.csv")),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path, low_memory=False)
+                _DATASET_DF = df
+                print(f"[decision_engine] dataset loaded for options: {path} ({len(df):,} rows)")
+                return _DATASET_DF
+            except Exception as e:
+                print(f"[decision_engine] WARNING: could not load dataset {path}: {e}")
+    return None
+
 # Certified vehicle premium
 _CERTIFIED_PREMIUM: float = float(_cfg_get("certified_vehicle_premium", 0.035))
 

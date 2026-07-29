@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
+import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
-import { runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
+import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = (n) => {
@@ -398,12 +399,9 @@ function SimilarCarsSection({ cars, predictedPrice }) {
 }
 
 
-import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
-import { useEffect, useMemo, useState, useCallback } from 'react';
-
 /* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
-  const { valuationResult, inputs, isLoading, setActiveScreen } = useApp();
+  const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
 
   // Variant switcher state
   const [activeVariant, setActiveVariant] = useState('variant_1');
@@ -733,7 +731,23 @@ export default function ResultScreen() {
           <Icon name="refresh" size={15} color="#475569" strokeWidth={2} />
           New Valuation
         </button>
+        {evaluations.length > 0 && (
+          <button
+            className="rs2-btn-ghost"
+            onClick={() => exportEvaluationsToCSV(evaluations, 'vehicle_evaluations.csv')}
+            title="Export all evaluation history to CSV"
+            style={{ background: '#f8fafc', borderColor: '#e2e8f0', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
+        )}
       </div>
+
 
     </div>
   );

@@ -2,44 +2,20 @@
   "default": "variant_1",
   "variants": {
     "variant_1": {
-      "dataset": "processed_overall.csv",
-      "trained_at": "2026-07-27T09:52:47.640185",
+      "dataset": "processed_s1_s4_owner_1.csv",
+      "trained_at": "2026-07-29T10:42:00.000000",
       "metrics": {
-        "mae": 38273.16,
-        "rmse": 98254.21,
-        "r2": 0.9777,
-        "mape": 6.16
+        "mae": 39828.72,
+        "rmse": 79226.64,
+        "r2": 0.9755,
+        "mape": 6.5
       },
       "artifact_path": "model_registry/variant_1",
       "status": "active"
     },
-    "variant_2": {
-      "dataset": "processed_s1_s4_owner.csv",
-      "trained_at": "2026-07-27T10:00:24.549532",
-      "metrics": {
-        "mae": 40661.47,
-        "rmse": 83618.53,
-        "r2": 0.9741,
-        "mape": 6.67
-      },
-      "artifact_path": "model_registry/variant_2",
-      "status": "archived"
-    },
-    "variant_3": {
-      "dataset": "processed_s1_s4_owner_1.csv",
-      "trained_at": "2026-07-27T10:08:06.752973",
-      "metrics": {
-        "mae": 39828.89,
-        "rmse": 79226.84,
-        "r2": 0.9755,
-        "mape": 6.5
-      },
-      "artifact_path": "model_registry/variant_3",
-      "status": "archived"
-    },
     "variant_s5": {
       "dataset": "processed_s5.csv",
-      "trained_at": "2026-07-28T18:36:19.636077",
+      "trained_at": "2026-07-29T16:13:05.174404",
       "metrics": {
         "mae": 272323.82,
         "rmse": 504874.65,

@@ -2,7 +2,7 @@
   "variant_id": "variant_s5",
   "script": "train-s5",
   "dataset": "processed_s5.csv",
-  "trained_at": "2026-07-28T18:36:19.610373",
+  "trained_at": "2026-07-29T16:13:05.156943",
   "features": [
     "brand",
     "model",
@@ -44,13 +44,5 @@
   "train_rows": 138,
   "val_rows": 35,
   "s5_max_age": 7,
-  "notes": "Specialized model for quality car shops selling 0-7 year old cars. High regularization for small dataset (173 rows). Use when vehicle_age <= 7 for premium market context.",
-  "ensemble": {
-    "enabled": true,
-    "weights": {
-      "catboost": 0.8061,
-      "lightgbm": 0.1939
-    },
-    "category_levels": {}
-  }
+  "notes": "Specialized model for quality car shops selling 0-7 year old cars. High regularization for small dataset (173 rows). Use when vehicle_age <= 7 for premium market context."
 }

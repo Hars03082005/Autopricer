@@ -268,6 +268,14 @@ MODEL_YEAR_ALIASES: dict[str, list[tuple[int, int, str]]] = {
     "safari":        [(1900, 2020, "safari classic")],
     # Thar (2020+ is lifestyle SUV, pre-2020 is old rugged off-roader)
     "thar":          [(1900, 2019, "thar gen1")],
+    # i10 generations:
+    #   Classic i10  (2007–2013): model = "i10"          → keep as-is (old dataset entries)
+    #   Grand i10    (2014–2019): user types "i10" but real product is "grand i10"
+    #   Grand i10 Nios (2020+):   user types "i10" but real product is "grand i10 nios"
+    "i10":           [(2020, 9999, "grand i10 nios"),
+                      (2014, 2019, "grand i10")],
+    # Grand i10 (non-Nios) — if user types full name for a 2020+ year, correct to Nios
+    "grand i10":     [(2020, 9999, "grand i10 nios")],
 }
 
 
@@ -646,16 +654,20 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     """
     Returns (market_value_inr: int, routing_note: str, ensemble_variance: float).
 
-    Segment model routing (Issue 4 fix):
-    Training saves price-band models keyed as '6_12_lakh', '12_plus_lakh'.
-    We pick the right one based on a rough price estimate, fall back to global.
+    Segment model routing — price-first approach:
+      1. Run the GLOBAL ensemble model to get a rough price estimate.
+      2. Use that estimate to select the correct price-band model.
+      3. Re-run with the band model for the final prediction.
+
+    This eliminates the brand-segment → band mismatch (e.g. Hyundai "mid" brand
+    routing Grand i10 Nios to 6_12_lakh even though it sells for ~Rs.5.5L).
     """
     var_id = model_variant or vehicle.model_variant
     pred_obj, seg_models, meta, cat_data, active_id = resolve_variant_data(var_id)
 
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
 
-    # S5 quality model fallback for models NOT present in S5 dataset (e.g. Swift)
+    # S5 quality model fallback for models NOT present in S5 dataset
     if active_id == "variant_s5":
         if not _is_s5_model_known(vehicle.brand, resolved_model, int(vehicle.year), cat_data):
             base_v1, _, _ = predict_base_market_value(vehicle, model_variant="variant_1")
@@ -665,25 +677,57 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
 
-    # Choose price-band segment model by brand segment as proxy
-    # Routing: budget/economy/mid -> 0_6_lakh, premium -> 6_12_lakh, luxury -> 12_plus_lakh
-    _SEG_TO_BAND = {
-        "budget":  "0_6_lakh",
-        "economy": "0_6_lakh",
-        "mid":     "6_12_lakh",
-        "premium": "6_12_lakh",
-        "luxury":  "12_plus_lakh",
-    }
-    price_band = _SEG_TO_BAND.get(seg_class, "0_6_lakh")
+    # ── Step 1: Global model gives a rough price estimate ──────────────────────
+    try:
+        global_result = pred_obj.predict_with_variance(features)
+        global_log    = global_result["log_price"]
+        ensemble_variance = global_result.get("variance", 0.0)
+        rough_price   = float(np.expm1(global_log))
+        if not math.isfinite(rough_price) or rough_price <= 0:
+            rough_price = 0
+    except Exception:
+        rough_price = 0
+        ensemble_variance = 0.0
+
+    # ── Step 2: Select price-band model by actual estimated price ───────────────
+    # Routing table bands from routing_table.json: 0_6_lakh, 6_12_lakh, 12_plus_lakh
+    # Use the rough price (from global model) to decide which band — not the brand tier.
+    # Overlap zone (±50k from band boundary): prefer the model with lower MAPE.
+    def _pick_band(price: float) -> str:
+        if price <= 0:
+            # No estimate — fall back to brand-tier heuristic
+            if seg_class in ("budget", "economy"):
+                return "0_6_lakh"
+            if seg_class == "luxury":
+                return "12_plus_lakh"
+            return "0_6_lakh"   # default
+        if price < 600_000:
+            return "0_6_lakh"
+        elif price < 1_200_000:
+            return "6_12_lakh"
+        else:
+            return "12_plus_lakh"
+
+    price_band = _pick_band(rough_price)
+
+    # Override band selection with dataset P50 when available (more reliable than global model)
+    from backend.decision_engine import _MARKET_BANDS_CFG as _MB_ROUTING
+    _resolved_for_routing = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
+    _band_data_routing    = (_MB_ROUTING.get(_resolved_for_routing)
+                             or _MB_ROUTING.get(_resolved_for_routing.split()[0]))
+    if _band_data_routing:
+        _dataset_p50_routing = (float(_band_data_routing[0]) + float(_band_data_routing[1])) / 2.0
+        price_band = _pick_band(_dataset_p50_routing)
+
     artifact   = seg_models.get(price_band)
 
-    ensemble_variance = 0.0
+    # ── Step 3: Run the chosen band model ──────────────────────────────────────
+    log_price    = global_log if rough_price > 0 else 0.0  # default to global if band unavailable
+    routing_note = f"global model ({seg_class}) [{active_id}]"
 
     if artifact and isinstance(artifact, dict) and "model" in artifact:
         try:
-            # Segment model is a raw CatBoost model, not an ensemble
-            from catboost import Pool
-            seg_m = artifact["model"]
+            seg_m      = artifact["model"]
             cat_levels = artifact.get("cat_levels", {})
             cb_f = features.copy()
             cat_cols = [c for c in CAT_FEATURES if c in cb_f.columns]
@@ -697,25 +741,94 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
                     cb_f[col] = "unknown" if col in artifact.get("cat_features", []) or col in CAT_FEATURES else 0.0
                 elif col in artifact.get("cat_features", []) or col in CAT_FEATURES:
                     cb_f[col] = cb_f[col].astype(str)
-            log_price    = float(seg_m.predict(cb_f[seg_m.feature_names_])[0])
-            routing_note = f"segment model '{price_band}' used [{active_id}]"
-            # Compute ensemble variance from global model as diversity signal
-            try:
-                var_result = pred_obj.predict_with_variance(features)
-                ensemble_variance = var_result.get("variance", 0.0)
-            except Exception:
-                ensemble_variance = 0.0
+            band_log_price = float(seg_m.predict(cb_f[seg_m.feature_names_])[0])
+
+            # ── Three-way reconciliation ──────────────────────────────────────
+            # When global and band models disagree significantly, use the
+            # dataset P50 market band from engine_config.json as neutral anchor.
+            band_price   = float(np.expm1(band_log_price))
+            global_price = rough_price
+
+            if global_price > 0:
+                deviation = abs(band_price - global_price) / max(global_price, 1)
+                if deviation > 0.35:
+                    # Both models disagree — find dataset anchor
+                    from backend.decision_engine import _MARKET_BANDS_CFG as _MB
+                    model_key = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
+                    band_data  = _MB.get(model_key) or _MB.get(model_key.split()[0])
+                    if band_data:
+                        dataset_p50 = (float(band_data[0]) + float(band_data[1])) / 2.0
+                        # Pick whichever of global/band is closer to dataset P50
+                        err_global = abs(global_price - dataset_p50)
+                        err_band   = abs(band_price   - dataset_p50)
+                        if err_band <= err_global:
+                            log_price    = band_log_price
+                            routing_note = (
+                                f"segment model '{price_band}' wins vs global "
+                                f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
+                            )
+                        else:
+                            # Global is closer — but re-pick band by global price
+                            corrected_band = _pick_band(global_price)
+                            if corrected_band != price_band and seg_models.get(corrected_band):
+                                # Try re-routing with the corrected band
+                                price_band = corrected_band
+                                artifact2  = seg_models[corrected_band]
+                                seg_m2     = artifact2["model"]
+                                cat_levels2 = artifact2.get("cat_levels", {})
+                                cb_f2 = features.copy()
+                                for col2 in [c for c in CAT_FEATURES if c in cb_f2.columns]:
+                                    known2 = set(cat_levels2.get(col2, ["unknown"]))
+                                    cb_f2[col2] = cb_f2[col2].astype(str).apply(
+                                        lambda x: x if x in known2 else "unknown"
+                                    )
+                                for col2 in seg_m2.feature_names_:
+                                    if col2 not in cb_f2.columns:
+                                        cb_f2[col2] = "unknown" if col2 in CAT_FEATURES else 0.0
+                                    elif col2 in CAT_FEATURES:
+                                        cb_f2[col2] = cb_f2[col2].astype(str)
+                                corrected_log = float(seg_m2.predict(cb_f2[seg_m2.feature_names_])[0])
+                                corrected_price = float(np.expm1(corrected_log))
+                                if abs(corrected_price - dataset_p50) < err_global:
+                                    log_price    = corrected_log
+                                    routing_note = (
+                                        f"re-routed to '{price_band}' "
+                                        f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
+                                    )
+                                else:
+                                    log_price    = global_log
+                                    routing_note = (
+                                        f"global wins over '{price_band}' "
+                                        f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
+                                    )
+                            else:
+                                log_price    = global_log
+                                routing_note = (
+                                    f"global wins over '{price_band}' "
+                                    f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
+                                )
+                    else:
+                        # No dataset anchor — trust band model (it's specialised for this price range)
+                        log_price    = band_log_price
+                        routing_note = (
+                            f"segment model '{price_band}' used "
+                            f"(no dataset anchor, dev={deviation*100:.0f}%) [{active_id}]"
+                        )
+                else:
+                    # Models broadly agree — use band model (lower MAPE)
+                    log_price    = band_log_price
+                    routing_note = f"segment model '{price_band}' used [{active_id}]"
+            else:
+                log_price    = band_log_price
+                routing_note = f"segment model '{price_band}' used [{active_id}]"
+
         except Exception as e:
             log.warning("Segment model failed (%s), falling back to global: %s", price_band, e)
-            var_result       = pred_obj.predict_with_variance(features)
-            log_price        = var_result["log_price"]
-            ensemble_variance = var_result.get("variance", 0.0)
             routing_note = f"segment model error — global fallback [{active_id}]"
-    else:
-        var_result        = pred_obj.predict_with_variance(features)
-        log_price         = var_result["log_price"]
-        ensemble_variance = var_result.get("variance", 0.0)
-        routing_note = f"global model ({seg_class}) [{active_id}]"
+            # log_price already set to global_log above
+    elif rough_price > 0:
+        # No segment model for this band — global result is already stored
+        routing_note = f"no segment model for '{price_band}' — global [{active_id}]"
 
     market_value = float(np.expm1(log_price))
     if not math.isfinite(market_value):
@@ -737,7 +850,7 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
 
     The pipeline is:
         1. build_features() → ML ensemble → base_value
-        2. Soft bounds check (₹50k floor / ₹2Cr cap — physical limits only)
+        2. Soft bounds check (Rs.50k floor / Rs.2Cr cap — physical limits only)
         3. AdaptiveComparableService → ML-anchored market range + similar_cars
         4. ConfidenceEngine → composite confidence score
         5. Statistical outlier flag (IQR method — display only, never modifies price)
@@ -831,8 +944,8 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
         if not (lower_fence <= final_value <= upper_fence):
             outlier_flagged = True
             outlier_note = (
-                f"ML prediction ₹{final_value/1e5:.2f}L is outside the dataset "
-                f"IQR fence ₹{lower_fence/1e5:.2f}L – ₹{upper_fence/1e5:.2f}L "
+                f"ML prediction Rs.{final_value/1e5:.2f}L is outside the dataset "
+                f"IQR fence Rs.{lower_fence/1e5:.2f}L – Rs.{upper_fence/1e5:.2f}L "
                 f"({mr_result['market_range_comp_count']} comps)"
             )
 
@@ -931,8 +1044,8 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
     # prices exist (price_min / price_max from ComparableVehicleService), those
     # are the ground truth of what the market actually pays.
     #
-    # Problem: the ML can over-predict (e.g. ₹14L) while the market shows
-    # actual sales at ₹5–8L. If we derive buy/sell from the ML value alone,
+    # Problem: the ML can over-predict (e.g. Rs.14L) while the market shows
+    # actual sales at Rs.5–8L. If we derive buy/sell from the ML value alone,
     # we get a nonsensical inversion where buy > market selling range.
     #
     # Fix: when dataset comps exist, anchor the SELL price to price_median
@@ -1085,6 +1198,127 @@ def get_catalog_brand(brand: str, model_variant: Optional[str] = None):
     if models_map is None:
         return {"brand": brand, "models": {}}
     return {"brand": brand, "models": models_map}
+
+
+@app.get("/api/options")
+def get_vehicle_options(
+    brand: Optional[str] = None,
+    model: Optional[str] = None,
+    variant: Optional[str] = None,
+):
+    """
+    Return the available fuel types, transmissions, and manufacture years
+    that actually exist in the dataset for the given brand/model/variant.
+
+    Used by the frontend to power cascading dropdowns:
+      brand selected   → fetch available models (existing /api/brands)
+      model selected   → fetch fuel_types, transmissions, years
+      variant selected → narrow fuel_types, transmissions, years further
+    """
+    from backend.decision_engine import _load_dataset_df
+
+    # Canonical year list (full range always available as UI option)
+    CURRENT = datetime.now().year
+    all_years = [str(y) for y in range(CURRENT, CURRENT - 25, -1)]
+
+    # Defaults when no dataset available
+    default = {
+        "fuel_types":     ["Petrol", "Diesel", "CNG", "Electric", "Hybrid"],
+        "transmissions":  ["Manual", "Automatic", "AMT", "CVT", "DCT", "IMT"],
+        "years":          all_years,
+    }
+
+    if not brand:
+        return default
+
+    df = _load_dataset_df()
+    if df is None or df.empty:
+        return default
+
+    # Normalise inputs
+    bk = str(brand).strip().lower()
+    mk = str(model).strip().lower() if model else None
+    vk = str(variant).strip().lower() if variant else None
+
+    # Filter by brand
+    mask = df["brand"].str.lower().str.strip().eq(bk)
+    if not mask.any():
+        # Try partial match
+        mask = df["brand"].str.lower().str.strip().str.contains(bk, na=False)
+
+    sub = df[mask]
+    if sub.empty:
+        return default
+
+    # Filter by model
+    if mk:
+        # Try exact, then resolve alias
+        resolved_mk = normalize_model_name(brand, model, 0)
+        m_mask = sub["model"].str.lower().str.strip().eq(mk)
+        if not m_mask.any():
+            m_mask = sub["model"].str.lower().str.strip().eq(resolved_mk.lower())
+        if not m_mask.any():
+            m_mask = sub["model"].str.lower().str.strip().str.contains(mk, na=False)
+        if m_mask.any():
+            sub = sub[m_mask]
+
+    # Filter by variant (loose token match — variant strings in dataset are very verbose)
+    if vk and vk not in ("", "unknown"):
+        vk_tokens = set(vk.lower().split())
+        # Keep rows where at least one token from vk appears in the dataset variant
+        def _variant_overlap(cell):
+            cell_tokens = set(str(cell).lower().split())
+            return bool(vk_tokens & cell_tokens)
+        if "variant" in sub.columns:
+            v_mask = sub["variant"].apply(_variant_overlap)
+            if v_mask.any():
+                sub = sub[v_mask]
+
+    # ── Fuel types ────────────────────────────────────────────────────────────
+    fuel_col = "fuel_type" if "fuel_type" in sub.columns else None
+    if fuel_col:
+        raw_fuels = sub[fuel_col].dropna().str.strip().str.lower().unique().tolist()
+        fuel_map = {
+            "petrol": "Petrol", "diesel": "Diesel", "cng": "CNG",
+            "electric": "Electric", "hybrid": "Hybrid", "lpg": "LPG",
+        }
+        fuels = sorted({fuel_map.get(f, f.title()) for f in raw_fuels if f})
+    else:
+        fuels = default["fuel_types"]
+
+    # ── Transmissions ─────────────────────────────────────────────────────────
+    tx_col = "transmission" if "transmission" in sub.columns else None
+    if tx_col:
+        raw_tx = sub[tx_col].dropna().str.strip().str.lower().unique().tolist()
+        tx_map = {
+            "manual": "Manual", "automatic": "Automatic",
+            "amt": "AMT", "cvt": "CVT", "dct": "DCT", "imt": "IMT",
+        }
+        txs = sorted({tx_map.get(t, t.title()) for t in raw_tx if t})
+    else:
+        txs = default["transmissions"]
+
+    # ── Years ─────────────────────────────────────────────────────────────────
+    # Dataset stores vehicle_age; convert back to manufacture year
+    if "vehicle_age" in sub.columns:
+        ages = sub["vehicle_age"].dropna().astype(int).unique().tolist()
+        years_from_data = sorted({str(CURRENT - a) for a in ages if 0 <= a <= 30}, reverse=True)
+    else:
+        years_from_data = all_years
+
+    # Always include current year and last 2 years so user can enter brand-new cars
+    for y in [str(CURRENT), str(CURRENT - 1), str(CURRENT - 2)]:
+        if y not in years_from_data:
+            years_from_data.append(y)
+
+    # Sort descending (newest first)
+    years_from_data = sorted(set(years_from_data), reverse=True)
+
+    return {
+        "fuel_types":    fuels or default["fuel_types"],
+        "transmissions": txs or default["transmissions"],
+        "years":         years_from_data or all_years,
+    }
 
 
 @app.post("/predict")
