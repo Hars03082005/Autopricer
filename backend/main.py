@@ -21,7 +21,7 @@ from typing import List, Optional
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -73,8 +73,25 @@ def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePred
                 vdata["catalog"],
                 active_id,
             )
-        except Exception:
-            pass
+        except FileNotFoundError as exc:
+            # Variant explicitly requested but not found — return 404 instead of silently
+            # falling back to model_artifacts/ which would produce wrong/identical prices.
+            if variant_id:  # only raise when an explicit variant was requested
+                log.error("Variant '%s' not found in registry: %s", variant_id, exc)
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Model variant '{variant_id}' not found in registry. "
+                           f"Available variants: {[v['variant_id'] for v in model_registry.list_variants()]}"
+                )
+            # Default variant not found → fall through to model_artifacts/ backup
+            log.warning("Default variant '%s' not found in registry — falling back to model_artifacts/", active_id)
+        except Exception as exc:
+            log.error("Failed to load variant '%s': %s", active_id, exc, exc_info=True)
+            if variant_id:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to load model variant '{variant_id}': {exc}"
+                )
 
     # Fallback to local model_artifacts if registry lookup fails
     meta_path = ARTIFACT_DIR / "model_metadata.json"
@@ -668,11 +685,13 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
 
     # S5 quality model fallback for models NOT present in S5 dataset
-    if active_id == "variant_s5":
+    # Condition: vehicle_age <= 7 AND model known in S5 catalog
+    # variant_4 is the S5 specialist — falls back to variant_1 (+8%) if unknown model
+    if active_id in ("variant_4", "variant_s5"):
         if not _is_s5_model_known(vehicle.brand, resolved_model, int(vehicle.year), cat_data):
             base_v1, _, _ = predict_base_market_value(vehicle, model_variant="variant_1")
             s5_fallback_val = int(round((base_v1 * 1.08) / 500) * 500)
-            return s5_fallback_val, "s5 quality shop fallback (+8%) [variant_s5]", 0.0
+            return s5_fallback_val, f"s5 quality shop fallback (+8%) [{active_id}]", 0.0
 
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
@@ -907,7 +926,13 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             seller_type        = clean_text(getattr(vehicle, "seller_type", "") or ""),
             locality           = clean_text(getattr(vehicle, "locality", "") or getattr(vehicle, "city", "") or ""),
         )
-    except Exception:
+    except Exception as _mr_exc:
+        # BUG-03 fix: log the failure so it's visible — do not silently swallow exceptions
+        import logging as _logging
+        _logging.getLogger("uvicorn.error").warning(
+            f"[predict_market_value] market_range_result failed for "
+            f"{vehicle.brand} {vehicle.model} {vehicle.year}: {_mr_exc}"
+        )
         _mape = float(_meta_mape)
         mr_result = {
             "price_min":               int(round(final_value * (1 - _mape) / 500) * 500),
@@ -926,6 +951,8 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             "ensemble_variance":       round(ensemble_variance, 6),
             "expected_model_error":    round(_mape * 100, 2),
             "confidence_case":         "low",
+            "comp_p25":                int(round(final_value * (1 - _mape) / 500) * 500),
+            "comp_p75":                int(round(final_value * (1 + _mape) / 500) * 500),
         }
 
     similar_cars = mr_result.get("similar_cars", [])
@@ -936,17 +963,19 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
     outlier_flagged = False
     outlier_note    = ""
     if mr_result["market_range_source"] == "dataset" and mr_result["market_range_comp_count"] >= 5:
-        q1  = mr_result["price_min"]
-        q3  = mr_result["price_max"]
-        iqr = max(q3 - q1, 1)
-        lower_fence = q1 - 1.5 * iqr
-        upper_fence = q3 + 1.5 * iqr
+        # BUG-02 fix: use real comp quartiles (p25/p75) for IQR, not the display range min/max
+        comp_p25    = mr_result.get("comp_p25", mr_result["price_min"])
+        comp_p75    = mr_result.get("comp_p75", mr_result["price_max"])
+        iqr         = max(comp_p75 - comp_p25, 1)
+        lower_fence = comp_p25 - 1.5 * iqr
+        upper_fence = comp_p75 + 1.5 * iqr
         if not (lower_fence <= final_value <= upper_fence):
             outlier_flagged = True
             outlier_note = (
                 f"ML prediction Rs.{final_value/1e5:.2f}L is outside the dataset "
                 f"IQR fence Rs.{lower_fence/1e5:.2f}L – Rs.{upper_fence/1e5:.2f}L "
-                f"({mr_result['market_range_comp_count']} comps)"
+                f"({mr_result['market_range_comp_count']} comps, "
+                f"comp P25=Rs.{comp_p25/1e5:.2f}L, P75=Rs.{comp_p75/1e5:.2f}L)"
             )
 
     var_id = model_variant or vehicle.model_variant
@@ -1015,7 +1044,7 @@ def shap_like_explanation(vehicle: VehicleInput, market_value: int) -> list[dict
     )
 
 
-def warnings_for(vehicle: VehicleInput, decision: dict) -> list[str]:
+def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict = None) -> list[str]:
     warnings = []
     age = max(0, CURRENT_YEAR - int(vehicle.year))
     if vehicle.odometer_reading > 100000:
@@ -1028,7 +1057,32 @@ def warnings_for(vehicle: VehicleInput, decision: dict) -> list[str]:
         warnings.append("High acquisition risk — manual inspection recommended")
     if decision["confidence_score"] < 60:
         warnings.append("Lower confidence because of risk or missing data")
+
+    # Commercial / taxi variant detection
+    variant_raw = str(getattr(vehicle, "variant", "") or "").lower().strip()
+    _COMMERCIAL_KEYWORDS = {"tour", "tour s", "tour h", "taxi", "fleet", "cng fleet"}
+    if any(kw in variant_raw for kw in _COMMERCIAL_KEYWORDS):
+        warnings.append(
+            "⚠️ Commercial/taxi variant detected ('Tour'/'Taxi' registration). "
+            "These have commercial (yellow plate) registration — lower resale value "
+            "and a different buyer pool than personal variants. Verify plate type before acquiring."
+        )
+
+    # Low similarity comp warning
+    if prediction:
+        avg_sim = prediction.get("average_similarity", 0)
+        comp_count = prediction.get("market_range_comp_count", 0)
+        if comp_count > 0 and avg_sim < 65:
+            warnings.append(
+                f"Comparable match quality is low ({avg_sim:.1f}% avg). "
+                f"Price range based mainly on ML model — fewer reliable market comps found."
+            )
+        # Outlier warning from prediction
+        if prediction.get("outlier_flagged"):
+            warnings.append(f"ML Outlier: {prediction.get('outlier_note', 'Prediction outside comp IQR')}")
+
     return warnings
+
 
 
 def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
@@ -1059,38 +1113,64 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
     comp_count   = prediction.get("market_range_comp_count", 0)
 
     if mrange_src == "dataset" and comp_count >= 3 and price_median > 0:
-        # Use dataset median as the effective sell-side reference.
-        # Sell price = price_median (what the market pays for comparable cars).
-        # Buy price = sell - (recon + holding + doc + risk + profit).
         recon_cost   = decision.get("recon_cost",   18_000)
         holding_cost = decision.get("holding_cost",  5_000)
         doc_cost     = decision.get("doc_cost",      4_500)
         risk_buffer  = decision.get("risk_buffer",   3_000)
-        target_profit= decision.get("target_profit", 35_000)
 
-        total_costs = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
+        # ── Step 1: Real-world profit cap (computed FIRST — this is the authority) ──
+        # Indian used car dealers net ₹25k–₹80k on most cars regardless of range width.
+        # Cap is also limited to 4% of sell price so expensive cars can't spike.
+        veh_cat = decision.get("vehicle_category", "economy")
+        _REAL_PROFIT_CAPS = {
+            "economy":       40_000,
+            "premium_hatch": 50_000,
+            "compact_suv":   60_000,
+            "mid_suv":       70_000,
+            "luxury":        85_000,
+        }
+        real_max_profit = _REAL_PROFIT_CAPS.get(veh_cat, 55_000)
 
-        # Sell: target upper-quartile of market (price_max)
+        # Sell: top of market range
         anchored_sell = int(round(price_max / 500) * 500)
 
-        # Buy: sell minus waterfall costs; floor at 75% of price_min to stay competitive
-        anchored_buy_raw = anchored_sell - total_costs
-        buy_floor        = int(price_min * 0.75)
-        anchored_buy     = int(round(max(buy_floor, anchored_buy_raw) / 500) * 500)
+        # Also cap profit at 4% of sell price (prevents spike on ₹30L+ cars)
+        real_max_profit = min(real_max_profit, int(anchored_sell * 0.04))
+        # Minimum realistic profit floor — don't go below ₹15,000
+        real_max_profit = max(real_max_profit, 15_000)
 
-        # Hard constraint: buy must be below price_min (below the lowest market comp)
-        # so the dealer always has room to sell at market price.
-        anchored_buy = min(anchored_buy, int(round(price_min * 0.97 / 500) * 500))
+        # ── Step 2: Buy price = sell − costs − capped profit (profit cap is authoritative) ──
+        total_non_profit_costs = recon_cost + holding_cost + doc_cost + risk_buffer
+        anchored_buy = int(round(
+            (anchored_sell - total_non_profit_costs - real_max_profit) / 500
+        ) * 500)
 
-        # Recalculate profit and margin on the anchored values
+        # ── Step 3: Apply market floor — buy cannot go below 75% of price_min ──
+        buy_floor    = int(round(price_min * 0.75 / 500) * 500)
+        anchored_buy = max(anchored_buy, buy_floor)
+
+        # ── Step 4: Soft market ceiling — buy should ideally be below price_min ──
+        # Only applied when it does NOT increase profit beyond the real-world cap.
+        soft_ceil = int(round(price_min * 0.97 / 500) * 500)
+        if anchored_buy > soft_ceil:
+            # Check if applying ceiling would restore an acceptable (not inflated) profit
+            profit_at_ceil = anchored_sell - soft_ceil - recon_cost - holding_cost - doc_cost
+            if profit_at_ceil <= real_max_profit:
+                anchored_buy = soft_ceil   # safe to apply ceiling
+
+        # ── Step 5: Final profit & margin ──
         anchored_profit = max(0, anchored_sell - anchored_buy - recon_cost - holding_cost - doc_cost)
         anchored_margin = round((anchored_profit / max(anchored_buy, 1)) * 100, 1)
 
-        # Recalculate negotiation offers relative to the corrected buy price
-        nego_room    = int(anchored_buy * 0.05)
+        # Negotiation offers relative to final buy price
+        nego_room    = int(anchored_buy * 0.04)
         opening_off  = int(round(max(0, anchored_buy - nego_room) / 500) * 500)
         target_off   = int(round(max(0, anchored_buy - nego_room * 0.35) / 500) * 500)
-        walk_away    = int(round((anchored_buy * 1.015) / 500) * 500)
+        walk_away    = int(round((anchored_buy * 1.01) / 500) * 500)
+        walk_away    = min(walk_away, int(round(anchored_sell * 0.97 / 500) * 500))
+
+     
+
 
         # Patch decision dict with corrected values
         decision.update({
@@ -1125,7 +1205,7 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         "test_metrics":       meta.get("test_metrics", {}),
         "overfitting_check":  meta.get("overfitting_check", {}),
         "shap":               shap_like_explanation(vehicle, market_value),
-        "warnings":           warnings_for(vehicle, decision),
+        "warnings":           warnings_for(vehicle, decision, prediction=prediction),
         "model_variant":      active_id,
         **decision,
     }
@@ -1299,26 +1379,182 @@ def get_vehicle_options(
         txs = default["transmissions"]
 
     # ── Years ─────────────────────────────────────────────────────────────────
-    # Dataset stores vehicle_age; convert back to manufacture year
+    # Strategy: union of (a) dataset years + (b) known production range for this model.
+    # This ensures e.g. a 2020 XUV500 is selectable even if the dataset has no 2020 listing.
+
+    # ── Static production catalogue — (launch_year, last_production_year) ──────
+    # Format: key = lowercase model keyword (partial match), value = (first_yr, last_yr)
+    # "last_yr" uses 9999 for models still in production as of 2025.
+    _PROD = {
+        # Maruti Suzuki
+        "alto":            (2000, 9999), "alto k10":       (2010, 2022),
+        "swift":           (2005, 9999), "swift dzire":    (2008, 9999),
+        "dzire":           (2008, 9999), "baleno":         (2015, 9999),
+        "wagon r":         (1999, 9999), "celerio":        (2014, 9999),
+        "ignis":           (2017, 9999), "s-cross":        (2015, 9999),
+        "vitara brezza":   (2016, 2022), "brezza":         (2016, 9999),
+        "ertiga":          (2012, 9999), "xl6":            (2019, 9999),
+        "ciaz":            (2014, 9999), "s-presso":       (2019, 9999),
+        "jimny":           (2023, 9999), "fronx":          (2023, 9999),
+        "invicto":         (2023, 9999), "grand vitara":   (2022, 9999),
+        "omni":            (1984, 2019), "eeco":           (2010, 9999),
+        # Hyundai
+        "i10":             (2007, 9999), "grand i10":      (2013, 9999),
+        "i20":             (2008, 9999), "aura":           (2020, 9999),
+        "verna":           (2006, 9999), "creta":          (2015, 9999),
+        "venue":           (2019, 9999), "tucson":         (2016, 9999),
+        "elantra":         (2012, 2023), "sonata":         (2001, 2014),
+        "santro":          (1998, 2022), "xcent":          (2014, 2022),
+        "ioniq":           (2021, 9999), "alcazar":        (2021, 9999),
+        "kona":            (2019, 9999),
+        # Tata
+        "nexon":           (2017, 9999), "harrier":        (2019, 9999),
+        "safari":          (2021, 9999), "punch":          (2021, 9999),
+        "tiago":           (2016, 9999), "tigor":          (2017, 9999),
+        "altroz":          (2020, 9999), "zest":           (2014, 2020),
+        "bolt":            (2015, 2019), "manza":          (2009, 2016),
+        "indica":          (1998, 2018), "indigo":         (2002, 2018),
+        "sumo":            (1994, 2019), "safari dicor":   (2004, 2021),
+        "hexa":            (2017, 2020), "aria":           (2010, 2017),
+        "nano":            (2009, 2018), "curvv":          (2024, 9999),
+        # Mahindra
+        "xuv500":          (2011, 2021), "xuv300":         (2019, 9999),
+        "xuv400":          (2023, 9999), "xuv700":         (2021, 9999),
+        "scorpio":         (2002, 9999), "scorpio n":      (2022, 9999),
+        "thar":            (2010, 9999), "bolero":         (2000, 9999),
+        "bolero neo":      (2021, 9999), "marazzo":        (2018, 9999),
+        "alturas":         (2018, 2023), "kuv100":         (2016, 9999),
+        "be 6":            (2024, 9999), "xuv 3xo":        (2024, 9999),
+        # Honda
+        "city":            (1998, 9999), "amaze":          (2013, 9999),
+        "jazz":            (2009, 2022), "wr-v":           (2017, 2023),
+        "cr-v":            (2001, 9999), "hr-v":           (2022, 9999),
+        "elevate":         (2023, 9999), "civic":          (2006, 2021),
+        "accord":          (2001, 2017), "mobilio":        (2014, 2017),
+        "br-v":            (2016, 2021), "brio":           (2011, 2019),
+        # Toyota
+        "innova":          (2004, 9999), "innova crysta":  (2016, 9999),
+        "fortuner":        (2009, 9999), "hilux":          (2021, 9999),
+        "corolla":         (1999, 2022), "yaris":          (2018, 2022),
+        "glanza":          (2019, 9999), "urban cruiser":  (2020, 9999),
+        "rumion":          (2023, 9999), "hyryder":        (2022, 9999),
+        "camry":           (2002, 9999), "vellfire":       (2020, 9999),
+        "land cruiser":    (2003, 9999), "prius":          (2010, 9999),
+        # Kia
+        "seltos":          (2019, 9999), "sonet":          (2020, 9999),
+        "carnival":        (2020, 9999), "ev6":            (2022, 9999),
+        "carens":          (2022, 9999), "clavis":         (2025, 9999),
+        # Volkswagen
+        "polo":            (2010, 2022), "vento":          (2010, 2022),
+        "taigun":          (2021, 9999), "virtus":         (2022, 9999),
+        "tiguan":          (2017, 9999), "t-roc":          (2020, 9999),
+        # Skoda
+        "rapid":           (2011, 2022), "octavia":        (2001, 9999),
+        "superb":          (2009, 9999), "kushaq":         (2021, 9999),
+        "slavia":          (2022, 9999), "kodiaq":         (2017, 9999),
+        "karoq":           (2020, 9999),
+        # Jeep
+        "compass":         (2017, 9999), "wrangler":       (2015, 9999),
+        "meridian":        (2022, 9999), "grand cherokee": (2012, 9999),
+        # MG
+        "hector":          (2019, 9999), "zs ev":          (2020, 9999),
+        "gloster":         (2020, 9999), "astor":          (2021, 9999),
+        "comet":           (2023, 9999), "windsor":        (2024, 9999),
+        # Renault
+        "kwid":            (2015, 9999), "duster":         (2012, 9999),
+        "triber":          (2019, 9999), "kiger":          (2021, 9999),
+        "lodgy":           (2015, 2019), "captur":         (2017, 2020),
+        # Nissan / Datsun
+        "magnite":         (2020, 9999), "kicks":          (2019, 2022),
+        "terrano":         (2013, 2022), "micra":          (2010, 2020),
+        "sunny":           (2011, 2019), "go":             (2014, 2020),
+        "redi-go":         (2016, 2022),
+        # Ford (discontinued India 2021 but used cars still traded)
+        "ecosport":        (2013, 2022), "endeavour":      (2003, 2022),
+        "figo":            (2010, 2022), "aspire":         (2015, 2022),
+        "freestyle":       (2018, 2022), "mustang":        (2016, 2022),
+        # Chevrolet (exited India 2017)
+        "beat":            (2010, 2017), "cruze":          (2009, 2017),
+        "tavera":          (2004, 2017), "spark":          (2007, 2015),
+        "sail":            (2012, 2017), "enjoy":          (2013, 2017),
+        # BMW
+        "3 series":        (2005, 9999), "5 series":       (2003, 9999),
+        "7 series":        (2008, 9999), "x1":             (2011, 9999),
+        "x3":              (2011, 9999), "x5":             (2014, 9999),
+        "x7":              (2019, 9999), "2 series":       (2022, 9999),
+        "m3":              (2014, 9999), "m5":             (2012, 9999),
+        "i4":              (2022, 9999), "ix":             (2022, 9999),
+        # Mercedes-Benz
+        "c class":         (2000, 9999), "e class":        (2002, 9999),
+        "s class":         (2006, 9999), "glc":            (2016, 9999),
+        "gle":             (2016, 9999), "gls":            (2016, 9999),
+        "a class":         (2019, 9999), "cla":            (2020, 9999),
+        "amg":             (2016, 9999), "eqb":            (2022, 9999),
+        # Audi
+        "a4":              (2008, 9999), "a6":             (2011, 9999),
+        "q3":              (2013, 9999), "q5":             (2009, 9999),
+        "q7":              (2007, 9999), "a8":             (2012, 9999),
+        "rs":              (2013, 9999), "e-tron":         (2021, 9999),
+        # Volvo
+        "xc40":            (2019, 9999), "xc60":          (2010, 9999),
+        "xc90":            (2015, 9999), "s60":           (2011, 9999),
+        "s90":             (2017, 9999),
+        # Jaguar / Land Rover
+        "xe":              (2016, 9999), "xf":            (2010, 9999),
+        "xj":              (2010, 2019), "f-pace":        (2017, 9999),
+        "defender":        (2020, 9999), "discovery":     (2010, 9999),
+        "range rover":     (2010, 9999), "range rover sport": (2012, 9999),
+        "evoque":          (2012, 9999), "velar":         (2018, 9999),
+    }
+
+    # Helper: look up production range for a given model name (best substring match)
+    def _get_prod_range(model_str: str) -> tuple[int, int] | None:
+        m = (model_str or "").lower().strip()
+        # Try longest key match first so "grand i10" beats "i10"
+        best_key, best_len = None, 0
+        for key in _PROD:
+            if key in m and len(key) > best_len:
+                best_key, best_len = key, len(key)
+        if best_key:
+            return _PROD[best_key]
+        # Fallback: try if any word of model matches a key
+        for word in m.split():
+            if word in _PROD and len(word) > best_len:
+                best_key, best_len = word, len(word)
+        return _PROD[best_key] if best_key else None
+
+    # Years from dataset (from vehicle_age column)
     if "vehicle_age" in sub.columns:
         ages = sub["vehicle_age"].dropna().astype(int).unique().tolist()
-        years_from_data = sorted({str(CURRENT - a) for a in ages if 0 <= a <= 30}, reverse=True)
+        years_from_data = {str(CURRENT - a) for a in ages if 0 <= a <= 30}
+    elif "year" in sub.columns:
+        years_from_data = {str(int(y)) for y in sub["year"].dropna().unique()
+                          if 1990 <= int(y) <= CURRENT}
     else:
-        years_from_data = all_years
+        years_from_data = set()
 
-    # Always include current year and last 2 years so user can enter brand-new cars
+    # Fill gaps using production catalogue
+    prod_range = _get_prod_range(model or "")
+    if prod_range:
+        first_yr, last_yr = prod_range
+        last_yr = min(last_yr, CURRENT)   # cap at current year
+        catalogue_years = {str(y) for y in range(first_yr, last_yr + 1)}
+        # Only add years within the known production window (don't go beyond last_yr)
+        years_from_data = years_from_data | catalogue_years
+
+    # Always include current year and last 2 years (dealer may enter brand-new cars)
     for y in [str(CURRENT), str(CURRENT - 1), str(CURRENT - 2)]:
-        if y not in years_from_data:
-            years_from_data.append(y)
+        years_from_data.add(y)
 
     # Sort descending (newest first)
-    years_from_data = sorted(set(years_from_data), reverse=True)
+    years_from_data = sorted(years_from_data, reverse=True)
 
     return {
         "fuel_types":    fuels or default["fuel_types"],
         "transmissions": txs or default["transmissions"],
         "years":         years_from_data or all_years,
     }
+
 
 
 @app.post("/predict")

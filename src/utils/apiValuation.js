@@ -334,13 +334,14 @@ export async function runMLValuationWithVariant(inputs, variantId) {
 }
 
 /**
- * Run valuation using the S5 quality shop model (variant_s5).
- * Only call this when the vehicle qualifies (age <= 7).
+ * Run valuation using the S5 quality shop model (variant_4).
+ * Only call this when the vehicle qualifies: vehicle age <= 7 years.
+ * Falls back to variant_1 (+8% premium) when model is not in the S5 catalog.
  */
 export async function runS5Valuation(inputs) {
   const payload = {
     ...payloadFromInputs(inputs),
-    model_variant: 'variant_s5',
+    model_variant: 'variant_4',
   };
   const data = await postJson('/evaluate', payload);
   return normalizeApiResult(data, inputs);

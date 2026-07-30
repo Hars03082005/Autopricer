@@ -105,41 +105,17 @@ _CLAMP_TOLERANCE_CFG: dict[str, list[float]] = _cfg_get("clamp_tolerance", {
     "luxury":  [0.80, 1.20],
 })
 
-# Confidence baseline from training metrics
+# Confidence baseline from training metrics (BUG-10 fix: mape_frac matches actual variant_1 MAPE=6.16%)
 _CONF_BASELINE: dict = _cfg_get("confidence_baseline", {
     "mc_base": 88.0,
     "bc_base": 84.0,
-    "mape_frac": 0.07,
-    "r2": 0.97,
+    "mape_frac": 0.0616,
+    "r2": 0.9777,
 })
 
-# ── Dataset loader (lazy, cached) ─────────────────────────────────────────────
-_DATASET_DF = None
-
-def _load_dataset_df():
-    """
-    Load the processed dataset CSV for live option filtering.
-    Cached in-process after first load. Returns None on error.
-    """
-    global _DATASET_DF
-    if _DATASET_DF is not None:
-        return _DATASET_DF
-    import pandas as pd
-    _here = os.path.dirname(os.path.abspath(__file__))
-    candidates = [
-        os.path.normpath(os.path.join(_here, "..", "ml_training", "data", "processed_s1_s4_owner.csv")),
-        os.path.normpath(os.path.join(_here, "..", "ml_training", "data", "processed_overall.csv")),
-    ]
-    for path in candidates:
-        if os.path.exists(path):
-            try:
-                df = pd.read_csv(path, low_memory=False)
-                _DATASET_DF = df
-                print(f"[decision_engine] dataset loaded for options: {path} ({len(df):,} rows)")
-                return _DATASET_DF
-            except Exception as e:
-                print(f"[decision_engine] WARNING: could not load dataset {path}: {e}")
-    return None
+# BUG-04 fix: removed the duplicate _load_dataset_df() that existed here (lines 119–142).
+# The authoritative definition with caching and full column selection is at lines 880–942.
+# Keeping this duplicate caused non-deterministic CSV loading priority.
 
 # Certified vehicle premium
 _CERTIFIED_PREMIUM: float = float(_cfg_get("certified_vehicle_premium", 0.035))
@@ -253,9 +229,10 @@ def classify_vehicle_category(brand: str, model: str) -> str:
                              "5 series", "x1", "x3", "q3", "q5", "a4", "a6",
                              "xuv700", "safari", "defender", "range rover")):
         return "luxury"
+    # BUG-11 fix: added "xuv500" — was falling through to "economy" tier incorrectly
     if any(k in m for k in ("creta", "seltos", "grand vitara", "hector", "compass",
                              "harrier", "scorpio", "ertiga", "carens", "city",
-                             "ciaz", "innova", "thar", "xuv300")):
+                             "ciaz", "innova", "thar", "xuv300", "xuv500")):
         return "mid_suv"
     if any(k in m for k in ("venue", "nexon", "brezza", "sonet", "ecosport",
                              "duster", "kiger", "magnite", "punch")):
@@ -455,7 +432,7 @@ def dynamic_target_margin(
     condition: str,
     inspected: bool,
     fuel: str,
-    user_target_pct: float = 15.0,
+    user_target_pct: float = 3.0,  # BUG-07 fix: normalized to same scale as _MARGIN_BASE (was 15.0 → always clamped)
 ) -> float:
     base   = _MARGIN_BASE.get(segment, 11.0)
     ann_km = _annual_km(km, vehicle_age)
@@ -584,7 +561,10 @@ def compute_risk_buffer(
 
     total = int(base_buffer + age_add + km_add + owner_add + insp_add
                 + cond_add + missing_penalties)
-    return int(_clamp(total, 2_000, market_value * 0.05))
+    # BUG-06 fix: segment-aware minimum floor so buffer is meaningful for cheap cars
+    seg_min = {"economy": 3_000, "premium": 6_000, "luxury": 15_000}.get(segment, 3_000)
+    cap     = max(seg_min * 4, int(market_value * 0.05))
+    return int(_clamp(total, seg_min, cap))
 
 
 # 8. TWO-COMPONENT CONFIDENCE SCORE  (uses dataset-derived baselines)
@@ -779,8 +759,9 @@ def shap_explanation(
     _BRAND_TIER_MAP = {
         **{b: "luxury"  for b in {"bmw", "mercedes-benz", "audi", "jaguar",
                                    "land rover", "porsche", "ferrari", "bentley"}},
+        # BUG-09 fix: added mahindra to premium tier (XUV500/700 are mid-SUV premium, not mid-tier)
         **{b: "premium" for b in {"volkswagen", "skoda", "toyota", "mg",
-                                   "kia", "jeep", "mini", "volvo", "lexus"}},
+                                   "kia", "jeep", "mini", "volvo", "lexus", "mahindra"}},
         **{b: "budget"  for b in {"maruti", "maruti suzuki", "datsun", "chevrolet"}},
     }
     brand_tier = _BRAND_TIER_MAP.get(brand.lower().strip(), "mid")
@@ -812,6 +793,7 @@ def compute_negotiation_trio(
     seller_asking_price: float = 0,
     locality: str = "",
     rto: str = "",
+    market_sell_price: float = 0,   # BUG-05 fix: cap walk_away below market sell ceiling
 ) -> dict:
     loc_key  = (locality or "").strip().lower()
     rto_key  = (rto or "").strip().upper()
@@ -834,6 +816,10 @@ def compute_negotiation_trio(
     walk_away = _round500(_clamp(walk_raw,
                                   recommended_buy_price + 3_000,
                                   recommended_buy_price + 25_000))
+    # BUG-05 fix: walk_away must never exceed the market sell ceiling
+    if market_sell_price > 0:
+        walk_away = min(walk_away, int(round(market_sell_price * 0.98 / 500) * 500))
+
     potential_savings = (
         _round500(max(0, seller_asking_price - ideal))
         if seller_asking_price > 0 else 0
@@ -1226,23 +1212,32 @@ class AdaptiveRangeEngine:
         else:
             lo_frac = hi_frac = mape
 
-        # ── hard cap: total width ≤ max_allowed_range_pct ────────────────────
-        half_cap = self._max_range_pct / 2.0
-        lo_frac  = min(lo_frac, half_cap)
-        hi_frac  = min(hi_frac, half_cap)
+        # ── Anchor center: blend comp median into ML prediction when comps are strong ──
+        # KEY FIX: When similar cars are found (97%+ match), the price center should
+        # be pulled toward actual comp prices, not stay locked at the ML prediction.
+        if n_valid > 0 and case in ("high", "medium"):
+            comp_median = float(_np.median(prices))
+            comp_p25    = float(_np.percentile(prices, 25))
+            comp_p75    = float(_np.percentile(prices, 75))
+            if case == "high":
+                # High confidence: trust comps heavily (70% comp, 30% ML)
+                blended_center = 0.70 * comp_median + 0.30 * pred
+            else:
+                # Medium confidence: equal blend (50% comp, 50% ML)
+                blended_center = 0.50 * comp_median + 0.50 * pred
+        else:
+            blended_center = pred
+            comp_p25 = comp_p75 = pred
 
-        # Ensure minimum spread of 1× MAPE so range is never a point
-        min_half = mape * 0.5
-        lo_frac  = max(lo_frac, min_half)
-        hi_frac  = max(hi_frac, min_half)
-
-        price_min    = int(round(pred * (1 - lo_frac) / 500) * 500)
-        price_max    = int(round(pred * (1 + hi_frac) / 500) * 500)
-        price_median = int(round(pred / 500) * 500)
+        # ── build final price range around the blended center ─────────────────
+        price_median = int(round(blended_center / 500) * 500)
+        price_min    = int(round(blended_center * (1 - lo_frac) / 500) * 500)
+        price_max    = int(round(blended_center * (1 + hi_frac) / 500) * 500)
 
         # Sanity: min < median < max
         price_min    = min(price_min, price_median - 500)
         price_max    = max(price_max, price_median + 500)
+
 
         return {
             "price_min":       price_min,
@@ -1251,6 +1246,9 @@ class AdaptiveRangeEngine:
             "confidence_case": case,
             "avg_similarity":  round(avg_sim, 4),
             "n_comps":         n_valid,
+            # BUG-02 fix: real quartiles for IQR outlier detection in main.py
+            "comp_p25":        int(round(comp_p25 / 500) * 500) if n_valid > 0 else price_min,
+            "comp_p75":        int(round(comp_p75 / 500) * 500) if n_valid > 0 else price_max,
         }
 
 
@@ -1604,9 +1602,11 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     else:
         action = "REJECT"
 
+    # BUG-05 fix: pass market sell price so walk_away is capped below the sell ceiling
     nego = compute_negotiation_trio(
         recommended_buy_price, city, condition, risk_score,
         seller_reason, seller_asking, locality=locality, rto=rto,
+        market_sell_price=float(recommended_sell_price),
     )
 
     demand_score          = round(_clamp(88 - age * 2.5 - (km / 200_000) * 35))
@@ -1726,6 +1726,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
         "negative_factors":         negative_factors[:5],
         "sanity_clamped":           sanity_clamped,
         "sanity_note":              sanity_note,
+        "vehicle_category":         veh_category,       # used by evaluate_vehicle profit cap
         "quote_message": (
             f"Based on ML ensemble valuation ({r2_str}), {brand or 'vehicle'} condition, "
             f"and {'(' + locality.title() + ')' if locality and locality != 'unknown' else 'Bangalore'} "

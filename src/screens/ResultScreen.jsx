@@ -411,10 +411,10 @@ export default function ResultScreen() {
   const [s5Switching, setS5Switching] = useState(false);
   const [s5Catalog, setS5Catalog] = useState(null);
 
-  // Fetch S5 dataset catalog on mount
+  // Fetch S5 dataset catalog on mount (variant_4 = S5 specialist model, vehicle_age <= 7)
   useEffect(() => {
     let alive = true;
-    fetchCatalog('variant_s5')
+    fetchCatalog('variant_4')
       .then(cat => { if (alive && cat) setS5Catalog(cat); })
       .catch(() => {});
     return () => { alive = false; };
