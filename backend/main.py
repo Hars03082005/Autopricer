@@ -1169,7 +1169,7 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         walk_away    = int(round((anchored_buy * 1.01) / 500) * 500)
         walk_away    = min(walk_away, int(round(anchored_sell * 0.97 / 500) * 500))
 
-     
+    
 
 
         # Patch decision dict with corrected values
