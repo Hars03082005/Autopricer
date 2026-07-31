@@ -28,34 +28,30 @@ def _write_registry(data: dict) -> None:
         json.dump(data, f, indent=2)
 
 
-def next_variant_id(dataset_name: str = "unknown") -> str:
-    """Return and immediately reserve the next unused variant_N id."""
+def _next_free_variant_id() -> str:
+    """
+    Compute the next unused variant_N id — purely by inspecting the registry
+    and filesystem. Does NOT write anything.
+    """
     reg = _read_registry()
     reg.setdefault("variants", {})
-    
     n = 1
     while True:
         vid = f"variant_{n}"
         dir_exists = (REGISTRY_DIR / vid).exists()
-        reg_exists = vid in reg["variants"]
+        reg_exists  = vid in reg["variants"]
         if not dir_exists and not reg_exists:
-            break
+            return vid
         n += 1
 
-    # Reserve immediately in registry.json and on disk
-    vid = f"variant_{n}"
-    dir_path = REGISTRY_DIR / vid
-    dir_path.mkdir(parents=True, exist_ok=True)
-    
-    reg["variants"][vid] = {
-        "dataset": dataset_name,
-        "trained_at": datetime.now().isoformat(),
-        "metrics": {"mape": 999.0, "rmse": 999999.0, "r2": -99.0},
-        "artifact_path": f"model_registry/{vid}",
-        "status": "training",
-    }
-    _write_registry(reg)
-    return vid
+
+def next_variant_id(dataset_name: str = "unknown") -> str:
+    """
+    Return the next available variant_N id WITHOUT creating any directory or
+    writing to registry.json.  The actual reservation happens inside
+    register_variant() at the end of a successful training run.
+    """
+    return _next_free_variant_id()
 
 
 def get_variant_dir(variant_id: str) -> Path:
@@ -63,7 +59,6 @@ def get_variant_dir(variant_id: str) -> Path:
     path = REGISTRY_DIR / variant_id
     path.mkdir(parents=True, exist_ok=True)
     return path
-
 
 
 def _best_variant_id(reg: dict) -> str | None:
@@ -89,6 +84,7 @@ def register_variant(
     """
     Register a newly trained variant in registry.json.
     Automatically promotes to default if it beats all existing variants by MAPE.
+    This is the ONLY place that writes to registry.json during training.
     """
     reg = _read_registry()
     rel = str(artifact_dir.relative_to(ROOT)).replace("\\", "/")

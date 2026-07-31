@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabaseClient.js';
 const DEFAULT_INPUTS = {
   brand: 'Honda', model: 'City', variant: '', year: '2021',
   fuel: 'Petrol', transmission: 'Manual', mileage: '28000', fuelEfficiency: '17.5',
-  city: 'Bangalore', vin: '',
+  city: 'Bangalore', locality: 'Indiranagar', vin: '',
   ownerCount: '1', engineCc: '1497', condition: 'Good',
   color: 'White', inspected: false,
   sellerAskingPrice: '0', targetMarginPct: '10', repairBuffer: '25000',
@@ -72,6 +72,7 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
     fuel: inputs?.fuel || inputs?.fuel_type || result?.fuel || 'Unknown',
     transmission: inputs?.transmission || result?.transmission || 'Unknown',
     city: inputs?.city || result?.city || 'Unknown',
+    locality: inputs?.locality || result?.locality || 'Indiranagar',
     odometer,
     kmDriven: odometer,
     mileage: odometer,
@@ -112,10 +113,12 @@ function recordToDbRow(rec, userId) {
     source:               rec.source,
     brand:                rec.brand,
     model:                rec.model,
+    variant:              rec.variant || '',
     year:                 rec.year,
     fuel:                 rec.fuel,
     transmission:         rec.transmission,
     city:                 rec.city,
+    locality:             rec.locality || '',
     odometer:             rec.odometer,
     fuel_efficiency:      rec.fuelEfficiency,
     owner_count:          rec.ownerCount,
@@ -146,10 +149,12 @@ function dbRowToRecord(row) {
     source:               row.source,
     brand:                row.brand,
     model:                row.model,
+    variant:              row.variant || '',
     year:                 row.year,
     fuel:                 row.fuel,
     transmission:         row.transmission,
     city:                 row.city,
+    locality:             row.locality || '',
     odometer:             row.odometer,
     kmDriven:             row.odometer,
     mileage:              row.odometer,
@@ -196,34 +201,37 @@ export function AppProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [dashFilters, setDashFilters] = useState({ brand: 'All', city: 'All', priceRange: 'All' });
 
-  // Load evaluations from Supabase (or localStorage for demo user)
+  // Load evaluations from Supabase (or localStorage fallback)
   useEffect(() => {
-    if (!currentUser) { setEvaluations([]); return; }
-
-    if (currentUser.id === 'demo') {
-      setEvaluations(loadLocalHistory());
-      return;
-    }
+    const userId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
 
     supabase
       .from('evaluations')
       .select('*')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(500)
       .then(({ data, error }) => {
-        if (error) { console.error('[PriceRef] Failed to load evaluations:', error.message); return; }
-        // Map snake_case DB columns back to camelCase for the UI
-        setEvaluations((data || []).map(dbRowToRecord));
+        if (error) {
+          console.warn('[PriceRef] Supabase load note (using local fallback):', error.message);
+          setEvaluations(loadLocalHistory());
+          return;
+        }
+        if (data && data.length > 0) {
+          setEvaluations(data.map(dbRowToRecord));
+        } else {
+          setEvaluations(loadLocalHistory());
+        }
+      })
+      .catch(() => {
+        setEvaluations(loadLocalHistory());
       });
   }, [currentUser]);
 
-  // Persist demo-user evaluations to localStorage
+  // Persist local evaluations backup
   useEffect(() => {
-    if (currentUser?.id === 'demo') {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
-    }
-  }, [evaluations, currentUser]);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
+  }, [evaluations]);
 
   const updateInput = useCallback((field, value) => {
     setInputs(prev => {
@@ -255,10 +263,18 @@ export function AppProvider({ children }) {
     const record = recordFromResult(vehicleInputs, result, source);
     setEvaluations(prev => [record, ...prev].slice(0, 500));
 
-    // Persist to Supabase (skip for demo user)
-    if (currentUser && currentUser.id !== 'demo') {
-      const { error } = await supabase.from('evaluations').insert(recordToDbRow(record, currentUser.id));
-      if (error) console.error('[PriceRef] Failed to save evaluation:', error.message);
+    // ALWAYS persist evaluation inputs & predictions to Supabase database!
+    const targetUserId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
+    try {
+      const dbRow = recordToDbRow(record, targetUserId);
+      const { error } = await supabase.from('evaluations').insert(dbRow);
+      if (error) {
+        console.warn('[PriceRef] Supabase save notice:', error.message);
+      } else {
+        console.log('[PriceRef] Saved evaluation input to Supabase:', record.id);
+      }
+    } catch (err) {
+      console.warn('[PriceRef] Supabase save exception:', err);
     }
 
     return record;
@@ -266,16 +282,16 @@ export function AppProvider({ children }) {
 
   const clearEvaluations = useCallback(async () => {
     setEvaluations([]);
-    if (currentUser?.id === 'demo') {
-      localStorage.removeItem(HISTORY_KEY);
-      return;
-    }
-    if (currentUser) {
+    localStorage.removeItem(HISTORY_KEY);
+    const targetUserId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
+    try {
       const { error } = await supabase
         .from('evaluations')
         .delete()
-        .eq('user_id', currentUser.id);
-      if (error) console.error('[PriceRef] Failed to clear evaluations:', error.message);
+        .eq('user_id', targetUserId);
+      if (error) console.warn('[PriceRef] Supabase clear note:', error.message);
+    } catch (err) {
+      console.warn('[PriceRef] Supabase clear exception:', err);
     }
   }, [currentUser]);
 

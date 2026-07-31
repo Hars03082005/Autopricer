@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
+import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
+import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = (n) => {
@@ -28,6 +30,125 @@ const ACTION_CFG = {
 const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
   { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
+
+/* ─── S5_MAX_AGE — must match train-s5.py ───────────────────── */
+const S5_MAX_AGE = 7;
+
+/* ─── Variant config ────────────────────────────────────────── */
+const MAIN_VARIANTS = [
+  { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
+  { id: 'variant_2', label: 'Variant 2', mape: '6.67%', emoji: '🥈' },
+  { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
+];
+
+/* ─── Variant Switcher Bar ──────────────────────────────────── */
+function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Active, onS5Toggle, s5Switching }) {
+  return (
+    <div style={{
+      background: 'var(--surface-1)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '14px 18px',
+      marginBottom: 12,
+    }}>
+      {/* Main model switcher */}
+      <div style={{ marginBottom: s5Eligible ? 12 : 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
+          ML MODEL ENGINE
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {MAIN_VARIANTS.map(v => {
+            const active = activeVariant === v.id && !s5Active;
+            return (
+              <button
+                key={v.id}
+                onClick={() => onSwitch(v.id)}
+                disabled={switching || s5Switching}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 8,
+                  border: active ? '2px solid #2563eb' : '1.5px solid var(--border)',
+                  background: active ? '#eff6ff' : 'var(--surface-2)',
+                  color: active ? '#1d4ed8' : 'var(--text-2)',
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 13,
+                  cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
+                  opacity: (switching || s5Switching) ? 0.6 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span>{v.emoji}</span>
+                <span>{v.label}</span>
+                <span style={{ fontSize: 10, color: active ? '#3b82f6' : 'var(--text-3)', fontWeight: 600 }}>
+                  {v.mape}
+                </span>
+                {active && (
+                  <span style={{
+                    fontSize: 9, background: '#2563eb', color: 'white',
+                    borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+                  }}>ACTIVE</span>
+                )}
+              </button>
+            );
+          })}
+          {switching && (
+            <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center', marginLeft: 4 }}>
+              Switching…
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* S5 Quality Toggle — only shown when vehicle qualifies */}
+      {s5Eligible && (
+        <div style={{
+          paddingTop: 12,
+          borderTop: '1px solid var(--border)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 2 }}>
+                S5 QUALITY SHOP MODEL
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                Specialized benchmark from quality dealer dataset (age ≤ 7 yrs)
+              </div>
+            </div>
+            <button
+              onClick={onS5Toggle}
+              disabled={switching || s5Switching}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 16px',
+                borderRadius: 8,
+                border: s5Active ? '2px solid #7c3aed' : '1.5px solid var(--border)',
+                background: s5Active ? '#f5f3ff' : 'var(--surface-2)',
+                color: s5Active ? '#7c3aed' : 'var(--text-2)',
+                fontWeight: s5Active ? 700 : 500,
+                fontSize: 13,
+                cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
+                opacity: (switching || s5Switching) ? 0.6 : 1,
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span>✨</span>
+              <span>{s5Active ? 'S5 Active' : 'View S5 Prediction'}</span>
+              {s5Switching && <span style={{ fontSize: 11, color: '#64748b' }}>Loading…</span>}
+              {s5Active && (
+                <span style={{
+                  fontSize: 9, background: '#7c3aed', color: 'white',
+                  borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+                }}>ACTIVE</span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─── Loading State ────────────────────────────────────────── */
 function LoadingState() {
@@ -183,6 +304,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
     condition:    c.condition    || 'Good',
     segment:      c.segment      || '',
     ownerCount:   c.owner_count  || '',
+    similarity:   Number(c.similarity || 0),
   }));
 
   return (
@@ -198,7 +320,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
       {/* Table header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
         gap: 8,
         padding: '8px 10px',
         background: 'var(--surface-2)',
@@ -206,7 +328,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
         marginTop: 14,
         marginBottom: 2,
       }}>
-        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'OWNERS', 'LISTED PRICE'].map(h => (
+        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'OWNERS', 'LISTED PRICE', 'MATCH'].map(h => (
           <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px' }}>{h}</div>
         ))}
       </div>
@@ -219,7 +341,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
           return (
             <div key={idx} style={{
               display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
               gap: 8,
               padding: '11px 10px',
               borderBottom: '1px solid var(--border)',
@@ -254,6 +376,20 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   color: isPos ? '#16a34a' : '#dc2626',
                 }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
               </div>
+              {/* Similarity badge */}
+              {car.similarity > 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '3px 6px',
+                  borderRadius: 8,
+                  background: car.similarity >= 85 ? '#dcfce7' : car.similarity >= 65 ? '#dbeafe' : '#fef9c3',
+                  color:      car.similarity >= 85 ? '#15803d' : car.similarity >= 65 ? '#1d4ed8' : '#92400e',
+                }}>
+                  {car.similarity.toFixed(0)}%
+                </div>
+              ) : <div />}
             </div>
           );
         })}
@@ -267,8 +403,82 @@ function SimilarCarsSection({ cars, predictedPrice }) {
 export default function ResultScreen() {
   const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
 
+  // Variant switcher state
+  const [activeVariant, setActiveVariant] = useState('variant_1');
+  const [displayResult, setDisplayResult] = useState(null);
+  const [switching, setSwitching] = useState(false);
+  const [s5Active, setS5Active] = useState(false);
+  const [s5Switching, setS5Switching] = useState(false);
+  const [s5Catalog, setS5Catalog] = useState(null);
+
+  // Fetch S5 dataset catalog on mount (variant_4 = S5 specialist model, vehicle_age <= 7)
+  useEffect(() => {
+    let alive = true;
+    fetchCatalog('variant_4')
+      .then(cat => { if (alive && cat) setS5Catalog(cat); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Use displayResult if set (from switcher), otherwise use valuationResult from context
+  const result = displayResult || valuationResult;
+
+  // Determine vehicle age & dataset model match for S5 eligibility
+  const s5Eligible = useMemo(() => {
+    const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
+    if (vehicleAge > S5_MAX_AGE) return false;
+    if (!s5Catalog) return true; // fallback to age-only while catalog is loading
+
+    const bKey = String(inputs?.brand || '').trim().toLowerCase();
+    const mKey = String(inputs?.model || '').trim().toLowerCase();
+    if (!bKey || !mKey) return false;
+
+    let brandModels = s5Catalog[bKey];
+    if (!brandModels) {
+      const foundB = Object.keys(s5Catalog).find(k => k.includes(bKey) || bKey.includes(k));
+      if (foundB) brandModels = s5Catalog[foundB];
+    }
+    if (!brandModels) return false;
+    if (brandModels[mKey]) return true;
+    return Object.keys(brandModels).some(m => m.includes(mKey) || mKey.includes(m));
+  }, [inputs?.brand, inputs?.model, inputs?.year, s5Catalog]);
+
+  const handleVariantSwitch = useCallback(async (variantId) => {
+    if (variantId === activeVariant && !s5Active) return;
+    setSwitching(true);
+    setS5Active(false);
+    try {
+      const result = await runMLValuationWithVariant(inputs, variantId);
+      setDisplayResult(result);
+      setActiveVariant(variantId);
+    } catch (e) {
+      console.error('Variant switch failed:', e);
+    } finally {
+      setSwitching(false);
+    }
+  }, [activeVariant, s5Active, inputs]);
+
+  const handleS5Toggle = useCallback(async () => {
+    if (s5Active) {
+      // Switch back to main active variant
+      setS5Active(false);
+      setDisplayResult(null); // Revert to original result
+      return;
+    }
+    setS5Switching(true);
+    try {
+      const s5Result = await runS5Valuation(inputs);
+      setDisplayResult(s5Result);
+      setS5Active(true);
+    } catch (e) {
+      console.error('S5 model fetch failed:', e);
+    } finally {
+      setS5Switching(false);
+    }
+  }, [s5Active, inputs]);
+
   if (isLoading) return <LoadingState />;
-  if (!valuationResult) return <EmptyState setActiveScreen={setActiveScreen} />;
+  if (!result) return <EmptyState setActiveScreen={setActiveScreen} />;
 
   const {
     predictedPrice = 0,
@@ -287,7 +497,23 @@ export default function ResultScreen() {
     similarCars = [],
     marketRangeCompCount = 0,
     marketRangeSource = 'mape_fallback',
-  } = valuationResult;
+    // Adaptive valuation engine enrichment
+    valuationConfidence = 'Low',
+    marketSupport = 'Weak',
+    comparablesUsed = 0,
+    averageSimilarity = 0,
+    expectedModelError = 6.3,
+    confidenceCase = 'low',
+  } = result;
+
+  // Confidence badge colour for the adaptive valuation confidence
+  const confColor = {
+    'Very High': { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+    'High':      { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+    'Medium':    { bg: '#fef9c3', color: '#92400e', border: '#fde047' },
+    'Low':       { bg: '#ffedd5', color: '#c2410c', border: '#fdba74' },
+    'Very Low':  { bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' },
+  }[valuationConfidence] || { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
 
   const ac = getAction(action);
   const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
@@ -308,14 +534,49 @@ export default function ResultScreen() {
   const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
   const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
 
-  const rangeSub = marketRangeSource === 'dataset' && marketRangeCompCount > 0
-    ? `Based on ${marketRangeCompCount} Comparable Vehicles`
-    : `Based on ML Uncertainty (±6.3% MAPE)`;
+  // Dynamic market range sub-label
+  const rangeSub = comparablesUsed > 0
+    ? `${comparablesUsed} comps · ${averageSimilarity.toFixed(1)}% avg match · ${marketSupport} support`
+    : `ML model uncertainty band · ±${expectedModelError.toFixed(1)}% MAPE`;
 
   const km = Number(inputs.mileage || 0);
 
   return (
     <div className="rs2-root">
+
+      {/* ── VARIANT SWITCHER BAR ─────────────────────────── */}
+      <VariantSwitcher
+        activeVariant={activeVariant}
+        onSwitch={handleVariantSwitch}
+        switching={switching}
+        s5Eligible={s5Eligible}
+        s5Active={s5Active}
+        onS5Toggle={handleS5Toggle}
+        s5Switching={s5Switching}
+      />
+
+      {/* S5 active banner */}
+      {s5Active && (
+        <div style={{
+          background: '#f5f3ff',
+          border: '1.5px solid #c4b5fd',
+          borderRadius: 10,
+          padding: '10px 16px',
+          marginBottom: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 13,
+          fontWeight: 600,
+          color: '#6d28d9',
+        }}>
+          <span style={{ fontSize: 16 }}>✨</span>
+          <span>
+            S5 Quality Shop Model — Pricing from specialized quality dealer dataset (age ≤ 7 yrs).
+            These prices reflect premium quality shop benchmarks and may be higher than the general market.
+          </span>
+        </div>
+      )}
 
       {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
       <div className="rs2-card rs2-hero-card">
@@ -343,6 +604,35 @@ export default function ResultScreen() {
               <div className="rs2-hero-badges" style={{ marginTop: '8px' }}>
                 <span className="rs2-badge rs2-badge-seg">{(segmentClass || 'economy').toUpperCase()}</span>
                 <span className="rs2-badge rs2-badge-conf">ML Confidence: {confidenceScore}%</span>
+                <span
+                  className="rs2-badge"
+                  style={{
+                    background: confColor.bg,
+                    color: confColor.color,
+                    border: `1px solid ${confColor.border}`,
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  {valuationConfidence} Confidence
+                </span>
+                {s5Active && (
+                  <span className="rs2-badge" style={{
+                    background: '#f5f3ff', color: '#7c3aed',
+                    border: '1px solid #c4b5fd', fontWeight: 700, fontSize: '10px',
+                  }}>
+                    ✨ S5 Quality Model
+                  </span>
+                )}
+                {!s5Active && (
+                  <span className="rs2-badge" style={{
+                    background: '#eff6ff', color: '#1d4ed8',
+                    border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
+                  }}>
+                    {MAIN_VARIANTS.find(v => v.id === activeVariant)?.emoji} {MAIN_VARIANTS.find(v => v.id === activeVariant)?.label}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -362,6 +652,23 @@ export default function ResultScreen() {
             <div className="rs2-hero-stat-label">Market Selling Range</div>
             <div className="rs2-hero-stat-value rs2-blue">{fmt(minP)} – {fmt(maxP)}</div>
             <div className="rs2-hero-stat-sub">{rangeSub}</div>
+            {comparablesUsed > 0 && (
+              <div style={{
+                marginTop: 4,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 10,
+                fontWeight: 600,
+                padding: '2px 7px',
+                borderRadius: 10,
+                background: confColor.bg,
+                color: confColor.color,
+                border: `1px solid ${confColor.border}`,
+              }}>
+                {marketSupport} Market Support
+              </div>
+            )}
           </div>
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Expected Sell Price</div>
@@ -387,7 +694,7 @@ export default function ResultScreen() {
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
-        color="#2563eb"
+        color={s5Active ? '#7c3aed' : '#2563eb'}
         min={minP}
         max={maxP}
         confidenceScore={confidenceScore}
@@ -424,8 +731,25 @@ export default function ResultScreen() {
           <Icon name="refresh" size={15} color="#475569" strokeWidth={2} />
           New Valuation
         </button>
+        {evaluations.length > 0 && (
+          <button
+            className="rs2-btn-ghost"
+            onClick={() => exportEvaluationsToCSV(evaluations, 'vehicle_evaluations.csv')}
+            title="Export all evaluation history to CSV"
+            style={{ background: '#f8fafc', borderColor: '#e2e8f0', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
+        )}
       </div>
+
 
     </div>
   );
 }
+

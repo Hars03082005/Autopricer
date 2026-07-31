@@ -1,0 +1,70 @@
+{
+  "_comment": "Adaptive Valuation Engine — all tuning parameters. Edit here; no code changes needed.",
+  "similarity_weights": {
+    "brand": 0.18,
+    "model": 0.18,
+    "variant": 0.12,
+    "vehicle_age": 0.12,
+    "odometer_reading": 0.10,
+    "fuel_type": 0.10,
+    "locality": 0.08,
+    "transmission": 0.07,
+    "owner_count": 0.03,
+    "seller_type": 0.02
+  },
+  "age_sigma": 3.0,
+  "odometer_sigma": 25000,
+  "min_similarity_threshold": 0.55,
+  "luxury_min_similarity_threshold": 0.45,
+  "luxury_brands": [
+    "bmw",
+    "mercedes-benz",
+    "audi",
+    "jaguar",
+    "land rover",
+    "porsche",
+    "volvo",
+    "lexus",
+    "mini",
+    "maserati",
+    "bentley",
+    "rolls-royce",
+    "ferrari",
+    "lamborghini"
+  ],
+  "high_confidence_min_comps": 10,
+  "medium_confidence_min_comps": 4,
+  "max_comps_used_for_range": 50,
+  "top_n_display": 5,
+  "high_confidence_avg_sim": 0.75,
+  "medium_confidence_avg_sim": 0.60,
+  "comp_weight_high": 0.70,
+  "ml_weight_high": 0.30,
+  "comp_weight_medium": 0.50,
+  "ml_weight_medium": 0.50,
+  "max_allowed_range_pct": 0.25,
+  "confidence_weights": {
+    "comp_score": 0.30,
+    "similarity_score": 0.25,
+    "mape_score": 0.20,
+    "variance_score": 0.15,
+    "width_score": 0.10
+  },
+  "confidence_labels": {
+    "very_high_min": 90,
+    "high_min": 75,
+    "medium_min": 55,
+    "low_min": 35
+  },
+  "market_support_labels": {
+    "strong_min": 90,
+    "good_min": 70,
+    "moderate_min": 50
+  },
+  "s5_routing_rules": {
+    "enabled": true,
+    "max_age": 7,
+    "target_brands": [],
+    "min_condition": "good"
+  }
+}

@@ -1,12 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+
+import 'app_config.dart';
 
 /// Lightweight in-process HTTP server that serves the bundled React web app
 /// from Flutter's rootBundle over http://localhost so the WebView can load
 /// all assets (JS, CSS, images) without hitting Android's file:// cross-origin
 /// security restrictions (net::ERR_ACCESS_DENIED).
+///
+/// The server also injects `window.PriceRef_API_URL` directly into the
+/// index.html response so the React app has the correct backend URL
+/// before any JavaScript module initialises — eliminating the race condition
+/// where the Flutter onPageFinished injection arrives too late.
 ///
 /// Usage:
 ///   final port = await AssetServer.start();                // idempotent
@@ -44,11 +52,29 @@ class AssetServer {
       final data = await rootBundle.load(assetPath);
       final bytes = data.buffer.asUint8List();
 
-      request.response
-        ..statusCode = HttpStatus.ok
-        ..headers.set(HttpHeaders.contentTypeHeader, _mimeType(path))
-        ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache')
-        ..add(bytes);
+      // Inject window.PriceRef_API_URL into index.html BEFORE any JS runs.
+      // This eliminates the race condition where Flutter's onPageFinished
+      // injection arrives after React's initial API calls.
+      if (path == '/index.html') {
+        final html = utf8.decode(bytes);
+        final apiBase = AppConfig.apiBaseUrl.replaceAll("'", "\\'");
+        final injected = html.replaceFirst(
+          '<head>',
+          "<head><script>window.PriceRef_API_URL='$apiBase';</script>",
+        );
+        final injectedBytes = utf8.encode(injected);
+        request.response
+          ..statusCode = HttpStatus.ok
+          ..headers.set(HttpHeaders.contentTypeHeader, 'text/html; charset=utf-8')
+          ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache')
+          ..add(injectedBytes);
+      } else {
+        request.response
+          ..statusCode = HttpStatus.ok
+          ..headers.set(HttpHeaders.contentTypeHeader, _mimeType(path))
+          ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache')
+          ..add(bytes);
+      }
     } catch (_) {
       request.response.statusCode = HttpStatus.notFound;
     }

@@ -30,7 +30,7 @@ function getApiBase() {
   return (
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_ML_API_URL ||
-    'http://localhost:9000'
+    'http://localhost:8000'
   ).replace(/\/+$/, '');
 }
 
@@ -116,12 +116,13 @@ export function payloadFromInputs(inputs) {
     odometer_reading: Math.trunc(toNumber(inputs.mileage ?? inputs.odometer_reading, 0)),
     owner_count: parseOwnerCount(inputs.ownerCount ?? inputs.owner_count, 1),
     city: titleCase(inputs.city || 'Unknown'),
+    locality: inputs.locality ? String(inputs.locality).trim() : 'Indiranagar',
     color: normalizeColor(inputs.color || ''),
     inspected: Boolean(inputs.inspected),
     condition: normalizeCondition(inputs.condition),
     seller_asking_price: 0,
     target_margin_pct: toNumber(inputs.targetMarginPct ?? inputs.target_margin_pct, 10),
-    repair_buffer: toNumber(inputs.repairBuffer ?? inputs.repair_buffer, 25000),
+    repair_buffer: toNumber(inputs.repairBuffer ?? inputs.repair_buffer, 0),
     ...(inputs.modelVariant && inputs.modelVariant !== 'auto' ? { model_variant: inputs.modelVariant } : {}),
   };
 }
@@ -230,6 +231,15 @@ function normalizeApiResult(data, inputs) {
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     routingNote: data.routing_note ?? '',
+    // ── Adaptive Valuation Engine enrichment ──
+    valuationConfidence:     data.confidence ?? 'Low',
+    valuationConfidenceScore: data.confidence_score ?? 0,
+    marketSupport:           data.market_support ?? 'Weak',
+    comparablesUsed:         data.comparables_used ?? 0,
+    averageSimilarity:       data.average_similarity ?? 0,
+    ensembleVariance:        data.ensemble_variance ?? 0,
+    expectedModelError:      data.expected_model_error ?? 0,
+    confidenceCase:          data.confidence_case ?? 'low',
   };
 }
 
@@ -257,8 +267,11 @@ export async function fetchBrands() {
 }
 
 /** Fetch the full dataset catalog: brand → { model → [variants] } */
-export async function fetchCatalog() {
-  const response = await fetch(`${getApiBase()}/api/catalog`);
+export async function fetchCatalog(variantId) {
+  const url = variantId
+    ? `${getApiBase()}/api/catalog?model_variant=${encodeURIComponent(variantId)}`
+    : `${getApiBase()}/api/catalog`;
+  const response = await fetch(url);
   if (!response.ok) {
     const message = await response.text().catch(() => '');
     throw new Error(`Catalog API error ${response.status}${message ? `: ${message}` : ''}`);
@@ -277,9 +290,60 @@ export async function fetchBrandModels(brand) {
   return data || { brand, models: {} };
 }
 
+/**
+ * Fetch the available fuel types, transmissions, and manufacture years
+ * that actually exist in the dataset for the given brand/model/variant.
+ * Returns { fuel_types, transmissions, years } with safe fallbacks.
+ */
+export async function fetchOptions({ brand, model, variant } = {}) {
+  const params = new URLSearchParams();
+  if (brand)   params.set('brand',   brand);
+  if (model)   params.set('model',   model);
+  if (variant) params.set('variant', variant);
+
+  try {
+    const response = await fetch(`${getApiBase()}/api/options?${params.toString()}`);
+    if (!response.ok) throw new Error('options api failed');
+    return await response.json();
+  } catch {
+    return {
+      fuel_types:    ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'],
+      transmissions: ['Manual', 'Automatic', 'AMT', 'CVT', 'DCT', 'IMT'],
+      years:         Array.from({ length: 20 }, (_, i) => String(new Date().getFullYear() - i)),
+    };
+  }
+}
+
 
 export async function runMLValuation(inputs) {
   const data = await postJson('/evaluate', payloadFromInputs(inputs));
+  return normalizeApiResult(data, inputs);
+}
+
+/**
+ * Run valuation with a specific model variant.
+ * Used by the Result page variant switcher to switch between variant_1/2/3.
+ */
+export async function runMLValuationWithVariant(inputs, variantId) {
+  const payload = {
+    ...payloadFromInputs(inputs),
+    model_variant: variantId,
+  };
+  const data = await postJson('/evaluate', payload);
+  return normalizeApiResult(data, inputs);
+}
+
+/**
+ * Run valuation using the S5 quality shop model (variant_4).
+ * Only call this when the vehicle qualifies: vehicle age <= 7 years.
+ * Falls back to variant_1 (+8% premium) when model is not in the S5 catalog.
+ */
+export async function runS5Valuation(inputs) {
+  const payload = {
+    ...payloadFromInputs(inputs),
+    model_variant: 'variant_4',
+  };
+  const data = await postJson('/evaluate', payload);
   return normalizeApiResult(data, inputs);
 }
 

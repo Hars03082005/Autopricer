@@ -92,6 +92,40 @@ export const CITY_DEMAND = {
   Surat:     { score: 58, multiplier: 0.85 },
 };
 
+/** Major localities for Bangalore and regional hubs */
+export const LOCALITIES = [
+  'Indiranagar',
+  'Koramangala',
+  'HSR Layout',
+  'Whitefield',
+  'Marathahalli',
+  'BTM Layout',
+  'Rajajinagar',
+  'Jayanagar',
+  'Hebbal',
+  'Yelahanka',
+  'Electronic City',
+  'Bellandur',
+  'Banashankari',
+  'Begur',
+  'Bommanahalli',
+  'Domlur',
+  'Basavanagudi',
+  'Gandhi Nagar',
+  'Gorguntepalya',
+  'Horamavu',
+  'Hosur Road',
+  'JP Nagar',
+  'Kengeri',
+  'KR Puram',
+  'Malleshwaram',
+  'Mysore Road',
+  'Nagarbhavi',
+  'Peenya',
+  'Sriranga Nagar',
+  'Yeshwanthpur',
+];
+
 /** Comparable market transactions */
 
 export const MODEL_COMPARISON = [

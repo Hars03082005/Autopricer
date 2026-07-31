@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { CITY_DEMAND } from '../utils/mockData.js';
-import { fetchBrands, fetchCatalog, runMLValuation, fetchRegistry } from '../utils/apiValuation.js';
+import { CITY_DEMAND, LOCALITIES } from '../utils/mockData.js';
+import { fetchBrands, fetchCatalog, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
 
 /* ─── Static Constants ──────────────────────────────────────────── */
-const YEARS        = Array.from({ length: 20 }, (_, i) => String(2025 - i));
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS        = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
 const CITIES       = Object.keys(CITY_DEMAND).sort();
 const FUELS        = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
 const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT', 'AMT', 'IMT'];
@@ -98,6 +99,46 @@ function FieldLabel({ children, required }) {
   );
 }
 
+const STRIP_TOKENS = new Set([
+  'petrol', 'diesel', 'crdi', 'cng', 'lpg', 'electric', 'ev', 'vtvt', 'tdci', 'mpi', 'dci', 'ddis',
+  'tsi', 'tdi', 'gdi', 'tgdi', 'cdti', 'idtec', 'ivtec', 'k10', 'k12', 'k15', 'boostjet', 'smart', 'hybrid',
+  'at', 'mt', 'cvt', 'dct', 'amt', 'ivt', 'dsg', 'automatic', 'manual', 'str', 'shvs',
+  'dsl', 'ptl', 'bs6', 'bs4', 'bsiv', 'bs3', 'unknown', 'nan', 'null', 'none', 'car', 'model', 'variant',
+  '5sp', '6sp', '5-speed', '6-speed', '7-speed', '8-speed', '5mt', '6mt', '6at', '5at', 'speed',
+  'drive', '2wd', '4wd', 'awd', '4x2', '4x4', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
+]);
+
+function normalizeVariant(raw, modelName = '') {
+  if (!raw || typeof raw !== 'string') return '';
+  let text = raw.toLowerCase().trim();
+  if (['unknown', 'nan', 'null', 'none', '-', '', 'base model'].includes(text)) return '';
+
+  if (modelName) {
+    modelName.toLowerCase().split(/\s+/).forEach(word => {
+      if (word.length > 2) text = text.replace(word, '');
+    });
+  }
+
+  // Remove engine sizes like 1.6, 1.5, 1.4, 2.0, 1.2, 1200cc
+  text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, '');
+  text = text.replace(/[\(\)\[\]\/\-\,\_\.\+]/g, ' ');
+
+  const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
+  if (tokens.length === 0) return '';
+
+  let res = tokens.join(' ').toUpperCase();
+  res = res.replace(/\bSX\s+O\b/g, 'SX (O)')
+           .replace(/\bS\s+O\b/g, 'S (O)')
+           .replace(/\bZX\s+O\b/g, 'ZX (O)')
+           .replace(/\bZXI\s+PLUS\b/g, 'ZXI+')
+           .replace(/\bVXI\s+PLUS\b/g, 'VXI+')
+           .replace(/\bLXI\s+PLUS\b/g, 'LXI+')
+           .replace(/\bXZ\s+PLUS\b/g, 'XZ+')
+           .replace(/\bXT\s+PLUS\b/g, 'XT+');
+
+  return res;
+}
+
 /* ─── Main Component ────────────────────────────────────────────── */
 export default function InputScreen() {
   const {
@@ -105,13 +146,19 @@ export default function InputScreen() {
     setValuationResult, setActiveScreen, setIsLoading, addEvaluation,
   } = useApp();
 
-  const [brandCatalog, setBrandCatalog] = useState({});
+  const [brandCatalog, setBrandCatalog]   = useState({});
   const [datasetCatalog, setDatasetCatalog] = useState({});
-  const [registry, setRegistry]         = useState({ default: null, variants: [] });
-  const [selectedVariant, setSelectedVariant] = useState('auto');
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState('');
-  const [submitting, setSubmitting]     = useState(false);
+
+  // ── Dataset-driven cascading options ──────────────────────────────────────
+  const [availableFuels, setAvailableFuels]           = useState(FUELS);
+  const [availableTransmissions, setAvailableTransmissions] = useState(TRANSMISSIONS);
+  const [availableYears, setAvailableYears]           = useState(YEARS);
+  const [optionsLoading, setOptionsLoading]           = useState(false);
+  const optionsAbort = useRef(null);
+
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   /* Derived */
   const brandList   = useMemo(() => Object.keys(brandCatalog).sort(), [brandCatalog]);
@@ -132,20 +179,26 @@ export default function InputScreen() {
     }
 
     if (brandModels) {
-      let variants = brandModels[modelKey];
-      if (!variants) {
+      let rawVariants = brandModels[modelKey];
+      if (!rawVariants) {
         const foundM = Object.keys(brandModels).find(m => m.includes(modelKey) || modelKey.includes(m));
-        if (foundM) variants = brandModels[foundM];
+        if (foundM) rawVariants = brandModels[foundM];
       }
-      if (Array.isArray(variants) && variants.length > 0) {
-        return variants.map(v => String(v).toUpperCase());
+      if (Array.isArray(rawVariants) && rawVariants.length > 0) {
+        const uniqueSet = new Set();
+        rawVariants.forEach(v => {
+          const nv = normalizeVariant(v, inputs.model);
+          if (nv && nv.length > 0) uniqueSet.add(nv);
+          else if (v && typeof v === 'string' && !['unknown', 'nan', 'null', 'none'].includes(v.toLowerCase().trim())) {
+            uniqueSet.add(v.trim().toUpperCase());
+          }
+        });
+        return Array.from(uniqueSet).sort((a, b) => a.localeCompare(b));
       }
     }
 
     return [];
   }, [inputs.brand, inputs.model, datasetCatalog]);
-
-  const validFuels  = useMemo(() => getValidFuels(inputs.brand, inputs.model), [inputs.brand, inputs.model]);
 
   const segment  = getSegment(inputs.brand);
   const score    = healthScore(inputs);
@@ -153,7 +206,7 @@ export default function InputScreen() {
   const required = [inputs.brand, inputs.model, inputs.year, inputs.mileage, inputs.fuel, inputs.city].filter(Boolean).length;
   const isReady  = required === 6;
 
-  /* Load brands, dataset catalog & registry */
+  /* Load brands & dataset catalog on mount */
   useEffect(() => {
     let alive = true;
     fetchBrands()
@@ -163,24 +216,66 @@ export default function InputScreen() {
     fetchCatalog()
       .then(cat => { if (alive && cat) setDatasetCatalog(cat); })
       .catch(() => {});
-    fetchRegistry()
-      .then(r => { if (alive && r) setRegistry(r); })
-      .catch(() => {});
     return () => { alive = false; };
   }, []);
 
+  /* Cascade: refetch available options whenever brand/model/variant changes */
+  useEffect(() => {
+    if (!inputs.brand) {
+      setAvailableFuels(FUELS);
+      setAvailableTransmissions(TRANSMISSIONS);
+      setAvailableYears(YEARS);
+      return;
+    }
+    // Cancel any in-flight request
+    if (optionsAbort.current) optionsAbort.current = false;
+    const token = {};
+    optionsAbort.current = token;
 
-  /* Handlers */
+    setOptionsLoading(true);
+    fetchOptions({ brand: inputs.brand, model: inputs.model || undefined, variant: inputs.variant || undefined })
+      .then(opts => {
+        if (optionsAbort.current !== token) return; // stale
+        setAvailableFuels(opts.fuel_types?.length   ? opts.fuel_types   : FUELS);
+        setAvailableTransmissions(opts.transmissions?.length ? opts.transmissions : TRANSMISSIONS);
+        setAvailableYears(opts.years?.length         ? opts.years        : YEARS);
+
+        // Auto-correct selected values if they're no longer in the allowed list
+        if (inputs.fuel && !opts.fuel_types?.includes(inputs.fuel))
+          updateInput('fuel', '');
+        if (inputs.transmission && !opts.transmissions?.includes(inputs.transmission))
+          updateInput('transmission', '');
+        if (inputs.year && !opts.years?.includes(inputs.year))
+          updateInput('year', '');
+      })
+      .catch(() => {})
+      .finally(() => { if (optionsAbort.current === token) setOptionsLoading(false); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs.brand, inputs.model, inputs.variant]);
+
+
+  /* Handlers — each resets all downstream fields */
   const onBrand = (b) => {
     updateInput('brand', b);
-    const models = brandCatalog[b] || [];
-    updateInput('model', models[0] || '');
+    updateInput('model', '');
     updateInput('variant', '');
+    updateInput('fuel', '');
+    updateInput('transmission', '');
+    updateInput('year', '');
   };
 
   const onModel = (m) => {
     updateInput('model', m);
     updateInput('variant', '');
+    updateInput('fuel', '');
+    updateInput('transmission', '');
+    updateInput('year', '');
+  };
+
+  const onVariant = (v) => {
+    updateInput('variant', v);
+    // Fuel/transmission/year reset only if dataset constrains them differently;
+    // the useEffect above will auto-correct if needed after fetch completes.
   };
 
   const onSubmit = async () => {
@@ -198,7 +293,6 @@ export default function InputScreen() {
         // hit in the ML model because the dataset stores them separately.
         model: inputs.model,
         variant: inputs.variant || 'unknown',
-        modelVariant: selectedVariant,
       };
       const result = await runMLValuation(payload);
 
@@ -256,10 +350,11 @@ export default function InputScreen() {
           <div className="vws-field">
             <FieldLabel required>Year</FieldLabel>
             <SearchableDropdown
-              options={YEARS}
+              options={availableYears}
               value={inputs.year}
               onChange={v => updateInput('year', v)}
-              placeholder="Year"
+              placeholder={optionsLoading ? 'Loading…' : 'Year'}
+              disabled={optionsLoading}
             />
           </div>
           <div className="vws-field">
@@ -267,7 +362,7 @@ export default function InputScreen() {
             <SearchableDropdown
               options={variantList}
               value={inputs.variant}
-              onChange={v => updateInput('variant', v)}
+              onChange={onVariant}
               placeholder="Variant"
               disabled={!inputs.model || variantList.length === 0}
               searchPlaceholder="Search variants…"
@@ -298,9 +393,10 @@ export default function InputScreen() {
               className="vws-input field-select"
               value={inputs.fuel || ''}
               onChange={e => updateInput('fuel', e.target.value)}
+              disabled={optionsLoading}
             >
-              <option value="">Select Fuel</option>
-              {validFuels.map(f => (
+              <option value="">{optionsLoading ? 'Loading…' : 'Select Fuel'}</option>
+              {availableFuels.map(f => (
                 <option key={f} value={f}>{f}</option>
               ))}
             </select>
@@ -311,9 +407,10 @@ export default function InputScreen() {
               className="vws-input field-select"
               value={inputs.transmission || ''}
               onChange={e => updateInput('transmission', e.target.value)}
+              disabled={optionsLoading}
             >
-              <option value="">Select Transmission</option>
-              {TRANSMISSIONS.map(t => (
+              <option value="">{optionsLoading ? 'Loading…' : 'Select Transmission'}</option>
+              {availableTransmissions.map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -378,19 +475,14 @@ export default function InputScreen() {
             </div>
           </div>
           <div className="vws-field">
-            <FieldLabel>Repair Budget Estimate</FieldLabel>
-            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <span style={{ position: 'absolute', left: 12, fontSize: 13, color: 'var(--text-3)' }}>₹</span>
-              <input
-                className="vws-input"
-                type="number"
-                value={inputs.repairBuffer || '25000'}
-                onChange={e => updateInput('repairBuffer', e.target.value)}
-                placeholder="25000"
-                min={0}
-                style={{ paddingLeft: 24 }}
-              />
-            </div>
+            <FieldLabel>Locality</FieldLabel>
+            <SearchableDropdown
+              options={LOCALITIES}
+              value={inputs.locality || 'Indiranagar'}
+              onChange={v => updateInput('locality', v)}
+              placeholder="Select Locality"
+              searchPlaceholder="Search locality…"
+            />
           </div>
           <div className="vws-field">
             <FieldLabel>Registration No.</FieldLabel>
@@ -523,35 +615,7 @@ export default function InputScreen() {
 
           <div style={{ flex: 1 }} />
 
-          {/* Model Registry Selector */}
-          <div className="vwsp-card" style={{ marginBottom: 16 }}>
-            <div className="vwsp-stat-label" style={{ marginBottom: 6 }}>Model Variant Engine</div>
-            <select
-              value={selectedVariant}
-              onChange={(e) => setSelectedVariant(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                background: '#f8fafc',
-                color: '#1e293b',
-                fontWeight: '500',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="auto">
-                ⚡ Automatic (Best Model — {registry.default ? registry.default.replace('_', ' ').toUpperCase() : 'Default'})
-              </option>
-              {registry.variants && registry.variants.map((v) => (
-                <option key={v.variant_id} value={v.variant_id}>
-                  {v.variant_id.replace('_', ' ').toUpperCase()} ({v.dataset}) — MAPE: {v.metrics?.mape ? `${v.metrics.mape}%` : 'N/A'} {v.is_default ? '★ Active' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+
 
           {/* CTA */}
           <div className="vwsp-cta">

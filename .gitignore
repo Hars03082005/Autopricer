@@ -71,8 +71,7 @@ run_all_training.py
 !ml_training/clean_data-1.py
 !ml_training/train-1.py
 
-# ── Model Registry: keep ONLY Variant 2 ──────────────────────────────────────
-model_registry/variant_3/
+# ── Model Registry: keep Variant 1, 2, and 3 ──────────────────────────────────
 model_registry/variant_4/
 model_registry/variant_5/
 model_registry/variant_6/

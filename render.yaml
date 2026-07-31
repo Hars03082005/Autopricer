@@ -10,7 +10,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: ACTIVE_VARIANT_ID
-        value: variant_2
+        value: variant_1
       - key: CUDA_VISIBLE_DEVICES
         value: ""
       - key: OMP_NUM_THREADS
