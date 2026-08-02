@@ -1,0 +1,200 @@
+segment,seller type,certified,city,make,model,trim,odometer,fuel,trans,rto,selling price,owner,color,age
+Mass Market,S5,No,Bangalore,MG,Hector,15 sharp cvt,25143.0,Petrol,Automatic,KA-19,1384000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Skoda,Octavia,lk 20 tsi at,36188.0,Petrol,Automatic,KA-01,2474000.0,1.0,Maroon,4.0
+Mass Market,S5,No,Bangalore,Skoda,Kushaq,15 style tsi at,43014.0,Petrol,Automatic,KA-03,1394000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Skoda,Slavia,style 10 tsi at,25548.0,Petrol,Automatic,KA-55,1443000.0,1.0,Maroon,2.0
+Mass Market,S5,No,Bangalore,Tata,Altroz,dca xz plus 12 p fixed,9293.0,Petrol,Automatic,KA-01,799000.0,1.0,Black,3.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 14 7dct gtx plus,48491.0,Petrol,Automatic,KA-53,1189000.0,2.0,White,6.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Xl6,smart hybrid zeta mt,41195.0,Petrol,Manual,KA-51,914000.0,1.0,Red,7.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,15 gt plus tsi dsg,34765.0,Petrol,Automatic,KA-01,1542000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,1 4 turbo gdi dct sx o,29267.0,Petrol,Automatic,KA-05,1487000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta N Line,n8 15 turbo dct,21738.0,Petrol,Automatic,KA-01,1766000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus tsi,18397.0,Petrol,Manual,KA-04,912000.0,1.0,Black,6.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Fronx,delta plus ags,16526.0,Petrol,Automatic,KA-03,859000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv500,xuv 500 fwd w7 mt,38277.0,Diesel,Manual,KA-05,984000.0,2.0,White,8.0
+Mass Market,S5,No,Bangalore,Hyundai,Grand I10 Nios,sportz amt,17553.0,Petrol,Automatic,KA-53,657000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Toyota,Urban Cruiser Hyryder,e mt,27741.0,Petrol,Manual,KA-32,998000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,12 mpi highline mt,30963.0,Petrol,Manual,KA-04,618000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited o 44 at,24497.0,Diesel,Automatic,KA-05,2177000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,model s o2 at,46446.0,Petrol,Automatic,KA-05,1785000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,MG,Astor,zs vti tech savvy cvt,35473.0,Petrol,Automatic,KA-51,1094000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv700,ax5 pet at 5 seater,36359.0,Petrol,Automatic,KA-03,1592000.0,1.0,Maroon,3.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus mpi,48047.0,Petrol,Manual,KA-01,608000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,15 gt plus tsi dsg,19923.0,Petrol,Automatic,KA-01,1492000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Hyundai,Venue,10 turbo dct sx plus,40175.0,Petrol,Automatic,KA-03,848000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,15 crdi ex mt,30885.0,Diesel,Manual,KA-51,1194000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Tata,Tiago,xt mt,6061.0,Petrol,Manual,KA-41,457000.0,2.0,Black,6.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited o at,37996.0,Petrol,Automatic,KA-01,1668000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Celerio,zxi ags,21803.0,Petrol,Automatic,KA-04,568000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Kia,Sonet,5mt hte o mt,7308.0,Petrol,Manual,KA-05,762000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Hyundai,I20,sportz ivt,20754.0,Petrol,Automatic,KA-53,847000.0,1.0,Black,2.0
+Mass Market,S5,No,Bangalore,Honda,Amaze,rde vx cvt,10698.0,Petrol,Automatic,KA-05,882000.0,1.0,Maroon,2.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta N Line,n8 15 turbo dct,21738.0,Petrol,Automatic,KA-41,1766000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Brezza,vxi mt,12147.0,Petrol,Manual,KA-03,947000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Hyundai,Grand I10 Nios,sportz 12 amt,12271.0,Petrol,Automatic,KA-52,712000.0,1.0,Black,2.0
+Mass Market,S5,No,Bangalore,Mahindra,Thar,lx d at 4wd 4s ht,26000.0,Diesel,Automatic,KA-02,1578000.0,1.0,White,4.0
+Luxury,S5,No,Bangalore,BMW,X1,s drive20i x line,43491.0,Petrol,Automatic,KA-53,3067000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,15 htx plus mt,22746.0,Diesel,Manual,KA-01,1676000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Toyota,Innova Hycross,hybrid zx opt 7s,27846.0,Petrol,Automatic,KA-15,3442000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv700,ax7 7s at,36296.0,Petrol,Automatic,KA-05,1727000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Toyota,Urban Cruiser Hyryder,e mt,27741.0,Petrol,Manual,KA-32,1028000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Mahindra,Thar,lx 4wd ht,34480.0,Diesel,Manual,KA-01,1442000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Sonet,10 turbo 7dct gtx plus,27546.0,Petrol,Automatic,KA-03,1148000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Renault,Kwid,rxlo mt 10 sce,20003.0,Petrol,Manual,KA-04,374000.0,2.0,Black,3.0
+Mass Market,S5,No,Bangalore,Ford,Ecosport,titanium o mt,71622.0,Diesel,Manual,KA-03,586000.0,1.0,White,12.0
+Mass Market,S5,No,Bangalore,Hyundai,Tucson,20 platinum at,16667.0,Petrol,Automatic,KA-01,2176000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Kia,Carens,15 6mt prestige plus 7,44413.0,Diesel,Manual,KA-51,1374000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Carnival,limousine 7s at,80220.0,Diesel,Automatic,KA-52,2943000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,1 4 turbo gdi dct sx o,29267.0,Petrol,Automatic,KA-05,1548000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Sonet,g 10 turbo 7dct gtx,27390.0,Petrol,Automatic,KA-01,916000.0,2.0,White,6.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g15 6 mt htk,39026.0,Petrol,Manual,KA-05,876000.0,2.0,White,7.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus tsi,40664.0,Petrol,Manual,KA-02,906000.0,1.0,Black,5.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 14 7dct gtx plus,48616.0,Petrol,Automatic,KA-53,1189000.0,2.0,White,6.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv300,gasoline w6 mt,36111.0,Petrol,Manual,KA-01,698000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Ford,Freestyle,12 titanium mt,11577.0,Petrol,Manual,KA-51,634000.0,1.0,Black,5.0
+Mass Market,S5,No,Bangalore,Honda,Amaze,12 v cvt,34507.0,Petrol,Automatic,KA-04,598000.0,2.0,Maroon,8.0
+Mass Market,S5,No,Bangalore,Hyundai,Alcazar,15 prestige exe 7s mt,44277.0,Diesel,Manual,KA-01,1499000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,xz 12 rtn,44549.0,Petrol,Manual,KA-05,696000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Honda,Jazz,12 v cvt,37109.0,Petrol,Automatic,KA-53,564000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,sx executive,36826.0,Petrol,Manual,KA-53,1074000.0,2.0,White,5.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Xl6,smart hybrid zeta mt,41245.0,Petrol,Manual,KA-51,914000.0,1.0,Red,7.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,15 gt plus tsi dsg,19923.0,Petrol,Automatic,KA-01,1542000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Baleno,alpha mt,28535.0,Petrol,Manual,KA-03,756000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Ford,Ecosport,15 titanium se sunroof,35633.0,Petrol,Manual,KA-09,844000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,s 02 14 mair ddct,27612.0,Petrol,Automatic,KA-03,1893000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Ertiga,zxi plus smart hybrid,36435.0,Petrol,Automatic,KA-03,998000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,MG,Hector,sharp pro,33369.0,Petrol,Automatic,KA-51,1478000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Ciaz,vxi plus,45266.0,Petrol,Automatic,KA-03,596000.0,1.0,Maroon,9.0
+Mass Market,S5,No,Bangalore,Hyundai,I20,sportz 12 kappa,16241.0,Petrol,Automatic,KA-50,752000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,xza plus 12 rtn,48735.0,Petrol,Automatic,KA-05,599000.0,2.0,White,8.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,12 comfortline,44619.0,Petrol,Automatic,KA-05,562000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,gt plus 15 tsi dsg,22431.0,Petrol,Automatic,KA-01,1632000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Tata,Safari,7s a bs6 p2 d acc,23055.0,Diesel,Automatic,KA-03,2324000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,12 xma rtn,30820.0,Petrol,Automatic,KA-51,754000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,MG,Astor,220turbo 6at savvyred,15713.0,Petrol,Automatic,KA-05,1194000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited mair ddct,33628.0,Petrol,Automatic,KA-04,1283000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Tata,Safari,7s a bs6 p2 d acc 2024regd,41393.0,Diesel,Automatic,KA-01,1964000.0,2.0,White,2.0
+Luxury,S5,No,Bangalore,Audi,Q3 Sportback,40 tfsi q,13278.0,Petrol,Automatic,KA-01,4499000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Tata,Harrier,xza plus 20 kryotec,49771.0,Diesel,Automatic,KA-03,1547000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 6mt htx,46705.0,Petrol,Automatic,KA-05,1227000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,gt plus 15 tsi dsg,32535.0,Petrol,Automatic,KA-51,1356000.0,2.0,White,3.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 6mt htx,36473.0,Petrol,Automatic,KA-34,1444000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,16 e plus,56528.0,Petrol,Automatic,KA-53,724000.0,1.0,White,10.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 htx ivt,23936.0,Petrol,Automatic,KA-53,1294000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 htk o,12078.0,Petrol,Automatic,KA-01,1354000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,xz 12 rtn,43941.0,Petrol,Automatic,KA-05,696000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,15 mpi ivt sx,27709.0,Petrol,Automatic,KA-03,1309000.0,1.0,White,6.0
+Mass Market,S5,No,Bangalore,MG,Gloster,44 7 str sharp,43944.0,Diesel,Automatic,KA-01,2476000.0,2.0,White,6.0
+Luxury,S5,No,Bangalore,Audi,Q5,45 tfsi q tech,27532.0,Petrol,Automatic,KA-03,5079000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,16 vtvt sx at,32058.0,Petrol,Automatic,KA-19,1046000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Volkswagen,Tiguan,20l tsi elegance,24091.0,Petrol,Automatic,KA-09,2992000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Volkswagen,Virtus,gt plus 15 tsi dsg,27164.0,Petrol,Automatic,KA-04,1583000.0,1.0,Maroon,3.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus mpi,48019.0,Petrol,Automatic,KA-01,642000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus tsi,18331.0,Petrol,Automatic,KA-04,912000.0,1.0,Black,6.0
+Mass Market,S5,No,Bangalore,Renault,Kwid,rxt 10 easy r bs iv,55202.0,Petrol,Automatic,KA-41,314000.0,2.0,Black,10.0
+Mass Market,S5,No,Bangalore,Mahindra,Thar,lx d at 4wd 4s ht,25838.0,Diesel,Automatic,KA-02,1578000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Toyota,Innova Hycross,hybrid zx opt7s,6151.0,Petrol,Automatic,KA-53,3642000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,xma s,21792.0,Petrol,Automatic,KA-01,836000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Toyota,Glanza,g mt,37370.0,Petrol,Manual,KA-03,756000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Toyota,Urban Cruiser Hyryder,e mt,16129.0,Petrol,Manual,KA-41,1098000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,MG,Astor,vti tech cvt savvy red,23210.0,Petrol,Automatic,KA-05,1243000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 htx ivt,53551.0,Petrol,Automatic,KA-01,1058000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Xl6,smart hybrid zeta mt,32665.0,Petrol,Manual,KA-09,944000.0,1.0,Red,7.0
+Mass Market,S5,No,Bangalore,Hyundai,I20 N Line,n8 10 turbo dct,1101.0,Petrol,Automatic,KA-01,1212000.0,1.0,Black,1.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Grand Vitara,strong hybrid alpha plus at,16120.0,Petrol,Automatic,KA-05,1863000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv700,ax7 7s,36406.0,Petrol,Manual,KA-51,1624000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Honda,Elevate,vx mt,24635.0,Petrol,Manual,KA-01,1248000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,MG,Hector,sharp mt,34157.0,Diesel,Manual,KA-05,1478000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,sx executive,36819.0,Petrol,Manual,KA-53,1074000.0,2.0,White,5.0
+Mass Market,S5,No,Bangalore,MG,Astor,zs vti tech style mt,35517.0,Petrol,Manual,KA-33,794000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,gt tsi at,42923.0,Petrol,Automatic,KA-03,998000.0,2.0,Black,5.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,highline 10 tsi at,32991.0,Petrol,Automatic,KA-01,1149000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Hyundai,Santro,11 corporate amt 2021regd,19684.0,Petrol,Automatic,KA-05,484000.0,1.0,Black,5.0
+Mass Market,S5,No,Bangalore,MG,Hector,savvy pro cvt,39671.0,Petrol,Automatic,KA-51,1643000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Baleno,aplha ags,17717.0,Petrol,Automatic,KA-01,854000.0,1.0,Black,3.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus mpi,48019.0,Petrol,Manual,KA-01,642000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Baleno,alpha ags,29221.0,Petrol,Automatic,KA-05,814000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Ertiga,smart hybrid zxi at,27616.0,Petrol,Automatic,KA-05,899000.0,2.0,White,7.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv700,ax5 mt 7s,52183.0,Diesel,Manual,KA-03,1587000.0,2.0,White,4.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,15 gtx plus at,34965.0,Diesel,Automatic,KA-53,1741000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv500,fwd w11 mt,69936.0,Diesel,Manual,KA-01,1267000.0,2.0,White,8.0
+Mass Market,S5,No,Bangalore,Hyundai,I20 N Line,n8 10 turbo dct dt,537.0,Petrol,Automatic,KA-01,1212000.0,1.0,Black,0.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,15 htx plus mt,22746.0,Diesel,Manual,KA-01,1737000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Fronx,delta plus ags,16526.0,Petrol,Automatic,KA-03,879000.0,1.0,White,3.0
+Luxury,S5,No,Bangalore,Mercedes-Benz,C Class,c200 at,9617.0,Petrol,Automatic,KA-51,5144000.0,1.0,Maroon,2.0
+Mass Market,S5,No,Bangalore,Tata,Altroz,dca xz plus 12 p fixed,9293.0,Petrol,Automatic,KA-01,822000.0,1.0,Black,3.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,xz mt,22514.0,Petrol,Manual,KA-03,774000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Skoda,Kushaq,15 style tsi at,29340.0,Petrol,Automatic,KA-19,1243000.0,2.0,White,4.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Ertiga,zxi plus smart hybrid,36435.0,Petrol,Manual,KA-03,998000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Hyundai,Verna,16 sx o at,50878.0,Petrol,Automatic,KA-05,844000.0,2.0,Maroon,8.0
+Mass Market,S5,No,Bangalore,MG,Hector,sharp pro,33369.0,Petrol,Manual,KA-51,1478000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Skoda,Superb,20 lk tsi at,5085.0,Petrol,Automatic,KA-50,4223000.0,1.0,Maroon,2.0
+Mass Market,S5,No,Bangalore,Hyundai,Grand I10 Nios,12 amt kappa sportz,38813.0,Petrol,Automatic,KA-03,618000.0,1.0,Black,6.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g15 6 mt htk,39026.0,Petrol,Manual,KA-05,897000.0,2.0,White,7.0
+Mass Market,S5,No,Bangalore,Tata,Tiago,xt mt,21861.0,Petrol,Manual,KA-51,546000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Ciaz,vxi plus,45266.0,Petrol,Manual,KA-03,596000.0,1.0,Maroon,9.0
+Mass Market,S5,No,Bangalore,Hyundai,I20,sportz 12 kappa,16241.0,Petrol,Manual,KA-50,752000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv500,w8 mt,49639.0,Diesel,Manual,KA-05,867000.0,1.0,White,11.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited o 44 at,24497.0,Diesel,Automatic,KA-05,2277000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,model s o2 at,46446.0,Petrol,Automatic,KA-05,1845000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited o at,29339.0,Petrol,Automatic,KA-53,1677000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Skoda,Kushaq,style 10 tsi at,15645.0,Petrol,Automatic,KA-03,1297000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,12 comfortline,44619.0,Petrol,Manual,KA-05,562000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 6 mt htx,26416.0,Petrol,Manual,KA-53,1393000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Hyundai,Aura,12 kappa s amt,9402.0,Petrol,Automatic,KA-50,648000.0,1.0,Maroon,4.0
+Mass Market,S5,No,Bangalore,Skoda,Kushaq,style 15 tsi at,34799.0,Petrol,Automatic,KA-03,1342000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Volkswagen,Virtus,topline 10 tsi at,31577.0,Petrol,Automatic,KA-02,1386000.0,1.0,Maroon,4.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Fronx,delta ags,12880.0,Petrol,Automatic,KA-01,879000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,15 mpi sx mt,44773.0,Petrol,Manual,KA-03,1158000.0,1.0,White,6.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,sx crdi at,35374.0,Diesel,Automatic,KA-03,1517000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Xl6,smart hybrid zeta mt,32440.0,Petrol,Manual,KA-09,944000.0,1.0,Red,7.0
+Mass Market,S5,No,Bangalore,Kia,Carnival,d 22 8 at limousine 7,100090.0,Diesel,Automatic,KA-04,2374000.0,1.0,White,6.0
+Mass Market,S5,No,Bangalore,Skoda,Kylaq,10 signaturetsi at,20343.0,Petrol,Automatic,KA-50,987000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Hyundai,I20,new new sportz mt,30461.0,Petrol,Manual,KA-05,697000.0,1.0,Black,5.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,highline 10 tsi at,33070.0,Petrol,Automatic,KA-01,1149000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,MG,Astor,zs vti tech savvy cvt,35473.0,Petrol,Automatic,KA-51,1124000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,S-Cross,s cross s cross smart hybrid alpha mt,30515.0,Petrol,Manual,KA-41,782000.0,2.0,White,6.0
+Mass Market,S5,No,Bangalore,Skoda,Slavia,style 10 tsi mt,16106.0,Petrol,Manual,KA-01,1218000.0,1.0,Maroon,3.0
+Mass Market,S5,No,Bangalore,Volkswagen,Taigun,topline 10 tsi at,20335.0,Petrol,Automatic,KA-03,1296000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,16 s vtvt mt,77297.0,Petrol,Manual,KA-05,684000.0,2.0,White,11.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv300,gasoline w6 mt,36111.0,Petrol,Manual,KA-01,722000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv700,ax5 pet at 5 seater,36359.0,Petrol,Automatic,KA-03,1642000.0,1.0,Maroon,3.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 6mt htx,46705.0,Petrol,Manual,KA-05,1227000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,16 vtvt sx at,79103.0,Petrol,Automatic,KA-51,886000.0,1.0,White,8.0
+Mass Market,S5,No,Bangalore,Ford,Freestyle,12 titanium mt,11577.0,Petrol,Manual,KA-51,656000.0,1.0,Black,5.0
+Mass Market,S5,No,Bangalore,Honda,Amaze,12 v cvt,34507.0,Petrol,Automatic,KA-04,628000.0,2.0,Maroon,8.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 6mt htx,36473.0,Petrol,Manual,KA-34,1382000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Hyundai,Alcazar,15 prestige exe 7s mt,44277.0,Diesel,Manual,KA-01,1542000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Skoda,Slavia,style 10 tsi at,25421.0,Petrol,Automatic,KA-35,1393000.0,1.0,Maroon,2.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited o at,22156.0,Petrol,Automatic,KA-01,1742000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,16 e plus,56528.0,Petrol,Manual,KA-53,724000.0,1.0,White,10.0
+Mass Market,S5,No,Bangalore,Skoda,Slavia,style 10 tsi at,20903.0,Petrol,Automatic,KA-01,1324000.0,1.0,Maroon,3.0
+Mass Market,S5,No,Bangalore,Kia,Seltos,g 15 htk o,12078.0,Petrol,Manual,KA-01,1354000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Tata,Nexon,xz 12 rtn,43941.0,Petrol,Manual,KA-05,696000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,15 mpi ivt sx,27709.0,Petrol,Automatic,KA-03,1294000.0,1.0,White,6.0
+Mass Market,S5,No,Bangalore,Jeep,Compass,limited plus 44 at,48154.0,Diesel,Automatic,KA-04,1643000.0,1.0,White,6.0
+Mass Market,S5,No,Bangalore,Honda,Jazz,12 v cvt,37109.0,Petrol,Automatic,KA-53,593000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Skoda,Octavia,style 18 tsi at,57111.0,Petrol,Automatic,KA-01,1432000.0,1.0,Maroon,8.0
+Mass Market,S5,No,Bangalore,MG,Hector,savvy pro cvt,40048.0,Petrol,Automatic,KA-51,1643000.0,1.0,White,2.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,16 vtvt sx at,32121.0,Petrol,Automatic,KA-19,1046000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Baleno,aplha ags,17762.0,Petrol,Automatic,KA-01,854000.0,1.0,Black,3.0
+Mass Market,S5,No,Bangalore,Volkswagen,Virtus,gt plus 15 tsi dsg,27187.0,Petrol,Automatic,KA-04,1583000.0,1.0,Maroon,3.0
+Mass Market,S5,No,Bangalore,MG,Hector,sharp dct,34989.0,Petrol,Automatic,KA-05,1194000.0,1.0,White,7.0
+Mass Market,S5,No,Bangalore,Mahindra,Xuv700,ax7 7s,36384.0,Petrol,Manual,KA-51,1624000.0,1.0,White,5.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus mpi,48047.0,Petrol,Manual,KA-01,642000.0,2.0,Black,8.0
+Mass Market,S5,No,Bangalore,Hyundai,I20 N Line,n8 10 turbo dct,1037.0,Petrol,Automatic,KA-01,1212000.0,1.0,Black,1.0
+Mass Market,S5,No,Bangalore,Honda,Elevate,vx mt,24625.0,Petrol,Manual,KA-01,1248000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Toyota,Urban Cruiser Hyryder,e mt,16099.0,Petrol,Manual,KA-41,1098000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Toyota,Glanza,g mt,37326.0,Petrol,Manual,KA-03,756000.0,1.0,Black,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Creta,sx executive,36793.0,Petrol,Manual,KA-53,1074000.0,2.0,White,5.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Grand Vitara,strong hybrid alpha plus at,15504.0,Petrol,Automatic,KA-05,1863000.0,1.0,White,1.0
+Mass Market,S5,No,Bangalore,Tata,Altroz,dca xz plus sunroof,12960.0,Petrol,Automatic,KA-53,816000.0,1.0,Black,3.0
+Mass Market,S5,No,Bangalore,MG,Hector,shine cvt,39473.0,Petrol,Automatic,KA-04,1182000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Mahindra,Thar,lx d at 4wd 4s ht,26833.0,Diesel,Automatic,KA-03,1598000.0,1.0,White,3.0
+Mass Market,S5,No,Bangalore,Maruti Suzuki,Grand Vitara,smart hybrid alpha at,30449.0,Petrol,Automatic,KA-03,1384000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Skoda,Slavia,style 15 tsi mt,33342.0,Petrol,Manual,KA-04,1297000.0,1.0,Maroon,4.0
+Mass Market,S5,No,Bangalore,MG,Astor,zs vti tech style mt,23171.0,Petrol,Manual,KA-51,794000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Skoda,Kushaq,style 10 tsi at,27400.0,Petrol,Automatic,KA-03,1341000.0,1.0,White,4.0
+Mass Market,S5,No,Bangalore,Skoda,Slavia,style 10 tsi at,39371.0,Petrol,Automatic,KA-03,1297000.0,1.0,Maroon,4.0
+Mass Market,S5,No,Bangalore,Hyundai,Venue,10 turbo gdi sx mt,45740.0,Petrol,Manual,KA-53,828000.0,1.0,White,6.0
+Mass Market,S5,No,Bangalore,Volkswagen,Polo,10 highline plus tsi,18331.0,Petrol,Manual,KA-04,912000.0,1.0,Black,6.0

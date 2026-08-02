@@ -1,0 +1,174 @@
+brand,model,variant,fuel_type,transmission,odometer_reading,selling_price,owner_count,seller_type,certified,city,rto,color,vehicle_age,year,km_per_year,log_selling_price
+mg,hector,15 sharp cvt,petrol,automatic,25143.0,1384000.0,1,s5,0,bangalore,ka-19,white,4,2022,6285.75,14.140489137702843
+skoda,octavia,lk 20 tsi at,petrol,automatic,36188.0,2474000.0,1,s5,0,bangalore,ka-01,maroon,4,2022,9047.0,14.721347236138207
+skoda,kushaq,15 style tsi at,petrol,automatic,43014.0,1394000.0,1,s5,0,bangalore,ka-03,white,4,2022,10753.5,14.147688587662463
+skoda,slavia,style 10 tsi at,petrol,automatic,25548.0,1443000.0,1,s5,0,bangalore,ka-55,maroon,2,2024,12774.0,14.182235530756461
+tata,altroz,dca xz plus 12 p fixed,petrol,automatic,9293.0,799000.0,1,s5,0,bangalore,ka-01,black,3,2023,3097.6666666666665,13.591117476312084
+kia,seltos,g 14 7dct gtx plus,petrol,automatic,48491.0,1189000.0,2,s5,0,bangalore,ka-53,white,6,2020,8081.833333333333,13.988624016715459
+maruti suzuki,xl6,smart hybrid zeta mt,petrol,manual,41195.0,914000.0,1,s5,0,bangalore,ka-51,red,7,2019,5885.0,13.725586944527592
+volkswagen,taigun,15 gt plus tsi dsg,petrol,automatic,34765.0,1542000.0,1,s5,0,bangalore,ka-01,white,3,2023,11588.333333333334,14.248591481613632
+hyundai,creta,1 4 turbo gdi dct sx o,petrol,automatic,29267.0,1487000.0,1,s5,0,bangalore,ka-05,white,4,2022,7316.75,14.212271897937022
+hyundai,creta n line,n8 15 turbo dct,petrol,automatic,21738.0,1766000.0,1,s5,0,bangalore,ka-01,white,2,2024,10869.0,14.384228226397298
+volkswagen,polo,10 highline plus tsi,petrol,manual,18397.0,912000.0,1,s5,0,bangalore,ka-04,black,6,2020,3066.1666666666665,13.723396365547096
+maruti suzuki,fronx,delta plus ags,petrol,automatic,16526.0,859000.0,1,s5,0,bangalore,ka-03,white,3,2023,5508.666666666667,13.663525365110068
+hyundai,grand i10 nios,sportz amt,petrol,automatic,17553.0,657000.0,1,s5,0,bangalore,ka-53,black,4,2022,4388.25,13.395440819535605
+toyota,urban cruiser hyryder,e mt,petrol,manual,27741.0,998000.0,1,s5,0,bangalore,ka-32,white,1,2025,27741.0,13.813509557297108
+jeep,compass,limited o 44 at,diesel,automatic,24497.0,2177000.0,1,s5,0,bangalore,ka-05,white,4,2022,6124.25,14.593458799564305
+jeep,compass,model s o2 at,petrol,automatic,46446.0,1785000.0,1,s5,0,bangalore,ka-05,white,4,2022,11611.5,14.394929533419809
+mg,astor,zs vti tech savvy cvt,petrol,automatic,35473.0,1094000.0,1,s5,0,bangalore,ka-51,white,4,2022,8868.25,13.905352176040429
+mahindra,xuv700,ax5 pet at 5 seater,petrol,automatic,36359.0,1592000.0,1,s5,0,bangalore,ka-03,maroon,3,2023,12119.666666666666,14.280502273526972
+volkswagen,taigun,15 gt plus tsi dsg,petrol,automatic,19923.0,1492000.0,1,s5,0,bangalore,ka-01,white,3,2023,6641.0,14.215628729986905
+hyundai,venue,10 turbo dct sx plus,petrol,automatic,40175.0,848000.0,1,s5,0,bangalore,ka-03,white,7,2019,5739.285714285715,13.650637094018627
+hyundai,creta,15 crdi ex mt,diesel,manual,30885.0,1194000.0,1,s5,0,bangalore,ka-51,white,4,2022,7721.25,13.992820410455272
+tata,tiago,xt mt,petrol,manual,6061.0,457000.0,2,s5,0,bangalore,ka-41,black,6,2020,1010.1666666666666,13.032440858057756
+jeep,compass,limited o at,petrol,automatic,37996.0,1668000.0,1,s5,0,bangalore,ka-01,white,5,2021,7599.2,14.327136461421032
+maruti suzuki,celerio,zxi ags,petrol,automatic,21803.0,568000.0,1,s5,0,bangalore,ka-04,black,4,2022,5450.75,13.249878458265119
+kia,sonet,5mt hte o mt,petrol,manual,7308.0,762000.0,1,s5,0,bangalore,ka-05,white,2,2024,3654.0,13.54370314700388
+hyundai,i20,sportz ivt,petrol,automatic,20754.0,847000.0,1,s5,0,bangalore,ka-53,black,2,2024,10377.0,13.649457154271039
+honda,amaze,rde vx cvt,petrol,automatic,10698.0,882000.0,1,s5,0,bangalore,ka-05,maroon,2,2024,5349.0,13.689948468775134
+maruti suzuki,brezza,vxi mt,petrol,manual,12147.0,947000.0,1,s5,0,bangalore,ka-03,white,1,2025,12147.0,13.761055428133867
+hyundai,grand i10 nios,sportz 12 amt,petrol,automatic,12271.0,712000.0,1,s5,0,bangalore,ka-52,black,2,2024,6135.5,13.475834594887509
+kia,seltos,15 htx plus mt,diesel,manual,22746.0,1737000.0,1,s5,0,bangalore,ka-01,white,1,2025,22746.0,14.367670620928315
+tata,nexon,xz mt,petrol,manual,22514.0,774000.0,1,s5,0,bangalore,ka-03,white,5,2021,4502.8,13.559328444560693
+kia,seltos,g15 6 mt htk,petrol,manual,39026.0,897000.0,2,s5,0,bangalore,ka-05,white,7,2019,5575.142857142857,13.706812255867513
+mg,astor,220turbo 6at savvyred,petrol,automatic,15713.0,1194000.0,1,s5,0,bangalore,ka-05,white,5,2021,3142.6,13.992820410455272
+jeep,compass,limited mair ddct,petrol,automatic,33628.0,1283000.0,1,s5,0,bangalore,ka-04,white,7,2019,4804.0,14.064712423020696
+mahindra,xuv300,gasoline w6 mt,petrol,manual,36111.0,722000.0,1,s5,0,bangalore,ka-01,white,7,2019,5158.714285714285,13.489781802915555
+ford,freestyle,12 titanium mt,petrol,manual,11577.0,656000.0,1,s5,0,bangalore,ka-51,black,5,2021,2315.4,13.393917592315308
+hyundai,alcazar,15 prestige exe 7s mt,diesel,manual,44277.0,1542000.0,1,s5,0,bangalore,ka-01,white,4,2022,11069.25,14.248591481613632
+tata,nexon,xz 12 rtn,petrol,manual,43941.0,696000.0,1,s5,0,bangalore,ka-05,white,7,2019,6277.285714285715,13.453106376097134
+maruti suzuki,baleno,aplha ags,petrol,automatic,17762.0,854000.0,1,s5,0,bangalore,ka-01,black,3,2023,5920.666666666667,13.657687643730208
+mahindra,thar,lx d at 4wd 4s ht,diesel,automatic,26000.0,1578000.0,1,s5,0,bangalore,ka-02,white,4,2022,6500.0,14.271669414101318
+volkswagen,polo,10 highline plus tsi,petrol,manual,18331.0,912000.0,1,s5,0,bangalore,ka-04,black,6,2020,3055.1666666666665,13.723396365547096
+hyundai,creta,sx executive,petrol,manual,36819.0,1074000.0,2,s5,0,bangalore,ka-53,white,5,2021,7363.8,13.88690148514921
+tata,altroz,dca xz plus 12 p fixed,petrol,automatic,9293.0,822000.0,1,s5,0,bangalore,ka-01,black,3,2023,3097.6666666666665,13.619496890582589
+maruti suzuki,ertiga,zxi plus smart hybrid,petrol,manual,36435.0,998000.0,1,s5,0,bangalore,ka-03,white,5,2021,7287.0,13.813509557297108
+volkswagen,polo,gt tsi at,petrol,automatic,42923.0,998000.0,2,s5,0,bangalore,ka-03,black,5,2021,8584.6,13.813509557297108
+mg,hector,shine cvt,petrol,automatic,39473.0,1182000.0,1,s5,0,bangalore,ka-04,white,4,2022,9868.25,13.982719322971512
+maruti suzuki,grand vitara,smart hybrid alpha at,petrol,automatic,30449.0,1384000.0,1,s5,0,bangalore,ka-03,white,4,2022,7612.25,14.140489137702843
+volkswagen,taigun,gt plus 15 tsi dsg,petrol,automatic,32535.0,1356000.0,2,s5,0,bangalore,ka-51,white,3,2023,10845.0,14.120050484945333
+bmw,x1,s drive20i x line,petrol,automatic,43491.0,3067000.0,1,s5,0,bangalore,ka-53,white,4,2022,10872.75,14.936210769147852
+kia,seltos,15 htx plus mt,diesel,manual,22746.0,1676000.0,1,s5,0,bangalore,ka-01,white,1,2025,22746.0,14.331921156682698
+maruti suzuki,fronx,delta plus ags,petrol,automatic,16526.0,879000.0,1,s5,0,bangalore,ka-03,white,3,2023,5508.666666666667,13.686541314323094
+mercedes-benz,c class,c200 at,petrol,automatic,9617.0,5144000.0,1,s5,0,bangalore,ka-51,maroon,2,2024,4808.5,15.453341739300818
+jeep,compass,s 02 14 mair ddct,petrol,automatic,27612.0,1893000.0,1,s5,0,bangalore,ka-03,white,4,2022,6903.0,14.453673958453338
+skoda,kushaq,15 style tsi at,petrol,automatic,29340.0,1243000.0,2,s5,0,bangalore,ka-19,white,4,2022,7335.0,14.033039174997754
+tata,nexon,xma s,petrol,automatic,21792.0,836000.0,1,s5,0,bangalore,ka-01,white,3,2023,7264.0,13.636385088238372
+toyota,innova hycross,hybrid zx opt 7s,petrol,automatic,27846.0,3442000.0,1,s5,0,bangalore,ka-15,white,3,2023,9282.0,15.051563546282342
+toyota,glanza,g mt,petrol,manual,37370.0,756000.0,1,s5,0,bangalore,ka-03,black,4,2022,9342.5,13.535797977912118
+mahindra,xuv700,ax7 7s at,petrol,automatic,36296.0,1727000.0,1,s5,0,bangalore,ka-05,white,4,2022,9074.0,14.361896936167444
+toyota,urban cruiser hyryder,e mt,petrol,manual,27741.0,1028000.0,1,s5,0,bangalore,ka-32,white,1,2025,27741.0,13.84312669775942
+mahindra,thar,lx 4wd ht,diesel,manual,34480.0,1442000.0,1,s5,0,bangalore,ka-01,white,4,2022,8620.0,14.181542290308068
+kia,sonet,10 turbo 7dct gtx plus,petrol,automatic,27546.0,1148000.0,1,s5,0,bangalore,ka-03,white,3,2023,9182.0,13.95353272694141
+renault,kwid,rxlo mt 10 sce,petrol,manual,20003.0,374000.0,2,s5,0,bangalore,ka-04,black,3,2023,6667.666666666667,12.832013750189885
+hyundai,tucson,20 platinum at,petrol,automatic,16667.0,2176000.0,1,s5,0,bangalore,ka-01,white,3,2023,5555.666666666667,14.592999346516688
+kia,carens,15 6mt prestige plus 7,diesel,manual,44413.0,1374000.0,1,s5,0,bangalore,ka-51,white,4,2022,11103.25,14.133237479566205
+kia,carnival,limousine 7s at,diesel,automatic,80220.0,2943000.0,1,s5,0,bangalore,ka-52,white,4,2022,20055.0,14.894940367004883
+hyundai,creta,1 4 turbo gdi dct sx o,petrol,automatic,29267.0,1548000.0,1,s5,0,bangalore,ka-05,white,4,2022,7316.75,14.252474979126433
+kia,sonet,g 10 turbo 7dct gtx,petrol,automatic,27390.0,916000.0,2,s5,0,bangalore,ka-01,white,6,2020,4565.0,13.727772735358728
+toyota,urban cruiser hyryder,e mt,petrol,manual,16129.0,1098000.0,1,s5,0,bangalore,ka-41,white,1,2025,16129.0,13.90900181179801
+mg,astor,vti tech cvt savvy red,petrol,automatic,23210.0,1243000.0,1,s5,0,bangalore,ka-05,white,4,2022,5802.5,14.033039174997754
+kia,seltos,g 15 htx ivt,petrol,automatic,53551.0,1058000.0,1,s5,0,bangalore,ka-01,white,7,2019,7650.142857142857,13.871891836579518
+mg,hector,sharp pro,petrol,manual,33369.0,1478000.0,1,s5,0,bangalore,ka-51,white,3,2023,11123.0,14.206201057080042
+skoda,superb,20 lk tsi at,petrol,automatic,5085.0,4223000.0,1,s5,0,bangalore,ka-50,maroon,2,2024,2542.5,15.256056570714538
+hyundai,grand i10 nios,12 amt kappa sportz,petrol,automatic,38813.0,618000.0,1,s5,0,bangalore,ka-03,black,6,2020,6468.833333333333,13.334245354561496
+kia,seltos,g15 6 mt htk,petrol,manual,39026.0,876000.0,2,s5,0,bangalore,ka-05,white,7,2019,5575.142857142857,13.683122511470389
+volkswagen,polo,10 highline plus tsi,petrol,manual,40664.0,906000.0,1,s5,0,bangalore,ka-02,black,5,2021,8132.8,13.716795688777268
+kia,seltos,g 14 7dct gtx plus,petrol,automatic,48616.0,1189000.0,2,s5,0,bangalore,ka-53,white,6,2020,8102.666666666667,13.988624016715459
+tata,tiago,xt mt,petrol,manual,21861.0,546000.0,1,s5,0,bangalore,ka-51,black,4,2022,5465.25,13.210376086227196
+jeep,compass,limited o 44 at,diesel,automatic,24497.0,2277000.0,1,s5,0,bangalore,ka-05,white,4,2022,6124.25,14.638369784220133
+jeep,compass,model s o2 at,petrol,automatic,46446.0,1845000.0,1,s5,0,bangalore,ka-05,white,4,2022,11611.5,14.427990377462038
+jeep,compass,limited o at,petrol,automatic,29339.0,1677000.0,1,s5,0,bangalore,ka-53,white,5,2021,5867.8,14.33251763710809
+skoda,kushaq,style 10 tsi at,petrol,automatic,15645.0,1297000.0,1,s5,0,bangalore,ka-03,white,4,2022,3911.25,14.075565234308307
+hyundai,aura,12 kappa s amt,petrol,automatic,9402.0,648000.0,1,s5,0,bangalore,ka-50,maroon,4,2022,2350.5,13.381647518543097
+skoda,kushaq,style 15 tsi at,petrol,automatic,34799.0,1342000.0,1,s5,0,bangalore,ka-03,white,5,2021,6959.8,14.109672341669969
+volkswagen,virtus,topline 10 tsi at,petrol,automatic,31577.0,1386000.0,1,s5,0,bangalore,ka-02,maroon,4,2022,7894.25,14.141933180232447
+tata,nexon,12 xma rtn,petrol,automatic,30820.0,754000.0,1,s5,0,bangalore,ka-51,white,4,2022,7705.0,13.53314897324916
+maruti suzuki,fronx,delta ags,petrol,automatic,12880.0,879000.0,1,s5,0,bangalore,ka-01,white,3,2023,4293.333333333333,13.686541314323094
+hyundai,creta,15 mpi sx mt,petrol,manual,44773.0,1158000.0,1,s5,0,bangalore,ka-03,white,6,2020,7462.166666666667,13.962205800672564
+hyundai,creta,sx crdi at,diesel,automatic,35374.0,1517000.0,1,s5,0,bangalore,ka-03,white,5,2021,7074.8,14.232245917526233
+kia,carnival,d 22 8 at limousine 7,diesel,automatic,100090.0,2374000.0,1,s5,0,bangalore,ka-04,white,6,2020,16681.666666666668,14.680087275381654
+hyundai,i20,new new sportz mt,petrol,manual,30461.0,697000.0,1,s5,0,bangalore,ka-05,black,5,2021,6092.2,13.454542124461861
+tata,safari,7s a bs6 p2 d acc 2024regd,diesel,automatic,41393.0,1964000.0,2,s5,0,bangalore,ka-01,white,2,2024,20696.5,14.490494277061389
+audi,q3 sportback,40 tfsi q,petrol,automatic,13278.0,4499000.0,1,s5,0,bangalore,ka-01,white,3,2023,4426.0,15.3193659300949
+mg,astor,zs vti tech savvy cvt,petrol,automatic,35473.0,1124000.0,1,s5,0,bangalore,ka-51,white,4,2022,8868.25,13.932405199115093
+maruti suzuki,s-cross,s cross s cross smart hybrid alpha mt,petrol,manual,30515.0,782000.0,2,s5,0,bangalore,ka-41,white,6,2020,5085.833333333333,13.569611298299009
+skoda,slavia,style 10 tsi mt,petrol,manual,16106.0,1218000.0,1,s5,0,bangalore,ka-01,maroon,3,2023,5368.666666666667,14.012721548269704
+tata,harrier,xza plus 20 kryotec,diesel,automatic,49771.0,1547000.0,1,s5,0,bangalore,ka-03,white,5,2021,9954.2,14.251828775967406
+volkswagen,taigun,topline 10 tsi at,petrol,automatic,20335.0,1296000.0,1,s5,0,bangalore,ka-03,white,4,2022,5083.75,14.074793927498998
+mahindra,xuv300,gasoline w6 mt,petrol,manual,36111.0,698000.0,1,s5,0,bangalore,ka-01,white,7,2019,5158.714285714285,13.455975814408239
+mahindra,xuv700,ax5 pet at 5 seater,petrol,automatic,36359.0,1642000.0,1,s5,0,bangalore,ka-03,maroon,3,2023,12119.666666666666,14.311426178007723
+kia,seltos,g 15 6mt htx,petrol,manual,46705.0,1227000.0,1,s5,0,bangalore,ka-05,white,3,2023,15568.333333333334,14.020083538688642
+ford,freestyle,12 titanium mt,petrol,manual,11577.0,634000.0,1,s5,0,bangalore,ka-51,black,5,2021,2315.4,13.359805810705184
+kia,seltos,g 15 6mt htx,petrol,manual,36473.0,1382000.0,1,s5,0,bangalore,ka-34,white,2,2024,18236.5,14.139043006898492
+hyundai,alcazar,15 prestige exe 7s mt,diesel,manual,44277.0,1499000.0,1,s5,0,bangalore,ka-01,white,4,2022,11069.25,14.22030944419592
+skoda,slavia,style 10 tsi at,petrol,automatic,25421.0,1393000.0,1,s5,0,bangalore,ka-35,maroon,2,2024,12710.5,14.146970970636774
+jeep,compass,limited o at,petrol,automatic,22156.0,1742000.0,1,s5,0,bangalore,ka-01,white,4,2022,5539.0,14.370545010447234
+kia,seltos,g 15 htx ivt,petrol,automatic,23936.0,1294000.0,1,s5,0,bangalore,ka-53,white,4,2022,5984.0,14.073249526840211
+skoda,slavia,style 10 tsi at,petrol,automatic,20903.0,1324000.0,1,s5,0,bangalore,ka-01,maroon,3,2023,6967.666666666667,14.096168770765814
+kia,seltos,g 15 htk o,petrol,manual,12078.0,1354000.0,1,s5,0,bangalore,ka-01,white,1,2025,12078.0,14.118574471006522
+hyundai,i20 n line,n8 10 turbo dct,petrol,automatic,1101.0,1212000.0,1,s5,0,bangalore,ka-01,black,1,2025,1101.0,14.007783270693565
+tata,nexon,xz 12 rtn,petrol,manual,44549.0,696000.0,1,s5,0,bangalore,ka-05,white,7,2019,6364.142857142857,13.453106376097134
+jeep,compass,limited plus 44 at,diesel,automatic,48154.0,1643000.0,1,s5,0,bangalore,ka-04,white,6,2020,8025.666666666667,14.312035005661947
+mg,gloster,44 7 str sharp,diesel,automatic,43944.0,2476000.0,2,s5,0,bangalore,ka-01,white,6,2020,7324.0,14.722155316663764
+audi,q5,45 tfsi q tech,petrol,automatic,27532.0,5079000.0,1,s5,0,bangalore,ka-03,white,4,2022,6883.0,15.440625146672515
+mg,hector,savvy pro cvt,petrol,automatic,40048.0,1643000.0,1,s5,0,bangalore,ka-51,white,2,2024,20024.0,14.312035005661947
+hyundai,creta,16 vtvt sx at,petrol,automatic,32121.0,1046000.0,1,s5,0,bangalore,ka-19,white,7,2019,4588.714285714285,13.860484879629492
+volkswagen,tiguan,20l tsi elegance,petrol,automatic,24091.0,2992000.0,1,s5,0,bangalore,ka-09,white,2,2024,12045.5,14.911452952301048
+hyundai,creta,sx executive,petrol,manual,36826.0,1074000.0,2,s5,0,bangalore,ka-53,white,5,2021,7365.2,13.88690148514921
+maruti suzuki,grand vitara,strong hybrid alpha plus at,petrol,automatic,16120.0,1863000.0,1,s5,0,bangalore,ka-05,white,1,2025,16120.0,14.437699186352233
+mg,hector,sharp dct,petrol,automatic,34989.0,1194000.0,1,s5,0,bangalore,ka-05,white,7,2019,4998.428571428572,13.992820410455272
+mahindra,xuv700,ax7 7s,petrol,manual,36406.0,1624000.0,1,s5,0,bangalore,ka-51,white,5,2021,7281.2,14.300403415467118
+honda,elevate,vx mt,petrol,manual,24635.0,1248000.0,1,s5,0,bangalore,ka-01,white,3,2023,8211.666666666666,14.03705362919324
+maruti suzuki,xl6,smart hybrid zeta mt,petrol,manual,41245.0,914000.0,1,s5,0,bangalore,ka-51,red,7,2019,5892.142857142857,13.725586944527592
+volkswagen,taigun,15 gt plus tsi dsg,petrol,automatic,19923.0,1542000.0,1,s5,0,bangalore,ka-01,white,3,2023,6641.0,14.248591481613632
+maruti suzuki,baleno,alpha mt,petrol,manual,28535.0,756000.0,1,s5,0,bangalore,ka-03,black,4,2022,7133.75,13.535797977912118
+mg,astor,zs vti tech style mt,petrol,manual,35517.0,794000.0,1,s5,0,bangalore,ka-33,white,4,2022,8879.25,13.584839999674324
+toyota,innova hycross,hybrid zx opt7s,petrol,automatic,6151.0,3642000.0,1,s5,0,bangalore,ka-53,white,1,2025,6151.0,15.108043813844063
+ford,ecosport,15 titanium se sunroof,petrol,manual,35633.0,844000.0,1,s5,0,bangalore,ka-09,white,5,2021,7126.6,13.645908958411516
+kia,seltos,g 15 6 mt htx,petrol,manual,26416.0,1393000.0,1,s5,0,bangalore,ka-53,white,2,2024,13208.0,14.146970970636774
+maruti suzuki,xl6,smart hybrid zeta mt,petrol,manual,32665.0,944000.0,1,s5,0,bangalore,ka-09,red,7,2019,4666.428571428572,13.75788250444911
+skoda,kylaq,10 signaturetsi at,petrol,automatic,20343.0,987000.0,1,s5,0,bangalore,ka-50,white,1,2025,20343.0,13.80242633158633
+skoda,kushaq,style 10 tsi at,petrol,automatic,27400.0,1341000.0,1,s5,0,bangalore,ka-03,white,4,2022,6850.0,14.108926907975693
+skoda,slavia,style 10 tsi at,petrol,automatic,39371.0,1297000.0,1,s5,0,bangalore,ka-03,maroon,4,2022,9842.75,14.075565234308307
+hyundai,creta,15 mpi ivt sx,petrol,automatic,27709.0,1294000.0,1,s5,0,bangalore,ka-03,white,6,2020,4618.166666666667,14.073249526840211
+mg,hector,sharp mt,diesel,manual,34157.0,1478000.0,1,s5,0,bangalore,ka-05,white,4,2022,8539.25,14.206201057080042
+maruti suzuki,ertiga,zxi plus smart hybrid,petrol,automatic,36435.0,998000.0,1,s5,0,bangalore,ka-03,white,5,2021,7287.0,13.813509557297108
+mg,hector,sharp pro,petrol,automatic,33369.0,1478000.0,1,s5,0,bangalore,ka-51,white,3,2023,11123.0,14.206201057080042
+hyundai,i20,sportz 12 kappa,petrol,automatic,16241.0,752000.0,1,s5,0,bangalore,ka-50,black,4,2022,4060.25,13.530492932718326
+volkswagen,taigun,gt plus 15 tsi dsg,petrol,automatic,22431.0,1632000.0,1,s5,0,bangalore,ka-01,white,2,2024,11215.5,14.305317427251099
+tata,safari,7s a bs6 p2 d acc,diesel,automatic,23055.0,2324000.0,1,s5,0,bangalore,ka-03,white,2,2024,11527.5,14.658800827246445
+kia,seltos,g 15 6mt htx,petrol,automatic,46705.0,1227000.0,1,s5,0,bangalore,ka-05,white,3,2023,15568.333333333334,14.020083538688642
+kia,seltos,g 15 6mt htx,petrol,automatic,36473.0,1444000.0,1,s5,0,bangalore,ka-34,white,2,2024,18236.5,14.182928290955445
+kia,seltos,g 15 htk o,petrol,automatic,12078.0,1354000.0,1,s5,0,bangalore,ka-01,white,1,2025,12078.0,14.118574471006522
+tata,nexon,xz 12 rtn,petrol,automatic,43941.0,696000.0,1,s5,0,bangalore,ka-05,white,7,2019,6277.285714285715,13.453106376097134
+hyundai,creta,15 mpi ivt sx,petrol,automatic,27709.0,1309000.0,1,s5,0,bangalore,ka-03,white,6,2020,4618.166666666667,14.084774808833686
+hyundai,creta,16 vtvt sx at,petrol,automatic,32058.0,1046000.0,1,s5,0,bangalore,ka-19,white,7,2019,4579.714285714285,13.860484879629492
+volkswagen,virtus,gt plus 15 tsi dsg,petrol,automatic,27164.0,1583000.0,1,s5,0,bangalore,ka-04,maroon,3,2023,9054.666666666666,14.27483297057489
+volkswagen,polo,10 highline plus tsi,petrol,automatic,18331.0,912000.0,1,s5,0,bangalore,ka-04,black,6,2020,3055.1666666666665,13.723396365547096
+mahindra,thar,lx d at 4wd 4s ht,diesel,automatic,25838.0,1578000.0,1,s5,0,bangalore,ka-02,white,5,2021,5167.6,14.271669414101318
+volkswagen,taigun,highline 10 tsi at,petrol,automatic,32991.0,1149000.0,1,s5,0,bangalore,ka-01,white,3,2023,10997.0,13.954403427152533
+hyundai,santro,11 corporate amt 2021regd,petrol,automatic,19684.0,484000.0,1,s5,0,bangalore,ka-05,black,5,2021,3936.8,13.089842251812337
+mg,hector,savvy pro cvt,petrol,automatic,39671.0,1643000.0,1,s5,0,bangalore,ka-51,white,2,2024,19835.5,14.312035005661947
+maruti suzuki,baleno,aplha ags,petrol,automatic,17717.0,854000.0,1,s5,0,bangalore,ka-01,black,3,2023,5905.666666666667,13.657687643730208
+maruti suzuki,baleno,alpha ags,petrol,automatic,29221.0,814000.0,1,s5,0,bangalore,ka-05,black,4,2022,7305.25,13.609716873485151
+maruti suzuki,ertiga,smart hybrid zxi at,petrol,automatic,27616.0,899000.0,2,s5,0,bangalore,ka-05,white,7,2019,3945.1428571428573,13.70903942580019
+mahindra,xuv700,ax5 mt 7s,diesel,manual,52183.0,1587000.0,2,s5,0,bangalore,ka-03,white,4,2022,13045.75,14.27735662962807
+kia,seltos,15 gtx plus at,diesel,automatic,34965.0,1741000.0,1,s5,0,bangalore,ka-53,white,3,2023,11655.0,14.3699707931327
+hyundai,i20 n line,n8 10 turbo dct dt,petrol,automatic,537.0,1212000.0,1,s5,0,bangalore,ka-01,black,0,2026,537.0,14.007783270693565
+hyundai,i20,sportz 12 kappa,petrol,manual,16241.0,752000.0,1,s5,0,bangalore,ka-50,black,4,2022,4060.25,13.530492932718326
+maruti suzuki,xl6,smart hybrid zeta mt,petrol,manual,32440.0,944000.0,1,s5,0,bangalore,ka-09,red,7,2019,4634.285714285715,13.75788250444911
+volkswagen,taigun,highline 10 tsi at,petrol,automatic,33070.0,1149000.0,1,s5,0,bangalore,ka-01,white,3,2023,11023.333333333334,13.954403427152533
+volkswagen,virtus,gt plus 15 tsi dsg,petrol,automatic,27187.0,1583000.0,1,s5,0,bangalore,ka-04,maroon,3,2023,9062.333333333334,14.27483297057489
+mahindra,xuv700,ax7 7s,petrol,manual,36384.0,1624000.0,1,s5,0,bangalore,ka-51,white,5,2021,7276.8,14.300403415467118
+hyundai,i20 n line,n8 10 turbo dct,petrol,automatic,1037.0,1212000.0,1,s5,0,bangalore,ka-01,black,1,2025,1037.0,14.007783270693565
+honda,elevate,vx mt,petrol,manual,24625.0,1248000.0,1,s5,0,bangalore,ka-01,white,3,2023,8208.333333333334,14.03705362919324
+toyota,urban cruiser hyryder,e mt,petrol,manual,16099.0,1098000.0,1,s5,0,bangalore,ka-41,white,1,2025,16099.0,13.90900181179801
+toyota,glanza,g mt,petrol,manual,37326.0,756000.0,1,s5,0,bangalore,ka-03,black,4,2022,9331.5,13.535797977912118
+hyundai,creta,sx executive,petrol,manual,36793.0,1074000.0,2,s5,0,bangalore,ka-53,white,5,2021,7358.6,13.88690148514921
+maruti suzuki,grand vitara,strong hybrid alpha plus at,petrol,automatic,15504.0,1863000.0,1,s5,0,bangalore,ka-05,white,1,2025,15504.0,14.437699186352233
+tata,altroz,dca xz plus sunroof,petrol,automatic,12960.0,816000.0,1,s5,0,bangalore,ka-53,black,3,2023,4320.0,13.61217085943569
+mahindra,thar,lx d at 4wd 4s ht,diesel,automatic,26833.0,1598000.0,1,s5,0,bangalore,ka-03,white,3,2023,8944.333333333334,14.28426403109039
+skoda,slavia,style 15 tsi mt,petrol,manual,33342.0,1297000.0,1,s5,0,bangalore,ka-04,maroon,4,2022,8335.5,14.075565234308307
+mg,astor,zs vti tech style mt,petrol,manual,23171.0,794000.0,1,s5,0,bangalore,ka-51,white,4,2022,5792.75,13.584839999674324
+hyundai,venue,10 turbo gdi sx mt,petrol,manual,45740.0,828000.0,1,s5,0,bangalore,ka-53,white,6,2020,7623.333333333333,13.626769641096136

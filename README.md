@@ -2,7 +2,7 @@
 
 > **Data-driven valuation, acquisition risk assessment, and deal profitability for used vehicles.**
 
-PriceRef is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a specialized **CatBoost, LightGBM, and XGBoost ensemble (Variant 1)**, PriceRef processes vehicle attributes and returns market valuations in milliseconds across Web and Mobile platforms.
+PriceRef is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a **dual-mode ML architecture** — a **CatBoost + LightGBM + XGBoost global ensemble (Variant 1)** for broad market coverage, and a **specialized CatBoost + LightGBM S5 model (Variant 4)** for quality shop premium vehicles — PriceRef processes vehicle attributes and returns market valuations in milliseconds across Web and Mobile platforms.
 
 ---
 
@@ -18,8 +18,11 @@ graph TD
     MobileApp -->|WebView Bundle| Frontend
     Frontend -->|POST /evaluate| FastAPI[2. FastAPI Backend Gateway]
     FastAPI -->|Extracts & Sanitizes| FE[3. Feature Engineering & Vectorizer]
-    FE -->|Predicts Log Price| Ensemble[4. Weighted ML Ensemble - Variant 1]
+    FE -->|Predicts Log Price| ModelRouter{4. Model Router}
+    ModelRouter -->|General Vehicles| Ensemble[4a. Variant 1: CatBoost + LightGBM + XGBoost Ensemble]
+    ModelRouter -->|S5 Quality Shop: age ≤7 + known model| S5Model[4b. Variant 4: CatBoost + LightGBM S5 Specialist]
     Ensemble -->|Routes Price Tier| SegRouting[5. Segment-Wise Sub-Models]
+    S5Model -->|+8% Premium Fallback to Variant 1| SegRouting
     SegRouting -->|Raw Market Value| Decision[6. Adaptive Dealer Financial Decision Engine]
     Decision -->|Market Value, Buy Target, Risk & Decision| APIResp[7. API JSON Response]
     APIResp -->|Displays Dashboard & Analytics| Frontend
@@ -45,12 +48,21 @@ graph TD
   - **Categorical Features**: `brand`, `model`, `variant` (trim), `city`, `locality`, `rto`, `segment_class`, `fuel_type`, `transmission`, `seller_type`.
   - **Engineered Numeric Features**: `vehicle_age`, `odometer_reading`, `km_per_year`, `owner_count`, `brand_tier`, `age_km_interaction`, `ownership_trust_score`, `vehicle_health_score`, `locality_tier`, `usage_category_num`, `locality_density_norm`, `popularity_score_log`.
 
-### 4. Weighted ML Ensemble Engine
+### 4a. Variant 1 — Global Weighted ML Ensemble (Default)
 - Predicts log-transformed price $\hat{y}_{\text{log}}$ using optimized model weights:
-  $$\hat{y}_{\text{ensemble}} = 0.8152 \times \hat{y}_{\text{LightGBM}} + 0.1848 \times \hat{y}_{\text{CatBoost}}$$
-- **LightGBM (81.52% Weight)**: Processes continuous splits, age-km interaction features, and vehicle usage curves.
-- **CatBoost (18.48% Weight)**: Handles high-cardinality categorical target encoding for brand, model, and trim combinations.
-- **XGBoost (< 0.01% Weight)**: Provides subtle residual boundary adjustment.
+  $$\hat{y}_{\text{ensemble}} = 0.8918 \times \hat{y}_{\text{LightGBM}} + 0.1082 \times \hat{y}_{\text{CatBoost}} + 0.0000 \times \hat{y}_{\text{XGBoost}}$$
+- **LightGBM (89.18% Weight)**: Processes continuous splits, age-km interaction features, and vehicle usage curves.
+- **CatBoost (10.82% Weight)**: Handles high-cardinality categorical target encoding for brand, model, and trim combinations.
+- **XGBoost (0.00% Weight)**: Included for API compatibility; optimizer assigns zero weight.
+
+### 4b. Variant 4 — S5 Quality Shop Specialist Model
+- Activated **only** when `vehicle_age ≤ 7` **AND** the vehicle's brand/model is present in the S5 catalog.
+- Small-dataset (173 rows) two-model ensemble trained with heavy regularization to prevent overfitting:
+  $$\hat{y}_{\text{S5}} = 0.8061 \times \hat{y}_{\text{CatBoost}} + 0.1939 \times \hat{y}_{\text{LightGBM}}$$
+- **CatBoost (80.61% Weight)**: Primary model for high-cardinality brand/model/trim encoding on premium vehicles.
+- **LightGBM (19.39% Weight)**: Supports age-mileage curve fitting on young, low-odometer quality stock.
+- **Fallback Rule**: When the vehicle is not found in the S5 catalog, falls back to Variant 1 with a `+8% quality premium` applied.
+- **Training Script**: `ml_training/train-s5.py` | **Dataset**: `processed_s5.csv` (173 rows, age 0–7 years)
 
 ### 5. Price-Band Segment Routing
 - Evaluates the initial ensemble quote and routes the vehicle into dedicated price-tier CatBoost sub-models:
@@ -76,29 +88,30 @@ graph TD
 
 ---
 
-## 📊 Complete Model Results & Benchmarks (Variant 1)
+## 📊 Complete Model Results & Benchmarks
 
-PriceRef comes pre-packaged with **Variant 1 Model Artifacts** in `model_registry/variant_1`.
+PriceRef ships with **all 4 trained model variants** in `model_registry/`.
 
-### 1. Overall Global Ensemble Metrics
+### 1. Variant 1 — Global Ensemble Metrics (Active Default)
 
 | Metric | Result | Benchmark Quality |
 | :--- | :---: | :--- |
 | **Active Engine** | `Variant 1 Ensemble` | Active Default |
 | **MAPE (Mean Absolute Percentage Error)** | **`6.16%`** | 🌟 Top Precision (< 6.2% error) |
 | **R² Score (Variance Explained)** | **`0.9777` (97.77%)** | 🎯 High Overall Accuracy |
-| **MAE (Mean Absolute Error)** | **`₹38,273.16`** | Average deviation per quote |
-| **RMSE (Root Mean Squared Error)** | **`₹98,254.21`** | Outlier-penalized error |
+| **MAE (Mean Absolute Error)** | **`₹38,273`** | Average deviation per quote |
+| **RMSE (Root Mean Squared Error)** | **`₹98,254`** | Outlier-penalized error |
+| **Training Dataset** | `processed_overall.csv` | 33,979 listings |
 
-### 2. Weighted Ensemble Breakdown
+### 2. Variant 1 — Weighted Ensemble Breakdown
 
 | Base Algorithm | Ensemble Weight (%) | Primary Feature Focus |
 | :--- | :---: | :--- |
-| ⚡ **LightGBM** | **`81.52%`** | Age, Mileage, Age-KM Interactions, Health Scores |
-| 🐱 **CatBoost** | **`18.48%`** | Brand, Model, Trim Variant, City, Locality, RTO |
-| 🚀 **XGBoost** | **`< 0.01%`** | Residual boundary adjustment |
+| ⚡ **LightGBM** | **`89.18%`** | Age, Mileage, Age-KM Interactions, Health Scores |
+| 🐱 **CatBoost** | **`10.82%`** | Brand, Model, Trim Variant, City, Locality, RTO |
+| 🚀 **XGBoost** | **`0.00%`** | Included for API compatibility (optimizer zeroed out) |
 
-### 3. Segment-wise Price-Band Routing Metrics
+### 3. Segment-wise Price-Band Routing Metrics (Variant 1)
 
 | Price Segment Bracket | Dataset Size (Listings) | Segment MAPE | Segment R² | Active Model File |
 | :--- | :---: | :---: | :---: | :--- |
@@ -106,13 +119,30 @@ PriceRef comes pre-packaged with **Variant 1 Model Artifacts** in `model_registr
 | **Mid Tier** (`₹6L – ₹12 Lakhs`) | 6,525 listings | **`5.64%`** | **`0.8522`** | `segment_6_12_lakh.cbm` |
 | **Luxury / High-Value** (`₹12L+`) | 1,993 listings | **`5.09%`** | **`0.8872`** | `segment_12_plus_lakh.cbm` |
 
-### 4. Registered Variant Benchmark Comparison
+### 4. Variant 4 — S5 Quality Shop Specialist Metrics
+
+> **Activation Condition**: `vehicle_age ≤ 7` AND vehicle brand/model exists in S5 catalog.
+> Falls back to Variant 1 + 8% premium for vehicles not in S5 catalog.
+
+| Metric | Result | Notes |
+| :--- | :---: | :--- |
+| **Model Type** | `CatBoost + LightGBM` | No XGBoost (too few rows) |
+| **MAPE** | **`16.38%`** | Expected — small dataset (173 rows) |
+| **R² Score** | **`0.3429`** | Narrow specialty scope, not general market |
+| **MAE** | **`₹2,72,324`** | Premium segment vehicles |
+| **RMSE** | **`₹5,04,875`** | High-value vehicle spread |
+| **Training Rows** | `138 train / 35 val` | 80/20 split from 173 total rows |
+| **Ensemble Weights** | CatBoost 80.61% / LightGBM 19.39% | Optimizer favors CatBoost on small data |
+| **Training Dataset** | `processed_s5.csv` | S5 quality shop listings, age 0–7 years |
+
+### 5. Registered Variant Benchmark Comparison
 
 | Rank | Model Variant | Training Dataset | MAPE (%) | R² Score | MAE (₹) | RMSE (₹) | System Status |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| 🥇 **1** | **`variant_1` (Selected)** | `processed_overall.csv` | **`6.16%`** | **`0.9777`** | **₹38,273** | **₹98,254** | **Active Default** |
+| 🥇 **1** | **`variant_1` (Default)** | `processed_overall.csv` | **`6.16%`** | **`0.9777`** | **₹38,273** | **₹98,254** | **Active Default** |
 | 🥈 **2** | **`variant_3`** | `processed_s1_s4_owner_1.csv` | **`6.50%`** | **`0.9755`** | **₹39,829** | **₹79,227** | Archived Variant |
 | 🥉 **3** | **`variant_2`** | `processed_s1_s4_owner.csv` | **`6.67%`** | **`0.9741`** | **₹40,661** | **₹83,619** | Archived Variant |
+| 🏅 **4** | **`variant_4` (S5 Specialist)** | `processed_s5.csv` | **`16.38%`** | **`0.3429`** | **₹2,72,324** | **₹5,04,875** | **S5 Quality Active** |
 
 ---
 
@@ -391,12 +421,22 @@ create policy "own evals insert"   on evaluations for insert with check (auth.ui
 If you wish to clean a raw dataset and retrain model variants from scratch in the future:
 
 ```bash
-# 1. Clean raw dataset for training
-python ml_training/clean-1.py
+# ── Variant 1: Full General Market Model (33,979 rows) ──────────────────────
+python ml_training/clean-1.py      # Clean raw dataset → processed_overall.csv
+python ml_training/train-1.py     # Train CatBoost + LightGBM + XGBoost ensemble
 
-# 2. Train Variant Ensemble Model
-python ml_training/train-1.py
+# ── Variant 2: Owner-Filtered Model (S1–S4 sellers only) ────────────────────
+python ml_training/clean-2.py      # Clean → processed_s1_s4_owner.csv
+python ml_training/train-2.py     # Train ensemble on filtered seller dataset
+
+# ── Variant 3: Owner-Filtered + Extended Features ────────────────────────────
+python ml_training/clean-3.py      # Clean → processed_s1_s4_owner_1.csv
+python ml_training/train-3.py     # Train with extended feature set
+
+# ── Variant 4: S5 Quality Shop Specialist (173 rows, age 0–7 years) ─────────
+python ml_training/clean-s5.py     # Clean S5 shop data → processed_s5.csv
+python ml_training/train-s5.py    # Train CatBoost + LightGBM specialist model
 ```
 
-*Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`.*
+*Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`. Variant 4 never auto-promotes to default — it is a specialist S5 model only.*
 

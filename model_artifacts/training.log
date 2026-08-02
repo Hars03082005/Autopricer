@@ -1,0 +1,24 @@
+2026-07-30 12:16:07  DEBUG     Random seed set to 42
+2026-07-30 12:16:07  INFO      AutoPricer ML Training [train-1]  Variant variant_1
+2026-07-30 12:16:07  DEBUG     Loaded 33,979 rows from processed_overall.csv
+2026-07-30 12:16:08  DEBUG     Clean: 33,979 → 33,979 rows (dropped 0)
+2026-07-30 12:16:08  DEBUG     W&B package not installed — skipping experiment tracking
+2026-07-30 12:16:08  DEBUG     CatBoost params: {'iterations': 3000, 'learning_rate': 0.03, 'depth': 6, 'loss_function': 'RMSE', 'eval_metric': 'RMSE', 'random_seed': 42, 'l2_leaf_reg': 10, 'min_data_in_leaf': 25, 'early_stopping_rounds': 150}
+2026-07-30 12:19:27  DEBUG     LightGBM params: {'objective': 'regression', 'metric': 'rmse', 'learning_rate': 0.03, 'num_leaves': 48, 'feature_fraction': 0.8, 'bagging_fraction': 0.8, 'bagging_freq': 5, 'min_child_samples': 25, 'lambda_l2': 5.0, 'verbosity': -1, 'seed': 42}
+2026-07-30 12:19:38  DEBUG     XGBoost params: {'objective': 'reg:squarederror', 'eval_metric': 'rmse', 'learning_rate': 0.03, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8, 'min_child_weight': 25, 'lambda': 5.0, 'seed': 42}
+2026-07-30 12:19:46  DEBUG     CatBoost MAE=₹57,755 MAPE=9.13% R2=0.9597
+2026-07-30 12:19:47  DEBUG     LightGBM MAE=₹37,805 MAPE=6.08% R2=0.9775
+2026-07-30 12:19:47  DEBUG     XGBoost MAE=₹41,626 MAPE=6.78% R2=0.9741
+2026-07-30 12:19:47  DEBUG     Saved model_comparison.csv
+2026-07-30 12:19:47  DEBUG     Saved feature importance: feature_importance_catboost.csv
+2026-07-30 12:19:47  DEBUG     Saved feature importance: feature_importance_lightgbm.csv
+2026-07-30 12:19:47  DEBUG     Saved feature importance: feature_importance_xgboost.csv
+2026-07-30 12:19:47  DEBUG     Segment: 0_6_lakh (20,612 rows)
+2026-07-30 12:22:08  DEBUG     Segment 0_6_lakh ACTIVE (MAPE 7.85% < 8.59%)
+2026-07-30 12:22:08  DEBUG     Segment: 6_12_lakh (10,642 rows)
+2026-07-30 12:24:07  DEBUG     Segment 6_12_lakh ACTIVE (MAPE 5.61% < 7.72%)
+2026-07-30 12:24:07  DEBUG     Segment: 12_plus_lakh (2,953 rows)
+2026-07-30 12:25:55  DEBUG     Segment 12_plus_lakh ACTIVE (MAPE 4.36% < 9.95%)
+2026-07-30 12:25:56  DEBUG     Artifacts saved
+2026-07-30 12:25:56  WARNING   dataset_catalog.json failed: name 're' is not defined
+2026-07-30 12:25:56  INFO      COMPLETE — Ensemble MAPE 6.16%  R2 0.9777  (588.8s)
