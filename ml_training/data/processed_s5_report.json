@@ -1,0 +1,67 @@
+{
+  "script": "clean-s5",
+  "generated_at": "2026-07-29T16:05:04.268953",
+  "stats": {
+    "input_rows": 352,
+    "dropped_no_price": 0,
+    "dropped_price_range": 0,
+    "dropped_age_range": 43,
+    "dropped_unknown_brand": 0,
+    "dropped_duplicates": 136,
+    "output_rows": 173
+  },
+  "age_distribution": {
+    "0": 1,
+    "1": 15,
+    "2": 18,
+    "3": 34,
+    "4": 49,
+    "5": 22,
+    "6": 16,
+    "7": 18
+  },
+  "price_stats": {
+    "min": 374000.0,
+    "max": 5144000.0,
+    "median": 1227000.0,
+    "mean": 1359462.4277456647
+  },
+  "brand_counts": {
+    "hyundai": 30,
+    "kia": 22,
+    "maruti suzuki": 20,
+    "volkswagen": 17,
+    "mg": 15,
+    "skoda": 14,
+    "tata": 14,
+    "mahindra": 12,
+    "jeep": 10,
+    "toyota": 8,
+    "honda": 3,
+    "ford": 3,
+    "audi": 2,
+    "bmw": 1,
+    "mercedes-benz": 1,
+    "renault": 1
+  },
+  "s5_max_age_used": 7,
+  "features": [
+    "brand",
+    "model",
+    "variant",
+    "fuel_type",
+    "transmission",
+    "odometer_reading",
+    "selling_price",
+    "owner_count",
+    "seller_type",
+    "certified",
+    "city",
+    "rto",
+    "color",
+    "vehicle_age",
+    "year",
+    "km_per_year",
+    "log_selling_price"
+  ]
+}
