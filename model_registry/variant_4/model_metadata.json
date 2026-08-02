@@ -1,0 +1,48 @@
+{
+  "variant_id": "variant_4",
+  "script": "train-s5",
+  "dataset": "processed_s5.csv",
+  "trained_at": "2026-07-30T13:01:47.539609",
+  "features": [
+    "brand",
+    "model",
+    "variant",
+    "city",
+    "rto",
+    "fuel_type",
+    "transmission",
+    "seller_type",
+    "color",
+    "vehicle_age",
+    "odometer_reading",
+    "km_per_year",
+    "owner_count",
+    "certified"
+  ],
+  "categorical_features": [
+    "brand",
+    "model",
+    "variant",
+    "city",
+    "rto",
+    "fuel_type",
+    "transmission",
+    "seller_type",
+    "color"
+  ],
+  "model_type": "CatBoost + LightGBM (S5 Small-Data Ensemble)",
+  "weights": {
+    "catboost": 0.8061,
+    "lightgbm": 0.1939
+  },
+  "metrics": {
+    "mae": 272323.82,
+    "rmse": 504874.65,
+    "r2": 0.3429,
+    "mape": 16.38
+  },
+  "train_rows": 138,
+  "val_rows": 35,
+  "s5_max_age": 7,
+  "notes": "Specialized model for quality car shops selling 0-7 year old cars. High regularization for small dataset (173 rows). Only activated when vehicle_age <= 7 and the model/brand is known in the S5 dataset. Falls back to variant_1 (+8% premium) when vehicle is not in S5 catalog."
+}
