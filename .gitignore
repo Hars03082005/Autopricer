@@ -46,14 +46,20 @@ mlruns/
 ml_training/data/*
 !ml_training/data/.gitkeep
 
-# ── ML training scripts: keep all 4 active variants (clean-1/2/3/s5 & train-1/2/3/s5) ──
+# ── ML training scripts: keep ONLY Variant 2 (clean_data-1.py & train-1.py) ──
+ml_training/clean-*.py
 ml_training/clean_data.py
+ml_training/clean-2.py
+ml_training/clean-3.py
 ml_training/clean-4.py
 ml_training/clean-5.py
 ml_training/clean-6.py
 
+ml_training/train-*.py
 ml_training/train_*.py
 ml_training/train-1_.py
+ml_training/train-2.py
+ml_training/train-3.py
 ml_training/train-4.py
 ml_training/train-5.py
 ml_training/train-6.py
@@ -62,17 +68,11 @@ ml_training/train_price_split_comparison.py
 ml_training/train_unified.py
 run_all_training.py
 
-# Explicitly track all 4 active clean & train scripts
-!ml_training/clean-1.py
-!ml_training/clean-2.py
-!ml_training/clean-3.py
-!ml_training/clean-s5.py
+!ml_training/clean_data-1.py
 !ml_training/train-1.py
-!ml_training/train-2.py
-!ml_training/train-3.py
-!ml_training/train-s5.py
 
-# ── Model Registry: keep Variants 1–4 ────────────────────────────────────────
+# ── Model Registry: keep Variant 1, 2, and 3 ──────────────────────────────────
+model_registry/variant_4/
 model_registry/variant_5/
 model_registry/variant_6/
 model_registry/variant_7/
