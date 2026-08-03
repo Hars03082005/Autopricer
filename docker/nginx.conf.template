@@ -71,6 +71,26 @@ server {
         set $backend "__BACKEND_ORIGIN__";
         proxy_pass $backend$request_uri;
 
+        # Send SNI upstream. Container Apps' internal ingress routes purely on
+        # the TLS server name, and nginx omits SNI on proxied connections by
+        # default — so the ingress cannot tell which app the connection is for
+        # and resets it mid-handshake:
+        #
+        #   peer closed connection in SSL handshake ...
+        #   while SSL handshaking to upstream, upstream: "https://100.100.x.y:443/..."
+        #
+        # producing a 502 on every proxied request. Note the upstream in that
+        # message is an IP: the resolver above deliberately re-resolves the
+        # hostname per request to survive revision swaps, which is precisely why
+        # the name has to be re-attached here. proxy_ssl_name reads $proxy_host,
+        # which nginx derives from the variable in proxy_pass, so this needs no
+        # second copy of the hostname.
+        #
+        # Inert when BACKEND_ORIGIN is http:// (docker compose), where no TLS
+        # handshake happens at all.
+        proxy_ssl_server_name on;
+        proxy_ssl_name        $proxy_host;
+
         proxy_http_version 1.1;
         proxy_set_header Host              $proxy_host;
         proxy_set_header X-Real-IP         $remote_addr;
