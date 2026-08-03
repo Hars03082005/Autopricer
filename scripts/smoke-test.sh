@@ -29,6 +29,35 @@ POLL_INTERVAL=5
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$1" >&2; exit 1; }
 
+# ── Locate a working Python 3 ────────────────────────────────────────────────
+# Used further down to parse the prediction JSON and range-check the valuation.
+#
+# `python3` is right on Linux and macOS, and is what CI uses, but hardcoding it
+# made this script unrunnable on Windows: Git Bash finds the Microsoft Store
+# "App Execution Alias" for both python3 and python, which prints an advert for
+# the Store and exits non-zero. So a deploy could only be smoke-tested from CI,
+# defeating the point of keeping this as a hand-runnable script.
+#
+# Each candidate is probed by actually executing it rather than by `command -v`,
+# because the Store stub is a real file on PATH and satisfies that check while
+# failing the moment it runs.
+PYTHON=""
+for candidate in python3 python py; do
+  command -v "$candidate" >/dev/null 2>&1 || continue
+  if [ "$candidate" = "py" ]; then
+    # The Windows launcher needs -3 to guarantee a Python 3 interpreter.
+    if py -3 -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then
+      PYTHON="py -3"
+      break
+    fi
+  elif "$candidate" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+    PYTHON="$candidate"
+    break
+  fi
+done
+[ -n "$PYTHON" ] \
+  || fail "no working Python 3 found (tried python3, python, py -3); needed to check the prediction"
+
 echo "==> Smoke testing ${BASE_URL}"
 
 # ── 1. Frontend is serving ───────────────────────────────────────────────────
@@ -94,7 +123,7 @@ prediction=$(curl -fsS -X POST "${BASE_URL}/predict" \
        "owner_count":1,"condition":"Good","city":"Bangalore","locality":"Indiranagar"}') \
   || fail "/predict request failed"
 
-price=$(printf '%s' "$prediction" | python3 -c '
+price=$(printf '%s' "$prediction" | $PYTHON -c '
 import json, sys
 payload = json.load(sys.stdin)
 value = payload.get("market_value") or payload.get("predicted_price")
@@ -104,7 +133,7 @@ print(value if value is not None else "")
 
 # A 2021 Honda City is a mainstream mid-tier car. Outside this band means the
 # model or the feature pipeline is broken, not merely differently tuned.
-python3 -c "
+$PYTHON -c "
 price = float('${price}')
 assert 200_000 < price < 3_000_000, f'implausible valuation: {price:,.0f}'
 print(f'    valuation: Rs.{price:,.0f}')
