@@ -15,6 +15,16 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# libgomp1 is needed HERE as well as in the runtime stage, not instead of it.
+# The import check at the end of this stage actually loads LightGBM and XGBoost,
+# and loading them dlopens libgomp.so.1 — so without this the check fails with
+# the very error it exists to catch, and the build never reaches runtime.
+# Nothing from this stage but /opt/venv is copied forward, so this costs the
+# final image nothing.
+RUN apt-get update \
+ && apt-get install --no-install-recommends -y libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
 # requirements.lock is wheel-hash pinned, so nothing is compiled from source and
 # this stage needs no C toolchain.
 COPY backend/requirements.lock /tmp/requirements.lock
