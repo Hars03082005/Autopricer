@@ -26,7 +26,9 @@ graph TD
     SegRouting -->|Raw Market Value| Decision[6. Adaptive Dealer Financial Decision Engine]
     Decision -->|Market Value, Buy Target, Risk & Decision| APIResp[7. API JSON Response]
     APIResp -->|Displays Dashboard & Analytics| Frontend
-    Frontend -.->|Cloud Sync / Offline Fallback| Sync[8. History Persistence: Supabase or LocalStorage]
+    APIResp -.->|8a. Signed in: POST /api/history| FastAPI
+    FastAPI -.->|Verified JWT, as the calling user| Sync[(8. Supabase Postgres<br/>row-level security)]
+    Frontend -.->|8b. Guest / demo: browser only| Local[(localStorage)]
 ```
 
 ### 1. User Interface & Data Ingestion
@@ -83,8 +85,19 @@ graph TD
 - Renders key financial metrics, price range visualizers, risk breakdown gauges, negotiation opening/walk-away targets, and counterfactual insights on both web and mobile dashboards.
 
 ### 8. Persistence & Dual-Mode History Sync
-- **Authenticated Mode**: Automatically syncs completed valuations to Supabase PostgreSQL database using Row-Level Security (`evaluations` table).
-- **Offline / Guest Mode**: Fallback persistence using browser `localStorage` if Supabase environment variables are unconfigured.
+- **Authenticated Mode**: Completed valuations are persisted through the API
+  (`POST /api/history`), not written from the browser. FastAPI verifies the
+  Supabase access token and issues the query **as that user**, so row-level
+  security still applies — see [How persistence works now](#how-persistence-works-now).
+  The server owns the row id, the timestamp and the owner, so none of the three
+  can be supplied by a client.
+- **Guest / Demo Mode**: History stays in browser `localStorage` and the database
+  is not touched. Guests have no `auth.users` row and therefore no id to own
+  records; the previous behaviour of writing `user_id: 'guest'` into a `uuid`
+  column failed on every attempt.
+- **Degraded Mode**: If Supabase is unconfigured or unreachable, valuations keep
+  working and the UI reports that history was saved locally only, rather than
+  implying it reached the cloud.
 
 ---
 
@@ -232,15 +245,38 @@ The adaptive decision engine allows zero-code adjustment of similarity weights a
 
 ---
 
-## 🏁 Quick Start (Run Out of the Box)
+## 🏁 Quick Start
 
 > 💡 **No model training is required after cloning.** The pre-trained Variant 1 model artifacts are included directly in `model_registry/variant_1`.
 
+**The containerised path is the recommended one** — it is what CI builds and what
+Azure runs, so "works on my machine" and "works in production" mean the same thing:
+
+```bash
+cp .env.example .env      # optional: fill in SUPABASE_* for sign-in and cloud history
+docker compose up --build
+# → http://localhost:5173
+```
+
+The first build takes several minutes (the ML dependency tree is ~1 GB) and the
+backend needs 30–60 seconds after start to load its models — `docker compose`
+waits for the healthcheck before the frontend accepts traffic.
+
+See [Containerised Deployment](#-containerised-deployment-azure-container-apps)
+for the full architecture, or continue below to run the services directly on your
+machine.
+
 ### Prerequisites
-* **Python 3.10+**
-* **Node.js 18+**
-* **Flutter SDK 3.44+** *(Optional: required only for mobile app)*
-* **Git**
+
+| Path | Requirements |
+| :--- | :--- |
+| **Containers (recommended)** | Docker Desktop / Docker Engine with Compose v2 |
+| **Direct** | Python 3.11, Node.js 20+, Git |
+| **Mobile (optional)** | Flutter SDK 3.44+ |
+
+> Python **3.11** specifically: `.python-version` and the container image both pin
+> it, and `backend/requirements.lock` is resolved against CPython 3.11 on
+> linux/amd64.
 
 ### 1. Clone & Set Up Backend
 
@@ -262,19 +298,18 @@ pip install -r backend/requirements.txt
 
 ### 2. Configure Environment Variables (Optional for Supabase)
 
-Copy `.env.example` to `.env`:
-
 ```bash
 cp .env.example .env
 ```
 
-Or create `.env` manually:
+`.env.example` documents every variable inline. Nothing is required to run
+valuations — Supabase only adds sign-in and cloud history.
 
-```env
-VITE_SUPABASE_URL=https://placeholder-project.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0MDAwMDAsImV4cCI6MTkwMDA0MDAwMH0.placeholder
-ACTIVE_VARIANT_ID=variant_1
-```
+> ⚠️ `ACTIVE_VARIANT_ID` previously defaulted to `variant_7` here, which does not
+> exist (the registry holds `variant_1`–`variant_4`). The backend silently fell
+> back to a different artifact path rather than failing, so the deployment served
+> a model nobody had selected. It is now `variant_1`, and startup aborts if the
+> named variant is not the one that loaded.
 
 ### 3. Run FastAPI Backend
 
@@ -322,43 +357,115 @@ If you want to create your own copy of this repository on GitHub to customize or
 
 ---
 
-## 🌐 Deployment & Hosting Guide
+## 🐳 Containerised Deployment (Azure Container Apps)
 
-Anyone cloning or forking this repository can deploy it online using any of the following methods:
+### Architecture
 
-### **Method 1: Render.com (Recommended — 1-Click Auto Blueprint)**
+```mermaid
+graph TD
+    Browser([Browser]) -->|HTTPS| FE[frontend container app<br/>nginx :8080 — EXTERNAL ingress]
+    Mobile([Flutter shell]) -->|HTTPS| FE
+    FE -->|serves| SPA[Vite SPA bundle]
+    FE -->|reverse-proxies /api /predict /evaluate ...| BE[backend container app<br/>uvicorn :8000 — INTERNAL ingress only]
+    BE -->|loads at startup| Models[(variant_1 artifacts<br/>baked into the image)]
+    BE -->|PostgREST, as the calling user| SB[(Supabase Postgres<br/>row-level security)]
+    Browser -.->|auth only: sign-in, token refresh| SB
+```
 
-Since `render.yaml` is pre-configured in this repository:
+Three decisions worth knowing about, because they shape everything else:
 
-1. Fork this repository to your GitHub account.
-2. Sign up at **[render.com](https://render.com)**.
-3. Click **New + → Blueprint** and select your repository.
-4. Click **Apply**. Render will automatically deploy:
-   - **Backend Web Service**: Python FastAPI + Uvicorn server (`price-prediction-backend`).
-   - **Frontend Static Site**: React Vite bundle (`price-prediction-frontend`).
+**1. The ML API has no public endpoint.** The backend container app uses
+*internal* ingress, so it is addressable only from inside the Container Apps
+environment. All browser and mobile traffic arrives at the frontend, whose nginx
+reverse-proxies the API paths. Consequences: production needs no CORS at all
+(everything is same-origin), and the model, the registry admin route and the
+history endpoints are not directly reachable from the internet. The mobile shell
+points `API_URL` at the frontend FQDN and is proxied like any browser.
 
----
+**2. One image, promoted unchanged.** Vite inlines `import.meta.env.VITE_*` at
+build time, which normally forces a separate build per environment. Instead the
+frontend container writes `/config.js` from its environment on every boot
+(`docker/frontend-entrypoint.sh`), so the exact artifact that passed staging is
+what reaches production. Images are tagged with the git SHA; there is no `latest`.
 
-### **Method 2: Vercel (Frontend) + Railway (Backend)**
+**3. Scale with replicas, never workers.** Each uvicorn worker loads its own
+~250 MB copy of the ensemble, so the container runs a single worker with
+single-threaded BLAS and horizontal scaling does the rest. `minReplicas` is 1
+(2 in production): scale-to-zero would make the first request after an idle
+period wait through a full model load.
 
-1. **Backend (Railway.app):**
-   - New Project → Deploy from GitHub → Select Repository.
-   - Set Start Command: `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-2. **Frontend (Vercel.com):**
-   - New Project → Import GitHub Repo.
-   - Build Command: `npm run build`, Output Directory: `dist`.
-   - Add Environment Variable: `VITE_API_URL=https://your-backend-railway-url.up.railway.app`
-
----
-
-### **Method 3: Docker Deployment**
-
-Run using Docker locally or on any Cloud VPS (AWS / DigitalOcean / Hetzner):
+### One-time setup
 
 ```bash
-# Build & Run using docker-compose
-docker-compose up --build
+# 1. Azure identity for GitHub Actions — OIDC federation, no stored secrets
+az ad app create --display-name priceref-github
+az ad app federated-credential create --id <appId> --parameters '{
+  "name": "github-main",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:<owner>/<repo>:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+az role assignment create --assignee <appId> --role Contributor \
+  --scope /subscriptions/<sub>/resourceGroups/<rg>
+
+# 2. Provision infrastructure (also runs from CI; idempotent)
+az deployment group create -g <rg> -f infra/main.bicep \
+  -p environmentName=staging imageTag=<git-sha> \
+     supabaseUrl=https://<ref>.supabase.co supabaseAnonKey=<anon-key>
 ```
+
+Then configure GitHub — repository **variables** `AZURE_CLIENT_ID`,
+`AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, and per-**environment** secrets
+(`staging`, `production`): `AZURE_RESOURCE_GROUP`, `SUPABASE_URL`,
+`SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`,
+`SUPABASE_ACCESS_TOKEN`, and `SUPABASE_JWT_SECRET` only if the project still uses
+legacy HS256 signing. Mark `production` as requiring reviewers — that is what
+makes promotion a manual gate.
+
+### Pipeline
+
+| Stage | Trigger | What runs |
+| :--- | :--- | :--- |
+| **CI** (`.github/workflows/ci.yml`) | every push / PR | ruff, eslint, pytest, lockfile freshness, migrations against a throwaway Postgres with RLS assertions, both image builds, non-root + shipped-variant checks, full test suite *inside* the built image, live `/health` and `/predict` probe, Trivy scan |
+| **CD → staging** | push to `main` | build & push to ACR (tagged with the SHA) → `supabase db push` → Bicep deploy → `scripts/smoke-test.sh` → auto-rollback to the previous healthy revision on failure |
+| **CD → production** | manual approval | **same image promoted**, migrations, deploy, smoke test, rollback |
+
+### Local development
+
+```bash
+docker compose up --build          # mirrors the Azure topology
+docker compose logs -f backend
+./scripts/smoke-test.sh http://localhost:5173
+```
+
+`docker-compose.yml` deliberately does **not** publish the backend port, matching
+the internal-only ingress in Azure — so local work cannot come to depend on
+direct access that production does not offer. Uncomment the `ports` block under
+`backend` if you need to reach it directly while debugging.
+
+### Operational notes
+
+- **Changing the served model** — build a new revision with a different
+  `ACTIVE_VARIANT_ID`. The image ships only `variant_1` (see `.dockerignore`), and
+  `POST /api/registry/{id}/activate` is disabled by default: it writes
+  `registry.json` inside one replica, which silently desyncs it from its peers.
+- **Adding a dependency** — edit `backend/requirements.txt`, run
+  `./scripts/lock-requirements.sh`, commit both. CI fails if the lock is stale.
+- **Smaller backend image** — `docker build --build-arg SLIM_ML=1` drops
+  CatBoost's plotting dependencies (~250 MB). Off by default; the build's import
+  check fails immediately if a release makes those imports non-lazy.
+- **Migrations must be backward compatible.** ACA rolls revisions, so old and new
+  replicas serve simultaneously during a deploy, and rollback reverts the app but
+  not the database. Additive changes only; drop columns in a later release.
+
+### Deploying elsewhere
+
+`render.yaml` is still present and describes a *non-containerised* deployment
+(Render's native Python runtime plus a static site). It predates this setup and
+installs dependencies from `backend/requirements.txt` unpinned, so it does not
+get the reproducibility, the internal-ingress isolation, or the runtime config
+injection described above. The images are ordinary OCI images and run anywhere —
+Cloud Run, ECS, Fly.io, a VPS — given the same environment variables.
 
 ---
 
@@ -369,48 +476,86 @@ docker-compose up --build
 To enable Supabase integration:
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Copy your project **URL** and **anon Key** into `.env`:
-   ```env
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   ```
-3. Run this SQL in your Supabase **SQL Editor**:
+2. Copy the project **URL** and **anon key** into `.env` (`SUPABASE_URL`,
+   `SUPABASE_ANON_KEY` — see `.env.example` for which container reads which).
+3. Apply the schema:
 
-```sql
--- User Profiles
-create table if not exists profiles (
-  id uuid references auth.users(id) primary key,
-  name text not null,
-  avatar text not null default 'U',
-  role text not null default 'Dealer',
-  created_at timestamptz default now()
-);
-
--- Valuation History
-create table if not exists evaluations (
-  id text primary key,
-  user_id uuid references auth.users(id) on delete cascade,
-  created_at timestamptz default now(),
-  source text, brand text, model text, year int,
-  fuel text, transmission text, city text,
-  odometer int, fuel_efficiency numeric, owner_count int,
-  engine_cc int, condition text, seller_asking_price numeric,
-  market_value numeric, buy_price numeric, sell_price numeric,
-  expected_profit numeric, margin_pct numeric, risk_score numeric,
-  confidence_score numeric, deal_quality_score numeric, action text,
-  urgency_score numeric, is_ml_powered boolean,
-  positive_factors jsonb, negative_factors jsonb
-);
-
--- Enable RLS
-alter table profiles enable row level security;
-alter table evaluations enable row level security;
-
-create policy "own profile read"   on profiles   for select using (auth.uid() = id);
-create policy "own profile insert" on profiles   for insert with check (auth.uid() = id);
-create policy "own evals read"     on evaluations for select using (auth.uid() = user_id);
-create policy "own evals insert"   on evaluations for insert with check (auth.uid() = user_id);
+```bash
+supabase link --project-ref <your-project-ref>
+supabase db push
 ```
+
+The schema lives in `supabase/migrations/` and is applied by CI on every deploy.
+It is no longer a SQL block to paste by hand.
+
+> **Why it moved.** The SQL that used to be printed here did not match what the
+> app actually wrote, and cloud history sync was failing on every save as a
+> result. Two mismatches: the frontend sent `variant` and `locality` columns that
+> the schema did not declare, and guest sessions wrote the string `'guest'` into a
+> `uuid` column. Both failures were caught and discarded by a `console.warn`, so
+> the UI kept showing history from `localStorage` and looked like it was working.
+>
+> `tests/test_schema_contract.py` now checks the API model and the migration
+> against each other on every push, so that class of drift fails CI instead of
+> failing silently in production.
+
+### How persistence works now
+
+```
+Browser ──sign-in / token refresh──> Supabase Auth
+Browser ──Bearer <access token>────> FastAPI ──as that user──> PostgREST ──RLS──> Postgres
+```
+
+The browser no longer writes to the database. It authenticates with Supabase
+directly (there is no reason to proxy password flows) and sends the resulting
+access token to this API, which verifies it — signature, audience **and issuer**,
+the last of which stops a validly-signed token from another Supabase project
+being accepted — and then performs the query.
+
+Those queries are issued with the **caller's own token**, not the service-role
+key, so Postgres still evaluates row-level security on every statement. The
+service-role key would switch RLS off and make correct filtering in application
+code the only thing separating two dealers' data; with this arrangement, a
+filtering bug still cannot cross tenants. No request path needs the service-role
+key, and `.env.example` says to leave it blank.
+
+Guest and demo sessions never touch the database at all — their history stays in
+`localStorage`, which is the honest representation of "not signed in".
+
+| Endpoint | Method | Purpose |
+| :--- | :--- | :--- |
+| `/api/history` | `GET` | Caller's valuation history, newest first |
+| `/api/history` | `POST` | Persist a valuation (server assigns id, timestamp, owner) |
+| `/api/history` | `DELETE` | Clear the caller's history |
+| `/api/history/{id}` | `DELETE` | Delete one valuation |
+| `/api/profile` | `GET` | Dealer profile, synthesised from the token if no row exists |
+| `/api/profile` | `PUT` | Create or update the dealer profile |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Fast suite — no ML dependencies needed (~1s)
+pip install 'fastapi>=0.115,<1' 'pydantic>=2.7,<3' 'httpx>=0.27,<1' 'pyjwt[crypto]>=2.8,<3' pytest
+pytest -m 'not models'
+
+# Full suite, including real inference — runs inside the built image
+docker compose build backend
+docker run --rm -v "$PWD/tests:/app/tests:ro" -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" \
+  -v "$PWD/supabase:/app/supabase:ro" --entrypoint sh priceref-backend:local \
+  -c "pip install --quiet pytest && cd /app && python -m pytest -v"
+```
+
+| File | Covers |
+| :--- | :--- |
+| `tests/test_config.py` | Configuration validation — production refuses wildcard CORS, plain-http Supabase URLs, and an untokened admin surface |
+| `tests/test_auth.py` | JWT verification — expiry, audience, **issuer** (cross-project rejection), `alg: none`, wrong secret, admin guard |
+| `tests/test_schema_contract.py` | API model ↔ migration agreement, RLS enabled *and forced*, every policy scoped to `auth.uid()`, no `anon` grants |
+| `tests/test_api.py` | Real inference: plausible valuations, determinism, monotonicity in age and mileage, and that history/admin endpoints refuse anonymous callers |
+
+Marked `models` tests need the artifacts and the ML stack, and skip cleanly
+without them.
 
 ---
 

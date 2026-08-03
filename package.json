@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:mobile": "vite build && powershell -ExecutionPolicy Bypass -File scripts/bundle-web-for-mobile.ps1",
     "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings 34",
     "preview": "vite preview",
     "start": "serve -s dist -l $PORT"
   },

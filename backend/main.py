@@ -21,9 +21,14 @@ from typing import List, Optional
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from backend import db
+from backend.auth import require_admin_token
+from backend.config import get_settings
+from backend.routers import history as history_router
 
 from backend.decision_engine import (
     calculate_decision,
@@ -165,6 +170,10 @@ async def lifespan(app_instance: FastAPI):
     """Load ML models AFTER the port is bound (avoids OOM crash before port open)."""
     global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
     global FEATURES, CAT_FEATURES, CURRENT_YEAR, BRAND_CATALOG, BRAND_SEGMENT_MAP
+
+    get_settings().log_summary()
+    await db.startup()
+
     log.info("==> Loading ML models…")
     gc.collect()
     predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
@@ -175,18 +184,46 @@ async def lifespan(app_instance: FastAPI):
     BRAND_CATALOG = build_brand_catalog()
     BRAND_SEGMENT_MAP = METADATA.get("brand_segment_map", BRAND_SEGMENT_MAP)
     log.info("==> ML models loaded. Active variant: %s", ACTIVE_VARIANT_ID)
+
+    # A pinned variant that silently resolved to something else means this
+    # replica serves different prices than the deployment intended.
+    pinned = get_settings().active_variant_id
+    if pinned and ACTIVE_VARIANT_ID != pinned:
+        raise RuntimeError(
+            f"ACTIVE_VARIANT_ID={pinned!r} was requested but {ACTIVE_VARIANT_ID!r} "
+            f"loaded. Refusing to serve a model the deployment did not ask for."
+        )
+
     yield  # Server is running
+
     log.info("==> Shutting down.")
+    await db.shutdown()
 
 # FastAPI app
 app = FastAPI(title="PriceRef ML API", version="1.0.0", lifespan=lifespan)
+
+# CORS is driven by configuration rather than allow_origins=["*"].
+#
+# The previous wildcard was combined with allow_credentials=True, which browsers
+# reject outright — so credentialed cross-origin requests never actually worked,
+# while every non-credentialed origin was allowed to call the API.
+#
+# In the deployed topology the frontend's nginx reverse-proxies these routes, so
+# browser traffic is same-origin and needs no CORS at all. This allowlist exists
+# for `npm run dev` and for the Flutter shell, which do call the API directly.
+_settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"] if _settings.cors_allow_all else list(_settings.cors_allowed_origins),
+    # Credentials cannot be combined with a wildcard origin; the bearer-token
+    # scheme does not need cookies, so this is off when the origin list is "*".
+    allow_credentials=not _settings.cors_allow_all,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=600,
 )
+
+app.include_router(history_router.router)
 
 # Pydantic models
 class VehicleInput(BaseModel):
@@ -1215,16 +1252,33 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
 # API routes
 @app.get("/health")
 def health():
-    pred, seg_mods, meta, _, active_id = resolve_variant_data()
-    cbm_exists = (ARTIFACT_DIR / "vehicle_price_catboost.cbm").exists() or (model_registry.get_variant_path(active_id) is not None)
+    """Liveness and readiness probe.
+
+    `model_loaded` reports whether the predictor is actually in memory, not
+    merely whether artifact files exist on disk. The container healthcheck and
+    the Container Apps probes both fail on a false value: a process that is
+    listening but has no model is not ready to take traffic, and letting it pass
+    the probe would put it into rotation returning errors.
+    """
+    # Reports the globals populated by lifespan rather than re-resolving from the
+    # registry: the question this endpoint answers is "did *this process* load a
+    # model", and re-reading the registry would answer "do the files exist",
+    # which stays true even when the in-process load failed.
+    settings = get_settings()
+    meta = METADATA or {}
     return {
         "status":              "ok",
-        "model_loaded":        cbm_exists,
+        "model_loaded":        predictor is not None,
         "ensemble_enabled":    meta.get("ensemble", {}).get("enabled", False),
         "model_name":          meta.get("model_name", "CatBoostRegressor"),
         "segmentation":        "segment_class",
-        "segments_loaded":     list(seg_mods.keys()),
-        "active_variant":      active_id,
+        "segments_loaded":     list(SEGMENT_MODELS.keys()),
+        "active_variant":      ACTIVE_VARIANT_ID,
+        "environment":         settings.environment,
+        # Surfaced so a deployment can be spotted as "running but with history
+        # disabled" without having to read container logs.
+        "database_configured": settings.database_enabled,
+        "auth_configured":     settings.auth_enabled,
     }
 
 
@@ -1242,14 +1296,51 @@ def get_registry():
     }
 
 
-@app.post("/api/registry/{variant_id}/activate")
+@app.post("/api/registry/{variant_id}/activate", dependencies=[Depends(require_admin_token)])
 def activate_variant_endpoint(variant_id: str):
-    success = model_registry.activate_variant(variant_id)
-    if not success:
-        return {"status": "error", "message": f"Variant '{variant_id}' not found in registry"}
+    """Switch the model variant this replica serves.
+
+    Guarded by require_admin_token, which also refuses the call outright unless
+    ALLOW_RUNTIME_VARIANT_SWITCH is set. Three reasons this needed locking down:
+
+      * it was completely unauthenticated, so anyone who could reach the API
+        could change which model produced production valuations;
+      * model_registry.activate_variant() writes registry.json to disk, which in
+        a container is an ephemeral per-replica layer — replica A would serve
+        variant_4 while replica B kept serving variant_1, with no way to tell
+        from the outside which one answered a given request;
+      * the image ships exactly one variant directory, so switching to any other
+        variant would fail at load time anyway.
+
+    The supported way to change models is to deploy a new revision with a
+    different ACTIVE_VARIANT_ID.
+    """
+    if model_registry.get_variant_path(variant_id) is None:
+        # Checked before mutating the registry: activate_variant() would
+        # otherwise rewrite registry.json to point at artifacts that are not in
+        # this image, and the next load would fail.
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Variant '{variant_id}' has no loadable artifacts in this image. "
+                f"Available: {[v['variant_id'] for v in model_registry.list_variants() if model_registry.get_variant_path(v['variant_id'])]}"
+            ),
+        )
+
+    if not model_registry.activate_variant(variant_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Variant '{variant_id}' not found in registry",
+        )
+
     # Reload global variables for active default variant
     global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
     predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
+    log.warning(
+        "Model variant switched at runtime to %s — this replica now differs from "
+        "any peer that did not receive the same call.",
+        variant_id,
+    )
     return {"status": "success", "active_variant": variant_id}
 
 

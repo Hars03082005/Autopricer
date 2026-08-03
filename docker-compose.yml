@@ -1,0 +1,99 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Local development stack — mirrors the Azure Container Apps topology so that
+# "works in compose" is meaningful evidence about production:
+#
+#   frontend (nginx :8080 -> host :5173)  publicly reachable, proxies the API
+#   backend  (uvicorn :8000)              no published port, same as ACA's
+#                                         internal-only ingress
+#
+# The backend port is deliberately NOT published. In Azure the ML API has no
+# public endpoint at all; publishing it here would let local work depend on
+# direct access that production does not offer. To poke it directly during
+# debugging, uncomment the ports block under `backend`.
+#
+#   docker compose up --build
+#   open http://localhost:5173
+#
+# Supabase is the hosted project — set SUPABASE_* in .env. Postgres is not run
+# locally, because the app depends on Supabase's auth (GoTrue) and PostgREST,
+# not just the database.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: priceref
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        # Keep the plotting dependencies locally: identical to the CI default,
+        # so a slimming problem cannot show up only in one of the two.
+        SLIM_ML: "0"
+    image: priceref-backend:local
+    restart: unless-stopped
+    environment:
+      PORT: "8000"
+      ACTIVE_VARIANT_ID: variant_1
+      LOG_LEVEL: info
+
+      # Same-origin through the frontend proxy needs no CORS. This list is for
+      # `npm run dev` on :5173 and the Flutter shell, which do call the API
+      # cross-origin. Note "*" is refused when APP_ENVIRONMENT=production.
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:8080,http://127.0.0.1:5173"
+      APP_ENVIRONMENT: development
+
+      # Server-side database access.
+      #
+      # The anon key, not the service-role key: user-scoped queries are issued
+      # with the caller's own JWT alongside this key, so PostgREST still
+      # evaluates row-level security (see backend/db.py). The service-role key
+      # would switch RLS off and is not set here — nothing needs it, and the
+      # entrypoint warns if it is supplied anyway.
+      SUPABASE_URL: "${SUPABASE_URL:-}"
+      SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY:-}"
+      # Only needed for Supabase projects still on legacy HS256 JWT signing.
+      SUPABASE_JWT_SECRET: "${SUPABASE_JWT_SECRET:-}"
+
+      # Writing registry.json inside one replica desyncs it from every other
+      # replica, so runtime variant switching is off by default. Enabled here
+      # only because a single local container has no other replica to desync from.
+      ALLOW_RUNTIME_VARIANT_SWITCH: "true"
+    # ports:
+    #   - "8000:8000"   # uncomment only for direct backend debugging
+    healthcheck:
+      test: ["CMD", "python", "/app/backend/healthcheck.py"]
+      interval: 15s
+      timeout: 10s
+      # Model load from cold takes tens of seconds; a shorter start_period makes
+      # compose report the service unhealthy before it has had a chance to boot.
+      start_period: 150s
+      retries: 5
+    mem_limit: 2g
+    cpus: 1.0
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        APP_RELEASE: local
+    image: priceref-frontend:local
+    restart: unless-stopped
+    ports:
+      - "5173:8080"
+    environment:
+      BACKEND_ORIGIN: "http://backend:8000"
+      # Empty on purpose: the browser calls the API same-origin via the nginx
+      # proxy, which is exactly how production behaves.
+      APP_API_URL: ""
+      SUPABASE_URL: "${SUPABASE_URL:-}"
+      SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY:-}"
+      APP_ENVIRONMENT: development
+      APP_RELEASE: local
+    depends_on:
+      backend:
+        # Wait for healthy, not just started: nginx caches nothing on boot but a
+        # first request landing on a still-loading backend returns a confusing
+        # 502 rather than an obvious "still starting".
+        condition: service_healthy

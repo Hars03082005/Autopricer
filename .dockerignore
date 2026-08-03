@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker build context exclusions.
+#
+# This file matters more than usual here: the repository is ~700 MB on disk
+# (412 MB of git history alone, 190 MB of model_registry, 66 MB of duplicated
+# model_artifacts, 30 MB of training CSVs). Without these rules every
+# `docker build` uploads all of it to the daemon before running a single
+# instruction, and every CI build pays that cost again.
+#
+# Both images build from the repo root, so the rules below are the union of
+# what neither image needs. The Dockerfiles still COPY explicit paths — this
+# file is for build speed, the COPY lines are for correctness.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── VCS and tooling ──────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.github
+**/.DS_Store
+*.log
+
+# ── Local env / secrets — must never be baked into a layer ───────────────────
+.env
+.env.*
+!.env.example
+
+# ── Node ─────────────────────────────────────────────────────────────────────
+node_modules
+dist
+.vite
+
+# ── Python ───────────────────────────────────────────────────────────────────
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.venv
+venv
+htmlcov
+.coverage
+
+# ── Training data and pipeline (~30 MB) — inference never reads these ────────
+ml_training/
+
+# ── Flutter mobile shell — built and shipped separately, not by these images ─
+mobile/
+
+# ── Legacy duplicate of variant_1 artifacts (~66 MB) ─────────────────────────
+# backend/main.py only falls back to model_artifacts/ when the registry lookup
+# fails. The image ships a known-good registry variant and asserts it loaded at
+# startup, so the fallback copy is dead weight.
+model_artifacts/
+
+# ── Model registry: ship the serving variant only ────────────────────────────
+# variant_2 and variant_3 are permanently "archived" in registry.json and
+# variant_4 only ever loads when it is itself the pinned ACTIVE_VARIANT_ID.
+# Shipping just variant_1 keeps ~124 MB out of the context and the image.
+#
+# To ship a different variant instead, change the negation below AND the
+# ACTIVE_VARIANT_ID default in backend/Dockerfile.
+model_registry/*
+!model_registry/registry.json
+!model_registry/variant_1/**
+
+# ── Infra / docs that never belong in an image ───────────────────────────────
+infra/
+supabase/
+docs/
+README.md
+render.yaml

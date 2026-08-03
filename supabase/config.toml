@@ -1,0 +1,16 @@
+# Supabase CLI project configuration.
+#
+# Only the fields the CLI needs for `supabase db push` / `supabase link` are set.
+# project_id is a local label, not the hosted project ref — the ref is supplied
+# per-environment by CI via SUPABASE_PROJECT_REF, so the same repo can push to
+# separate staging and production projects.
+project_id = "priceref"
+
+[db]
+# Must match the hosted project's Postgres major version, otherwise the CLI's
+# local shadow database diffs against the wrong engine and can generate SQL the
+# hosted project rejects.
+major_version = 15
+
+[db.migrations]
+schema_paths = []
