@@ -282,8 +282,8 @@ machine.
 
 ```bash
 # Clone repository
-git clone https://github.com/UmaDamotharan/Price-Prediction.git
-cd Price-Prediction
+git clone https://github.com/srinvaid/PriceRefPES.git
+cd PriceRefPES
 
 # Create and activate Python virtual environment
 python -m venv venv
@@ -351,9 +351,17 @@ flutter run
 
 If you want to create your own copy of this repository on GitHub to customize or host under your account:
 
-1. Click the **`Fork`** button at the top right of this repository page ([`github.com/UmaDamotharan/Price-Prediction`](https://github.com/UmaDamotharan/Price-Prediction)).
+1. Click the **`Fork`** button at the top right of [`github.com/srinvaid/PriceRefPES`](https://github.com/srinvaid/PriceRefPES).
 2. Select your account to create an independent copy under your GitHub profile.
-3. You can now clone your forked repository or connect it directly to **Render**, **Railway**, or **Vercel** for 1-click cloud deployment!
+3. Follow [Containerised Deployment](#-containerised-deployment-azure-container-apps)
+   to point it at your own Azure subscription — the OIDC federated credential is
+   scoped to a specific `owner/repo`, so a fork needs its own credential and its
+   own repository variables.
+
+> The upstream project this was derived from is
+> [`UmaDamotharan/Price-Prediction`](https://github.com/UmaDamotharan/Price-Prediction).
+> One-click deploys to Render, Railway or Vercel are no longer the supported
+> path; see [Deploying elsewhere](#deploying-elsewhere) for why.
 
 ---
 
