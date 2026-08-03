@@ -66,6 +66,29 @@ var registryName = toLower(replace('${appName}acr${environmentName}', '-', ''))
 var backendAppName = '${resourceSuffix}-backend'
 var frontendAppName = '${resourceSuffix}-frontend'
 
+// ── Optional secrets ─────────────────────────────────────────────────────────
+// Container Apps rejects a declared secret carrying an empty value —
+// "value or keyVaultUrl and identity should be provided" — and fails the entire
+// deployment, not just that container. So an unset optional secret has to be
+// omitted from the array altogether rather than passed as ''.
+//
+// This bites specifically on supabaseJwtSecret, which only projects still using
+// legacy HS256 signing need; on a project with asymmetric keys it is correctly
+// blank (backend/auth.py verifies against the published JWKS instead), and
+// declaring it empty took the whole deployment down. The env entry has to be
+// dropped in step with the secret, because a secretRef pointing at a secret
+// that was never declared is equally invalid.
+var backendSecrets = concat(
+  empty(supabaseAnonKey) ? [] : [ { name: 'supabase-anon-key', value: supabaseAnonKey } ],
+  empty(supabaseJwtSecret) ? [] : [ { name: 'supabase-jwt-secret', value: supabaseJwtSecret } ]
+)
+var backendSupabaseEnv = concat(
+  empty(supabaseAnonKey) ? [] : [ { name: 'SUPABASE_ANON_KEY', secretRef: 'supabase-anon-key' } ],
+  empty(supabaseJwtSecret) ? [] : [ { name: 'SUPABASE_JWT_SECRET', secretRef: 'supabase-jwt-secret' } ]
+)
+var frontendSecrets = empty(supabaseAnonKey) ? [] : [ { name: 'supabase-anon-key', value: supabaseAnonKey } ]
+var frontendSupabaseEnv = empty(supabaseAnonKey) ? [] : [ { name: 'SUPABASE_ANON_KEY', secretRef: 'supabase-anon-key' } ]
+
 var commonTags = {
   application: 'priceref'
   environment: environmentName
@@ -186,10 +209,7 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         { server: registry.properties.loginServer, identity: identity.id }
       ]
-      secrets: [
-        { name: 'supabase-anon-key', value: supabaseAnonKey }
-        { name: 'supabase-jwt-secret', value: supabaseJwtSecret }
-      ]
+      secrets: backendSecrets
       // Single revision mode: a new revision fully replaces the old one. The
       // alternative (multiple) would run two model-loading replicas
       // simultaneously and double the memory footprint during every deploy.
@@ -208,7 +228,7 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('1.0')
             memory: '2Gi'
           }
-          env: [
+          env: concat([
             { name: 'PORT', value: '8000' }
             { name: 'APP_ENVIRONMENT', value: environmentName }
             { name: 'ACTIVE_VARIANT_ID', value: 'variant_1' }
@@ -218,13 +238,11 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
             // calls the frontend FQDN directly.
             { name: 'CORS_ALLOWED_ORIGINS', value: 'https://${frontendAppName}.${containerAppEnv.properties.defaultDomain}' }
             { name: 'SUPABASE_URL', value: supabaseUrl }
-            { name: 'SUPABASE_ANON_KEY', secretRef: 'supabase-anon-key' }
-            { name: 'SUPABASE_JWT_SECRET', secretRef: 'supabase-jwt-secret' }
             // Never enabled in a multi-replica deployment: each replica would
             // switch independently and serve a different model from its peers.
             { name: 'ALLOW_RUNTIME_VARIANT_SWITCH', value: 'false' }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
-          ]
+          ], backendSupabaseEnv)
           probes: [
             {
               // Startup probe with a long budget: loading ~250 MB of model
@@ -301,9 +319,7 @@ resource frontend 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         { server: registry.properties.loginServer, identity: identity.id }
       ]
-      secrets: [
-        { name: 'supabase-anon-key', value: supabaseAnonKey }
-      ]
+      secrets: frontendSecrets
       activeRevisionsMode: 'Single'
     }
     template: {
@@ -316,17 +332,16 @@ resource frontend 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
-          env: [
+          env: concat([
             // Internal FQDN of the backend. https:// because ACA terminates TLS
             // at its internal ingress too.
             { name: 'BACKEND_ORIGIN', value: 'https://${backendAppName}.internal.${containerAppEnv.properties.defaultDomain}' }
             // Empty: the browser calls the API same-origin through the proxy.
             { name: 'APP_API_URL', value: '' }
             { name: 'SUPABASE_URL', value: supabaseUrl }
-            { name: 'SUPABASE_ANON_KEY', secretRef: 'supabase-anon-key' }
             { name: 'APP_ENVIRONMENT', value: environmentName }
             { name: 'APP_RELEASE', value: imageTag }
-          ]
+          ], frontendSupabaseEnv)
           probes: [
             {
               type: 'Readiness'

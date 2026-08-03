@@ -17,12 +17,30 @@
 #
 # Azure (per environment):
 #   az ad app create --display-name priceref-github
+#   # The subject must match what GitHub actually presents, which is NOT the
+#   # documented repo:<owner>/<repo>:... form. GitHub embeds immutable numeric
+#   # IDs for the owner and the repository:
+#   #
+#   #   repo:<owner>@<ownerId>/<repo>@<repoId>:environment:<env>
+#   #
+#   # Get the two IDs with:
+#   #   gh api repos/<owner>/<repo> --jq '{repo: .id, owner: .owner.id}'
+#   #
+#   # Using the name-based form fails every login with AADSTS700213. The error
+#   # text quotes the exact subject GitHub sent, so copy it from there if in
+#   # doubt. The IDs are stable across renames, which is the point of them —
+#   # this repository was renamed mid-setup and the credentials still matched.
 #   az ad app federated-credential create --id <appId> --parameters '{
 #     "name":"github-main","issuer":"https://token.actions.githubusercontent.com",
-#     "subject":"repo:<owner>/<repo>:ref:refs/heads/main",
+#     "subject":"repo:<owner>@<ownerId>/<repo>@<repoId>:ref:refs/heads/main",
 #     "audiences":["api://AzureADTokenExchange"]}'
-#   # A second credential is needed per environment:
-#   #   "subject":"repo:<owner>/<repo>:environment:production"
+#
+#   # One credential per environment is needed, because a job that declares an
+#   # `environment:` gets an environment-scoped subject rather than a ref-scoped
+#   # one. Every Azure-login job in this workflow declares one, so the ref
+#   # credential above is in practice a spare:
+#   #   "subject":"repo:<owner>@<ownerId>/<repo>@<repoId>:environment:staging"
+#   #   "subject":"repo:<owner>@<ownerId>/<repo>@<repoId>:environment:production"
 #
 #   # Two roles, not one. Contributor alone is not enough: infra/main.bicep
 #   # creates the AcrPull role assignment that lets the container apps pull
@@ -109,31 +127,32 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Provision infrastructure
-        # Run before the image push so the registry exists on a first-ever deploy.
-        # Idempotent: the template is the desired state, so this is also how
-        # infrastructure changes ship.
-        run: |
-          az deployment group create \
-            --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
-            --template-file infra/main.bicep \
-            --parameters \
-              environmentName=staging \
-              imageTag='${{ env.IMAGE_TAG }}' \
-              supabaseUrl='${{ secrets.SUPABASE_URL }}' \
-              supabaseAnonKey='${{ secrets.SUPABASE_ANON_KEY }}' \
-              supabaseJwtSecret='${{ secrets.SUPABASE_JWT_SECRET }}' \
-            --name 'priceref-staging-${{ env.IMAGE_TAG }}' \
-            --output none
-          echo "infrastructure reconciled"
-
-      - name: Resolve registry
+      - name: Ensure the registry exists
         id: acr
+        # ONLY the registry, deliberately — not the whole template.
+        #
+        # This step used to run the full Bicep deployment, on the reasoning that
+        # the registry must exist before the push below. But the template also
+        # declares both container apps, and those reference images by SHA tag —
+        # tags that do not exist until the push that has not happened yet. On a
+        # first-ever deploy Azure therefore rejected the revision with
+        # MANIFEST_UNKNOWN and failed the deployment.
+        #
+        # The full template runs in deploy-staging, after the images are in the
+        # registry. Creating the registry alone here is enough to break the
+        # cycle, and `az acr create` is idempotent, so re-runs are free.
+        #
+        # The name is derived exactly as the registryName variable in
+        # infra/main.bicep derives it; the two must not drift apart.
         run: |
-          login_server=$(az deployment group show \
+          registry_name="$(echo 'priceref-acr-staging' | tr -d '-' | tr '[:upper:]' '[:lower:]')"
+          az acr create \
             --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
-            --name 'priceref-staging-${{ env.IMAGE_TAG }}' \
-            --query properties.outputs.registryLoginServer.value -o tsv)
+            --name "$registry_name" \
+            --sku Basic \
+            --admin-enabled false \
+            --only-show-errors --output none
+          login_server=$(az acr show --name "$registry_name" --query loginServer -o tsv)
           echo "login_server=$login_server" >> "$GITHUB_OUTPUT"
           echo "registry: $login_server"
 

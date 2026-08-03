@@ -407,12 +407,22 @@ period wait through a full model load.
 ```bash
 # 1. Azure identity for GitHub Actions — OIDC federation, no stored secrets
 az ad app create --display-name priceref-github
+
+# The subject must match what GitHub actually presents, which is NOT the
+# repo:<owner>/<repo>:... form given in most documentation. GitHub embeds
+# immutable numeric IDs for the owner and repository, and one credential is
+# needed per environment — a job declaring `environment:` gets an
+# environment-scoped subject, not a ref-scoped one. Get the IDs with:
+#   gh api repos/<owner>/<repo> --jq '{repo: .id, owner: .owner.id}'
+# Getting this wrong fails every login with AADSTS700213, whose error text
+# quotes the exact subject GitHub sent — copy it from there if in doubt.
 az ad app federated-credential create --id <appId> --parameters '{
-  "name": "github-main",
+  "name": "github-env-staging",
   "issuer": "https://token.actions.githubusercontent.com",
-  "subject": "repo:<owner>/<repo>:ref:refs/heads/main",
+  "subject": "repo:<owner>@<ownerId>/<repo>@<repoId>:environment:staging",
   "audiences": ["api://AzureADTokenExchange"]
 }'
+# Repeat for :environment:production
 # Two roles, not one. infra/main.bicep creates the AcrPull assignment that lets
 # the container apps pull images, and writing a role assignment needs
 # Microsoft.Authorization/roleAssignments/write — which Contributor does not
