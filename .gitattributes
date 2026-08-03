@@ -44,3 +44,10 @@ Dockerfile.*    text eol=lf
 # Python runs fine either way, but the container tests diff files against the
 # host copy, and mixed endings make those diffs unreadable.
 *.py            text eol=lf
+
+# requirements.lock is COPYed into the image and read by pip there. Its entries
+# are line-continued with a trailing backslash, so a CR landing between the
+# backslash and the newline breaks the continuation. CI also regenerates it and
+# diffs it byte-for-byte against the committed copy, which a CRLF working tree
+# would fail on its own.
+*.lock          text eol=lf
