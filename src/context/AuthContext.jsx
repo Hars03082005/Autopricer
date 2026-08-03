@@ -197,7 +197,22 @@ export function AuthProvider({ children }) {
       };
     }
 
-    const { data, error } = await supabase.auth.signUp({ email: normalised, password });
+    // emailRedirectTo is required, not optional. Without it Supabase sends the
+    // confirmation link to the project's Site URL, which is a single global
+    // value — so it can point at the deployed app or at a developer's machine,
+    // never both. Left unset, it stayed on the factory default and every
+    // confirmation email pointed at http://localhost:3000.
+    //
+    // window.location.origin sends the user back to wherever they actually
+    // signed up from, which is correct for the deployed app, for `npm run dev`
+    // on :5173, and for the compose stack on :5173 alike. Each origin still has
+    // to be listed under Authentication -> URL Configuration -> Redirect URLs,
+    // otherwise Supabase ignores this and falls back to the Site URL.
+    const { data, error } = await supabase.auth.signUp({
+      email: normalised,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
     if (error) return { ok: false, error: error.message };
 
     // Stash the display name; hydrateUser() writes it once a session exists.
