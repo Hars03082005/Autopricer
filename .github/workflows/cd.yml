@@ -23,7 +23,18 @@
 #     "audiences":["api://AzureADTokenExchange"]}'
 #   # A second credential is needed per environment:
 #   #   "subject":"repo:<owner>/<repo>:environment:production"
+#
+#   # Two roles, not one. Contributor alone is not enough: infra/main.bicep
+#   # creates the AcrPull role assignment that lets the container apps pull
+#   # from ACR, and writing a role assignment needs
+#   # Microsoft.Authorization/roleAssignments/write, which Contributor lacks.
+#   # Without the second grant the very first deploy fails AuthorizationFailed
+#   # on the acrPull resource. "Owner" would also work; this is the narrower
+#   # pair.
 #   az role assignment create --assignee <appId> --role Contributor \
+#     --scope /subscriptions/<sub>/resourceGroups/<rg>
+#   az role assignment create --assignee <appId> \
+#     --role 'Role Based Access Control Administrator' \
 #     --scope /subscriptions/<sub>/resourceGroups/<rg>
 #
 # GitHub repo variables (Settings -> Actions -> Variables):
@@ -34,8 +45,18 @@
 #   SUPABASE_JWT_SECRET (only for legacy HS256 projects),
 #   SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
 #
-# Mark `production` as requiring reviewers in Settings -> Environments; that is
-# what turns the promote job into a manual gate.
+# ── How production is gated ──────────────────────────────────────────────────
+#
+# Production does not deploy on a push. It runs only from an explicit
+# workflow_dispatch with `promote_to_production` ticked, so promoting is always
+# a deliberate act by a person.
+#
+# The original design used the `production` environment's required-reviewer
+# rule instead, which is the better mechanism — it records who approved, and it
+# cannot be bypassed by anyone who can push. GitHub only offers it on private
+# repositories under a paid plan, and this repository is private on Free. If the
+# account is upgraded, add the reviewer rule and drop the `if:` on
+# deploy-production; the rest of the pipeline is unchanged.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: CD
@@ -49,6 +70,11 @@ on:
         description: 'Existing image tag (git SHA) to deploy. Leave blank to build from this ref.'
         required: false
         type: string
+      promote_to_production:
+        description: 'Also deploy to production, after staging has been redeployed and smoke-tested.'
+        required: false
+        default: false
+        type: boolean
 
 # Never run two deployments at once, and never cancel one mid-flight — an
 # interrupted `az containerapp update` can leave a revision half-provisioned.
@@ -225,8 +251,12 @@ jobs:
     name: Deploy to production
     runs-on: ubuntu-latest
     needs: [build, deploy-staging]
-    # Gated by the `production` GitHub Environment's required reviewers. The
-    # image is not rebuilt — the exact artifact validated in staging is promoted.
+    # Manual gate: never runs on a push, only on an explicit dispatch that ticks
+    # promote_to_production. `needs` still forces staging to be deployed and
+    # smoke-tested first in the same run, and IMAGE_TAG is threaded through, so
+    # the artifact reaching production is the one that just passed staging — not
+    # a rebuild.
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_to_production
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}

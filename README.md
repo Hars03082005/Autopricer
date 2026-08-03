@@ -405,7 +405,14 @@ az ad app federated-credential create --id <appId> --parameters '{
   "subject": "repo:<owner>/<repo>:ref:refs/heads/main",
   "audiences": ["api://AzureADTokenExchange"]
 }'
+# Two roles, not one. infra/main.bicep creates the AcrPull assignment that lets
+# the container apps pull images, and writing a role assignment needs
+# Microsoft.Authorization/roleAssignments/write — which Contributor does not
+# have. Without the second grant the first deploy fails AuthorizationFailed.
 az role assignment create --assignee <appId> --role Contributor \
+  --scope /subscriptions/<sub>/resourceGroups/<rg>
+az role assignment create --assignee <appId> \
+  --role 'Role Based Access Control Administrator' \
   --scope /subscriptions/<sub>/resourceGroups/<rg>
 
 # 2. Provision infrastructure (also runs from CI; idempotent)
@@ -419,8 +426,15 @@ Then configure GitHub — repository **variables** `AZURE_CLIENT_ID`,
 (`staging`, `production`): `AZURE_RESOURCE_GROUP`, `SUPABASE_URL`,
 `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`,
 `SUPABASE_ACCESS_TOKEN`, and `SUPABASE_JWT_SECRET` only if the project still uses
-legacy HS256 signing. Mark `production` as requiring reviewers — that is what
-makes promotion a manual gate.
+legacy HS256 signing.
+
+**Gating production.** Production deploys only from an explicit
+`workflow_dispatch` run with `promote_to_production` ticked — it never happens on
+a push. Required reviewers on the `production` environment would be the better
+mechanism (it records who approved and cannot be bypassed by anyone who can
+push), but GitHub restricts that rule to paid plans on private repositories. If
+the account is upgraded, add the reviewer rule and drop the `if:` on the
+`deploy-production` job.
 
 ### Pipeline
 
@@ -428,7 +442,7 @@ makes promotion a manual gate.
 | :--- | :--- | :--- |
 | **CI** (`.github/workflows/ci.yml`) | every push / PR | ruff, eslint, pytest, lockfile freshness, migrations against a throwaway Postgres with RLS assertions, both image builds, non-root + shipped-variant checks, full test suite *inside* the built image, live `/health` and `/predict` probe, Trivy scan |
 | **CD → staging** | push to `main` | build & push to ACR (tagged with the SHA) → `supabase db push` → Bicep deploy → `scripts/smoke-test.sh` → auto-rollback to the previous healthy revision on failure |
-| **CD → production** | manual approval | **same image promoted**, migrations, deploy, smoke test, rollback |
+| **CD → production** | manual `workflow_dispatch` with `promote_to_production` | staging redeployed and smoke-tested first, then the **same image promoted**, migrations, deploy, smoke test, rollback |
 
 ### Local development
 
