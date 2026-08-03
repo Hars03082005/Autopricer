@@ -221,9 +221,14 @@ jobs:
       - name: Report image sizes
         # Surfaced because image size drives ACA cold-start pull time, and the ML
         # dependency tree makes it easy to add hundreds of MB without noticing.
+        #
+        # One `docker images` call per image: the command takes at most one
+        # REPOSITORY[:TAG] argument, and passing both made this step exit 1 —
+        # failing the whole job on a purely informational report.
         run: |
-          docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}' \
-            priceref-backend:ci priceref-frontend:ci
+          for image in priceref-backend:ci priceref-frontend:ci; do
+            docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}' "$image"
+          done
 
       - name: Verify the backend image runs as non-root
         run: |
@@ -281,8 +286,15 @@ jobs:
         # pinned dependency set are both present. This is what catches a
         # dependency bump that breaks model loading or shifts predictions —
         # the risk the previously-unpinned requirements.txt left wide open.
+        #
+        # --user 0 only for this throwaway test container: the image runs as uid
+        # 10001 and /opt/venv is root-owned, so installing pytest into it as the
+        # image's own user fails with EACCES. `pip install --user` is not an
+        # option either — pip refuses user installs inside a virtualenv. The
+        # image's non-root property is asserted by its own step in build-images,
+        # so nothing is lost by elevating here.
         run: |
-          docker run --rm \
+          docker run --rm --user 0 \
             -e APP_ENVIRONMENT=development \
             -e CORS_ALLOWED_ORIGINS=http://localhost:5173 \
             -e ACTIVE_VARIANT_ID=variant_1 \
@@ -290,7 +302,7 @@ jobs:
             -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" \
             -v "$PWD/supabase:/app/supabase:ro" \
             --entrypoint sh \
-            priceref-backend:ci -c "pip install --quiet pytest && cd /app && python -m pytest -v"
+            priceref-backend:ci -c "pip install --quiet pytest && cd /app && python -m pytest -v -p no:cacheprovider"
 
       - name: Boot the container and probe /health
         # Exercises the real entrypoint, the real healthcheck script and the real

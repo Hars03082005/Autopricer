@@ -564,9 +564,11 @@ pytest -m 'not models'
 
 # Full suite, including real inference — runs inside the built image
 docker compose build backend
-docker run --rm -v "$PWD/tests:/app/tests:ro" -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" \
+# --user 0: the image runs as uid 10001 and /opt/venv is root-owned, so
+# installing pytest into it as the image's own user fails with EACCES.
+docker run --rm --user 0 -v "$PWD/tests:/app/tests:ro" -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" \
   -v "$PWD/supabase:/app/supabase:ro" --entrypoint sh priceref-backend:local \
-  -c "pip install --quiet pytest && cd /app && python -m pytest -v"
+  -c "pip install --quiet pytest && cd /app && python -m pytest -v -p no:cacheprovider"
 ```
 
 | File | Covers |
