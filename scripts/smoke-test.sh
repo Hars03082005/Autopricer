@@ -130,9 +130,17 @@ esac
 
 # ── 6. Security headers ──────────────────────────────────────────────────────
 echo "--> headers"
+# All three are asserted, not just one. nginx drops every inherited add_header
+# from a location that declares any of its own, so these go missing as a set --
+# checking one of them and reporting "security headers present" understated a
+# failure that had removed all three from every response.
 headers=$(curl -fsS -o /dev/null -D - "${BASE_URL}/" | tr -d '\r')
 echo "$headers" | grep -qi '^x-content-type-options: nosniff' \
   || fail "missing X-Content-Type-Options"
+echo "$headers" | grep -qi '^x-frame-options:' \
+  || fail "missing X-Frame-Options"
+echo "$headers" | grep -qi '^referrer-policy:' \
+  || fail "missing Referrer-Policy"
 pass "security headers present"
 
 echo
