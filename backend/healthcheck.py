@@ -21,10 +21,19 @@ TIMEOUT_SECONDS = 8
 
 def main() -> int:
     port = os.environ.get("PORT", "8000")
+    if not port.isdigit():
+        # Fail loudly rather than letting a typo become a confusing connection
+        # error, and keep the value below provably free of URL syntax.
+        print(f"unhealthy: PORT is not a number: {port!r}", file=sys.stderr)
+        return 1
+
     url = f"http://127.0.0.1:{port}/health"
 
     try:
-        with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as response:
+        # noqa S310: the scheme is the literal "http" above and `port` is digits
+        # only, so this cannot be redirected to file: or a custom scheme. The
+        # rule cannot see either fact.
+        with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
             if response.status != 200:
                 print(f"unhealthy: HTTP {response.status}", file=sys.stderr)
                 return 1
