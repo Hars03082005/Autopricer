@@ -7,3 +7,47 @@ model_artifacts/*.txt binary
 # Keep these as normal text (JSON/CSV) so diffs still work
 *.json text
 *.csv text
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Files that execute inside Linux containers MUST be checked out with LF.
+#
+# This repository is developed on Windows with core.autocrlf=true, which was
+# already rewriting backend/docker-entrypoint.sh and docker/frontend-entrypoint.sh
+# to CRLF on checkout. A shell script with CRLF endings fails in a Linux container
+# with the notoriously unhelpful:
+#
+#     exec /app/backend/docker-entrypoint.sh: no such file or directory
+#
+# — because the kernel reads the shebang as "/bin/sh\r" and looks for an
+# interpreter of that name. `eol=lf` overrides autocrlf per pattern, so these stay
+# LF in the working tree regardless of the developer's global git config.
+# ─────────────────────────────────────────────────────────────────────────────
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+Dockerfile.*    text eol=lf
+*.dockerfile    text eol=lf
+.dockerignore   text eol=lf
+
+# nginx reads this inside the container; a stray CR becomes part of a directive
+# value and produces a confusing config parse error.
+*.conf          text eol=lf
+*.template      text eol=lf
+
+# Interpreted by tools running on Linux (GitHub Actions runners, Supabase CLI,
+# Azure CLI). YAML in particular is whitespace-sensitive.
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.bicep         text eol=lf
+*.sql           text eol=lf
+*.toml          text eol=lf
+
+# Python runs fine either way, but the container tests diff files against the
+# host copy, and mixed endings make those diffs unreadable.
+*.py            text eol=lf
+
+# requirements.lock is COPYed into the image and read by pip there. Its entries
+# are line-continued with a trailing backslash, so a CR landing between the
+# backslash and the newline breaks the continuation. CI also regenerates it and
+# diffs it byte-for-byte against the committed copy, which a CRLF working tree
+# would fail on its own.
+*.lock          text eol=lf

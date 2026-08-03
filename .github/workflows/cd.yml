@@ -1,0 +1,331 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CD — build once, deploy to staging automatically, promote to production on
+# manual approval.
+#
+# Two properties this pipeline is built around:
+#
+#   1. The artifact promoted to production is byte-identical to the one that
+#      passed staging. Images are tagged with the git SHA and never rebuilt
+#      between environments — which is only possible because the frontend reads
+#      its configuration at runtime rather than having it baked in by Vite.
+#
+#   2. No long-lived Azure credentials. Authentication is OIDC federation: the
+#      workflow exchanges a GitHub-issued token for a short-lived Azure one, so
+#      there is no client secret in GitHub to rotate or leak.
+#
+# ── Required one-time setup ──────────────────────────────────────────────────
+#
+# Azure (per environment):
+#   az ad app create --display-name priceref-github
+#   az ad app federated-credential create --id <appId> --parameters '{
+#     "name":"github-main","issuer":"https://token.actions.githubusercontent.com",
+#     "subject":"repo:<owner>/<repo>:ref:refs/heads/main",
+#     "audiences":["api://AzureADTokenExchange"]}'
+#   # A second credential is needed per environment:
+#   #   "subject":"repo:<owner>/<repo>:environment:production"
+#
+#   # Two roles, not one. Contributor alone is not enough: infra/main.bicep
+#   # creates the AcrPull role assignment that lets the container apps pull
+#   # from ACR, and writing a role assignment needs
+#   # Microsoft.Authorization/roleAssignments/write, which Contributor lacks.
+#   # Without the second grant the very first deploy fails AuthorizationFailed
+#   # on the acrPull resource. "Owner" would also work; this is the narrower
+#   # pair.
+#   az role assignment create --assignee <appId> --role Contributor \
+#     --scope /subscriptions/<sub>/resourceGroups/<rg>
+#   az role assignment create --assignee <appId> \
+#     --role 'Role Based Access Control Administrator' \
+#     --scope /subscriptions/<sub>/resourceGroups/<rg>
+#
+# GitHub repo variables (Settings -> Actions -> Variables):
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#
+# GitHub environment secrets, per environment (staging, production):
+#   AZURE_RESOURCE_GROUP, SUPABASE_URL, SUPABASE_ANON_KEY,
+#   SUPABASE_JWT_SECRET (only for legacy HS256 projects),
+#   SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
+#
+# ── How production is gated ──────────────────────────────────────────────────
+#
+# Production does not deploy on a push. It runs only from an explicit
+# workflow_dispatch with `promote_to_production` ticked, so promoting is always
+# a deliberate act by a person.
+#
+# The original design used the `production` environment's required-reviewer
+# rule instead, which is the better mechanism — it records who approved, and it
+# cannot be bypassed by anyone who can push. GitHub only offers it on private
+# repositories under a paid plan, and this repository is private on Free. If the
+# account is upgraded, add the reviewer rule and drop the `if:` on
+# deploy-production; the rest of the pipeline is unchanged.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Existing image tag (git SHA) to deploy. Leave blank to build from this ref.'
+        required: false
+        type: string
+      promote_to_production:
+        description: 'Also deploy to production, after staging has been redeployed and smoke-tested.'
+        required: false
+        default: false
+        type: boolean
+
+# Never run two deployments at once, and never cancel one mid-flight — an
+# interrupted `az containerapp update` can leave a revision half-provisioned.
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # required for OIDC federation
+
+env:
+  IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+
+jobs:
+  # ══ Build and push ═════════════════════════════════════════════════════════
+  build:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      image_tag: ${{ env.IMAGE_TAG }}
+      registry: ${{ steps.acr.outputs.login_server }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Provision infrastructure
+        # Run before the image push so the registry exists on a first-ever deploy.
+        # Idempotent: the template is the desired state, so this is also how
+        # infrastructure changes ship.
+        run: |
+          az deployment group create \
+            --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
+            --template-file infra/main.bicep \
+            --parameters \
+              environmentName=staging \
+              imageTag='${{ env.IMAGE_TAG }}' \
+              supabaseUrl='${{ secrets.SUPABASE_URL }}' \
+              supabaseAnonKey='${{ secrets.SUPABASE_ANON_KEY }}' \
+              supabaseJwtSecret='${{ secrets.SUPABASE_JWT_SECRET }}' \
+            --name 'priceref-staging-${{ env.IMAGE_TAG }}' \
+            --output none
+          echo "infrastructure reconciled"
+
+      - name: Resolve registry
+        id: acr
+        run: |
+          login_server=$(az deployment group show \
+            --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
+            --name 'priceref-staging-${{ env.IMAGE_TAG }}' \
+            --query properties.outputs.registryLoginServer.value -o tsv)
+          echo "login_server=$login_server" >> "$GITHUB_OUTPUT"
+          echo "registry: $login_server"
+
+      - name: Registry login
+        # Uses the OIDC-derived Azure identity; no registry password anywhere.
+        run: az acr login --name "$(echo '${{ steps.acr.outputs.login_server }}' | cut -d. -f1)"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          # Tagged with the SHA only. No `latest`: a mutable tag makes it
+          # impossible to say afterwards which code a given replica is running,
+          # and ACA would not roll a new revision when the tag content changes
+          # but the tag string does not.
+          tags: ${{ steps.acr.outputs.login_server }}/priceref-backend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          provenance: false
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: true
+          tags: ${{ steps.acr.outputs.login_server }}/priceref-frontend:${{ env.IMAGE_TAG }}
+          build-args: APP_RELEASE=${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          provenance: false
+
+  # ══ Staging ════════════════════════════════════════════════════════════════
+  deploy-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+
+      - name: Apply database migrations
+        # Before the app deploy, not after: the new revision may depend on new
+        # columns, and a rolling swap means old and new replicas serve
+        # simultaneously. Migrations must therefore be backward compatible with
+        # the revision currently running — additive changes only, no drops or
+        # renames in the same release as the code that stops using them.
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref '${{ secrets.SUPABASE_PROJECT_REF }}'
+          echo "── pending migrations ──"
+          supabase migration list --linked
+          supabase db push --linked
+          echo "migrations applied"
+
+      - name: Deploy revision
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
+            --template-file infra/main.bicep \
+            --parameters \
+              environmentName=staging \
+              imageTag='${{ needs.build.outputs.image_tag }}' \
+              supabaseUrl='${{ secrets.SUPABASE_URL }}' \
+              supabaseAnonKey='${{ secrets.SUPABASE_ANON_KEY }}' \
+              supabaseJwtSecret='${{ secrets.SUPABASE_JWT_SECRET }}' \
+            --name 'priceref-staging-deploy-${{ needs.build.outputs.image_tag }}' \
+            --query properties.outputs -o json > outputs.json
+
+          url=$(python -c "import json;print(json.load(open('outputs.json'))['frontendUrl']['value'])")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "staging: $url"
+
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh "${{ steps.deploy.outputs.url }}"
+
+      - name: Roll back on failure
+        if: failure()
+        # Reactivates the previous healthy revision rather than leaving staging
+        # broken. Only the app is reverted — migrations are not, which is exactly
+        # why they must be backward compatible.
+        run: |
+          app='priceref-staging-backend'
+          rg='${{ secrets.AZURE_RESOURCE_GROUP }}'
+          previous=$(az containerapp revision list -n "$app" -g "$rg" \
+            --query "sort_by([?properties.healthState=='Healthy'], &properties.createdTime)[-2].name" -o tsv)
+          if [ -n "$previous" ] && [ "$previous" != "null" ]; then
+            echo "reactivating $previous"
+            az containerapp revision activate -n "$app" -g "$rg" --revision "$previous"
+          else
+            echo "::warning::no previous healthy revision to roll back to"
+          fi
+
+  # ══ Production ═════════════════════════════════════════════════════════════
+  deploy-production:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    # Manual gate: never runs on a push, only on an explicit dispatch that ticks
+    # promote_to_production. `needs` still forces staging to be deployed and
+    # smoke-tested first in the same run, and IMAGE_TAG is threaded through, so
+    # the artifact reaching production is the one that just passed staging — not
+    # a rebuild.
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_to_production
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+
+      - name: Apply database migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref '${{ secrets.SUPABASE_PROJECT_REF }}'
+          echo "── pending migrations ──"
+          supabase migration list --linked
+          supabase db push --linked
+
+      - name: Deploy revision
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
+            --template-file infra/main.bicep \
+            --parameters \
+              environmentName=production \
+              imageTag='${{ needs.build.outputs.image_tag }}' \
+              supabaseUrl='${{ secrets.SUPABASE_URL }}' \
+              supabaseAnonKey='${{ secrets.SUPABASE_ANON_KEY }}' \
+              supabaseJwtSecret='${{ secrets.SUPABASE_JWT_SECRET }}' \
+              backendMinReplicas=2 \
+              backendMaxReplicas=10 \
+            --name 'priceref-production-deploy-${{ needs.build.outputs.image_tag }}' \
+            --query properties.outputs -o json > outputs.json
+
+          url=$(python -c "import json;print(json.load(open('outputs.json'))['frontendUrl']['value'])")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "production: $url"
+
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh "${{ steps.deploy.outputs.url }}"
+
+      - name: Roll back on failure
+        if: failure()
+        run: |
+          app='priceref-production-backend'
+          rg='${{ secrets.AZURE_RESOURCE_GROUP }}'
+          previous=$(az containerapp revision list -n "$app" -g "$rg" \
+            --query "sort_by([?properties.healthState=='Healthy'], &properties.createdTime)[-2].name" -o tsv)
+          if [ -n "$previous" ] && [ "$previous" != "null" ]; then
+            echo "::warning::rolling production back to $previous"
+            az containerapp revision activate -n "$app" -g "$rg" --revision "$previous"
+          else
+            echo "::error::no previous healthy revision to roll back to — manual intervention needed"
+            exit 1
+          fi
+
+      - name: Record the deployment
+        if: success()
+        run: |
+          echo "### Production deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "- image tag: \`${{ needs.build.outputs.image_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- url: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

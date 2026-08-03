@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "_comment": {
+      "value": [
+        "Template for local `az deployment group create` runs only.",
+        "CI does NOT use this file — .github/workflows/cd.yml passes every parameter",
+        "on the command line, sourcing the secret values from GitHub Environments so",
+        "they are never committed.",
+        "Copy to main.parameters.local.json (gitignored) and fill in for manual runs."
+      ]
+    },
+    "environmentName": { "value": "staging" },
+    "appName": { "value": "priceref" },
+    "imageTag": {
+      "value": "REPLACE_WITH_GIT_SHA"
+    },
+    "supabaseUrl": { "value": "" },
+    "supabaseAnonKey": { "value": "" },
+    "supabaseJwtSecret": { "value": "" },
+    "backendMinReplicas": { "value": 1 },
+    "backendMaxReplicas": { "value": 3 }
+  }
+}

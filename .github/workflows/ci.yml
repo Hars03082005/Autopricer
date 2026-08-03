@@ -1,0 +1,471 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CI — runs on every push and pull request.
+#
+# Ordered cheapest-first so a formatting mistake fails in ~30 seconds rather
+# than after a multi-minute image build. The container tests are the slowest
+# job and the only one that exercises the real model artifacts.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# A new push supersedes an in-flight run for the same ref. Not applied to main,
+# where every commit's result is wanted for the deployment record.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '22'
+
+jobs:
+  # ══ Fast checks ════════════════════════════════════════════════════════════
+  backend-lint:
+    name: Backend lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The repository carries ~412 MB of git history (model binaries were
+          # committed without LFS). A shallow clone keeps checkout near 30s.
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        # Pinned: an unpinned linter turns an upstream release into a surprise
+        # red build on an unrelated commit.
+        run: pip install 'ruff==0.14.2'
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Verify requirements.lock matches requirements.txt
+        # Catches the case where someone edits requirements.txt and forgets to
+        # relock, which would silently deploy a different dependency set than the
+        # one declared.
+        run: |
+          cp backend/requirements.lock /tmp/requirements.lock.committed
+          PYTHON=python ./scripts/lock-requirements.sh
+          if ! diff -q /tmp/requirements.lock.committed backend/requirements.lock; then
+            echo "::error::backend/requirements.lock is stale. Run scripts/lock-requirements.sh and commit the result."
+            diff -u /tmp/requirements.lock.committed backend/requirements.lock || true
+            exit 1
+          fi
+          echo "requirements.lock is up to date"
+
+  backend-unit:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install test dependencies
+        # Only the light stack. The ML libraries are ~1 GB and are exercised by
+        # the container-tests job instead; the tests that need them skip here.
+        run: pip install 'fastapi>=0.115,<1' 'pydantic>=2.7,<3' 'httpx>=0.27,<1' 'pyjwt[crypto]>=2.8,<3' pytest
+
+      - name: Pytest
+        run: pytest -v -m 'not models'
+
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: ESLint
+        # --max-warnings pins the pre-existing warning count (see the debt block
+        # in eslint.config.js) so the total cannot grow.
+        run: npm run lint:ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert runtime config survived the build
+        # public/config.js reaching dist/ is what makes the image
+        # environment-agnostic. If it silently stops being copied, every
+        # deployment falls back to build-time env values.
+        run: |
+          test -f dist/index.html
+          test -f dist/config.js
+          grep -q 'config.js' dist/index.html
+          echo "runtime config wiring intact"
+
+  # ══ Migrations ═════════════════════════════════════════════════════════════
+  migrations:
+    name: Supabase migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Apply migrations to a throwaway local Postgres
+        # Proves the SQL actually executes before it is ever pointed at a real
+        # project. Without this, `db push` against staging in cd.yml would be the
+        # first time this DDL had ever run anywhere.
+        #
+        # Auth is required (the migrations reference auth.users); the excluded
+        # services are not, and skipping them cuts the container pull
+        # substantially. supabase/config.toml is committed, so no `init` is needed.
+        run: |
+          supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector
+          supabase db reset
+          echo "migrations applied cleanly"
+
+      - name: Verify row-level security is actually on
+        # A migration can apply successfully and still leave a table world-readable,
+        # so the outcome is asserted rather than inferred from a zero exit code.
+        # Queried with psql over the local stack's fixed port — the Supabase CLI
+        # has no SQL-execution subcommand.
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          for table in profiles evaluations; do
+            enabled=$(psql "$PGURL" -tAc \
+              "select relrowsecurity and relforcerowsecurity
+                 from pg_class where oid = 'public.${table}'::regclass;")
+            if [ "$enabled" != "t" ]; then
+              echo "::error::RLS is not both enabled and forced on public.${table} (got '${enabled}')"
+              exit 1
+            fi
+            echo "RLS enabled and forced on ${table}"
+          done
+
+      - name: Verify the anon role cannot read either table
+        env:
+          PGURL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          for table in profiles evaluations; do
+            granted=$(psql "$PGURL" -tAc \
+              "select count(*) from information_schema.role_table_grants
+                 where table_schema='public' and table_name='${table}' and grantee='anon';")
+            if [ "$granted" != "0" ]; then
+              echo "::error::anon still holds ${granted} grant(s) on public.${table}"
+              exit 1
+            fi
+            echo "anon has no grants on ${table}"
+          done
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
+
+  # ══ Images ═════════════════════════════════════════════════════════════════
+  build-images:
+    name: Build images
+    runs-on: ubuntu-latest
+    needs: [backend-lint, frontend]
+    outputs:
+      backend-digest: ${{ steps.meta.outputs.backend-digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: priceref-backend:ci
+          # GitHub's layer cache; the dependency layer is ~1 GB and rebuilding it
+          # on every push would dominate CI time.
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: false
+          load: true
+          tags: priceref-frontend:ci
+          build-args: APP_RELEASE=${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Report image sizes
+        # Surfaced because image size drives ACA cold-start pull time, and the ML
+        # dependency tree makes it easy to add hundreds of MB without noticing.
+        #
+        # One `docker images` call per image: the command takes at most one
+        # REPOSITORY[:TAG] argument, and passing both made this step exit 1 —
+        # failing the whole job on a purely informational report.
+        run: |
+          for image in priceref-backend:ci priceref-frontend:ci; do
+            docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}' "$image"
+          done
+
+      - name: Verify the backend image runs as non-root
+        run: |
+          uid=$(docker run --rm --entrypoint id priceref-backend:ci -u)
+          echo "backend runs as uid $uid"
+          test "$uid" != "0" || { echo "::error::backend image runs as root"; exit 1; }
+
+      - name: Verify the frontend image runs as non-root
+        run: |
+          uid=$(docker run --rm --entrypoint id priceref-frontend:ci -u)
+          echo "frontend runs as uid $uid"
+          test "$uid" != "0" || { echo "::error::frontend image runs as root"; exit 1; }
+
+      - name: Verify only the serving variant shipped
+        # A stale .dockerignore silently triples image size by pulling in the
+        # archived variants.
+        run: |
+          shipped=$(docker run --rm --entrypoint ls priceref-backend:ci /app/model_registry)
+          echo "variants in image: $shipped"
+          echo "$shipped" | grep -q variant_1
+          for unwanted in variant_2 variant_3 variant_4; do
+            if echo "$shipped" | grep -q "$unwanted"; then
+              echo "::error::$unwanted was baked into the image; check .dockerignore"
+              exit 1
+            fi
+          done
+
+      - name: Save backend image for the test job
+        run: docker save priceref-backend:ci | gzip > /tmp/backend.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp/backend.tar.gz
+          retention-days: 1
+
+  container-tests:
+    name: Tests against the built image
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp
+
+      - name: Load image
+        run: docker load < /tmp/backend.tar.gz
+
+      - name: Run the full suite inside the image
+        # The `models` tests only run here, where the artifacts and the exact
+        # pinned dependency set are both present. This is what catches a
+        # dependency bump that breaks model loading or shifts predictions —
+        # the risk the previously-unpinned requirements.txt left wide open.
+        #
+        # --user 0 only for this throwaway test container: the image runs as uid
+        # 10001 and /opt/venv is root-owned, so installing pytest into it as the
+        # image's own user fails with EACCES. `pip install --user` is not an
+        # option either — pip refuses user installs inside a virtualenv. The
+        # image's non-root property is asserted by its own step in build-images,
+        # so nothing is lost by elevating here.
+        run: |
+          docker run --rm --user 0 \
+            -e APP_ENVIRONMENT=development \
+            -e CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            -e ACTIVE_VARIANT_ID=variant_1 \
+            -v "$PWD/tests:/app/tests:ro" \
+            -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" \
+            -v "$PWD/supabase:/app/supabase:ro" \
+            --entrypoint sh \
+            priceref-backend:ci -c "pip install --quiet pytest && cd /app && python -m pytest -v -p no:cacheprovider"
+
+      - name: Boot the container and probe /health
+        # Exercises the real entrypoint, the real healthcheck script and the real
+        # startup path — none of which the pytest run above touches.
+        run: |
+          docker run -d --name probe \
+            -e APP_ENVIRONMENT=development \
+            -e CORS_ALLOWED_ORIGINS=http://localhost:5173 \
+            -p 8000:8000 \
+            priceref-backend:ci
+
+          echo "waiting for the model to load (up to 180s)..."
+          for i in $(seq 1 36); do
+            if curl -fsS http://localhost:8000/health > /tmp/health.json 2>/dev/null; then
+              echo "healthy after ~$((i*5))s"
+              cat /tmp/health.json
+              break
+            fi
+            if [ "$i" = "36" ]; then
+              echo "::error::backend never became healthy"
+              docker logs probe
+              exit 1
+            fi
+            sleep 5
+          done
+
+          # A listening process with no model must not be reported as healthy.
+          grep -q '"model_loaded":true' /tmp/health.json
+          grep -q '"active_variant":"variant_1"' /tmp/health.json
+
+      - name: Verify the container healthcheck agrees
+        run: |
+          docker exec probe python /app/backend/healthcheck.py
+          echo "healthcheck script exits 0"
+
+      - name: Smoke a real prediction
+        run: |
+          curl -fsS -X POST http://localhost:8000/predict \
+            -H 'Content-Type: application/json' \
+            -d '{"brand":"Honda","model":"City","variant":"VX","year":2021,
+                 "fuel_type":"Petrol","transmission":"Manual","odometer_reading":28000,
+                 "owner_count":1,"condition":"Good","city":"Bangalore","locality":"Indiranagar"}' \
+            | tee /tmp/predict.json
+          python - <<'PY'
+          import json
+          payload = json.load(open('/tmp/predict.json'))
+          price = payload.get('market_value') or payload.get('predicted_price')
+          assert price is not None, f'no price in response: {sorted(payload)}'
+          assert 200_000 < price < 3_000_000, f'implausible valuation: {price}'
+          print(f'prediction sane: {price:,.0f}')
+          PY
+
+      - name: Verify history endpoints refuse anonymous callers
+        run: |
+          for endpoint in /api/history /api/profile; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8000$endpoint")
+            echo "$endpoint -> $code"
+            case "$code" in
+              401|503) ;;
+              *) echo "::error::$endpoint returned $code for an anonymous request"; exit 1 ;;
+            esac
+          done
+
+      - name: Verify variant activation is not publicly callable
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            http://localhost:8000/api/registry/variant_2/activate)
+          echo "activate -> $code"
+          case "$code" in
+            401|403) ;;
+            *) echo "::error::variant activation returned $code; it must be refused"; exit 1 ;;
+          esac
+
+      - name: Container logs
+        if: always()
+        run: docker logs probe || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f probe || true
+
+  # ══ Security ═══════════════════════════════════════════════════════════════
+  image-scan:
+    name: Image vulnerability scan
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-image
+          path: /tmp
+
+      - run: docker load < /tmp/backend.tar.gz
+
+      - name: Trivy
+        # Tag must carry the `v` prefix — this was pinned to `0.28.0`, which has
+        # never existed, so the job died at action resolution before running.
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: priceref-backend:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          # Reported, not gated. The ML dependency tree routinely carries known
+          # HIGHs with no available fix, and failing the build on those would
+          # train everyone to ignore the scanner. Findings land in the Security
+          # tab where they can be triaged.
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Summarise findings
+        # The SARIF upload below is the intended home for these, but code
+        # scanning needs Advanced Security on a private repository. Without it
+        # the upload 403s and the scan produces nothing anyone ever sees, so the
+        # findings are also written to the job summary, which every plan has.
+        if: always()
+        run: |
+          {
+            echo "### Trivy — priceref-backend (CRITICAL/HIGH, fixable only)"
+            echo
+            python3 - <<'PY'
+          import json, pathlib
+          doc = json.loads(pathlib.Path("trivy-results.sarif").read_text())
+          rules = doc["runs"][0]["tool"]["driver"].get("rules", [])
+          if not rules:
+              print("No fixable CRITICAL or HIGH vulnerabilities.")
+          else:
+              print(f"{len(rules)} finding(s):")
+              print()
+              for rule in rules:
+                  sev = rule.get("properties", {}).get("tags", ["unknown"])[-1]
+                  print(f"- `{rule['id']}` ({sev}) — {rule.get('shortDescription', {}).get('text', '')}")
+          PY
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        # Advanced Security is not available for private repositories on the
+        # Free plan, where this returns 403. The scan is informational either
+        # way, so a failed upload must not fail the build.
+        continue-on-error: true
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-backend
+
+  ci-passed:
+    # Single required status check for branch protection, so the list of jobs can
+    # change without editing the protection rule.
+    name: CI passed
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-unit, frontend, migrations, container-tests]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if echo '${{ join(needs.*.result, ' ') }}' | grep -qE 'failure|cancelled'; then
+            echo "::error::one or more CI jobs did not succeed"
+            exit 1
+          fi
+          echo "all CI jobs succeeded"
