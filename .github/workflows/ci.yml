@@ -404,7 +404,9 @@ jobs:
       - run: docker load < /tmp/backend.tar.gz
 
       - name: Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        # Tag must carry the `v` prefix — this was pinned to `0.28.0`, which has
+        # never existed, so the job died at action resolution before running.
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: priceref-backend:ci
           format: sarif
@@ -417,8 +419,37 @@ jobs:
           exit-code: '0'
           ignore-unfixed: true
 
+      - name: Summarise findings
+        # The SARIF upload below is the intended home for these, but code
+        # scanning needs Advanced Security on a private repository. Without it
+        # the upload 403s and the scan produces nothing anyone ever sees, so the
+        # findings are also written to the job summary, which every plan has.
+        if: always()
+        run: |
+          {
+            echo "### Trivy — priceref-backend (CRITICAL/HIGH, fixable only)"
+            echo
+            python3 - <<'PY'
+          import json, pathlib
+          doc = json.loads(pathlib.Path("trivy-results.sarif").read_text())
+          rules = doc["runs"][0]["tool"]["driver"].get("rules", [])
+          if not rules:
+              print("No fixable CRITICAL or HIGH vulnerabilities.")
+          else:
+              print(f"{len(rules)} finding(s):")
+              print()
+              for rule in rules:
+                  sev = rule.get("properties", {}).get("tags", ["unknown"])[-1]
+                  print(f"- `{rule['id']}` ({sev}) — {rule.get('shortDescription', {}).get('text', '')}")
+          PY
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
+        # Advanced Security is not available for private repositories on the
+        # Free plan, where this returns 403. The scan is informational either
+        # way, so a failed upload must not fail the build.
+        continue-on-error: true
         with:
           sarif_file: trivy-results.sarif
           category: trivy-backend
