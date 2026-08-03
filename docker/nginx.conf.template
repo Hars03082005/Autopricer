@@ -37,12 +37,26 @@ server {
     client_max_body_size 8m;   # /bulk-evaluate accepts batches of vehicles
 
     # ── Security headers ────────────────────────────────────────────────────
-    add_header X-Content-Type-Options nosniff always;
-    add_header X-Frame-Options SAMEORIGIN always;
-    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    # These are repeated inside every location block below, and that repetition
+    # is required, not sloppiness.
+    #
+    # nginx's add_header does not merge across levels: a location that declares
+    # any add_header of its own discards every one inherited from the server
+    # block. Each location here sets its own Cache-Control, so declaring these
+    # three only at server level meant none of them were ever emitted on any
+    # real response — the smoke test caught it as "missing
+    # X-Content-Type-Options" on /, and a live check confirmed all three absent
+    # everywhere.
+    #
+    # Keeping them here as well still has value: responses generated outside
+    # any location, such as nginx's own error pages, do inherit them.
+    #
     # No HSTS: TLS terminates upstream at the Container Apps ingress, and
     # emitting HSTS from behind it would also apply to plain-HTTP local runs of
     # this same image.
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
 
     # ── Platform health probe ───────────────────────────────────────────────
     # Answered by nginx itself, not proxied. This reports whether the *frontend*
@@ -50,6 +64,9 @@ server {
     # rotation during a backend deploy, when it can still usefully render.
     location = /healthz {
         access_log off;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
         add_header Content-Type application/json;
         return 200 '{"status":"ok","component":"frontend"}';
     }
@@ -58,6 +75,9 @@ server {
     # Rewritten on every container boot; a cached copy pins a browser to a
     # previous environment's API and Supabase URLs.
     location = /config.js {
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
         add_header Cache-Control "no-store, must-revalidate" always;
         expires -1;
         try_files /config.js =404;
@@ -99,6 +119,9 @@ server {
         proxy_set_header X-Forwarded-Host  $host;
         proxy_set_header Authorization     $http_authorization;
 
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
         # Responses are per-user (history, profile) or freshly computed; caching
         # any of it would risk serving one dealer's valuations to another.
         add_header Cache-Control "no-store" always;
@@ -109,6 +132,9 @@ server {
     # cache immutably.
     location /assets/ {
         expires 1y;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
         add_header Cache-Control "public, immutable" always;
         access_log off;
         try_files $uri =404;
@@ -116,6 +142,9 @@ server {
 
     location ~* \.(png|jpg|jpeg|gif|svg|webp|woff2?|ico)$ {
         expires 30d;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
         add_header Cache-Control "public" always;
         access_log off;
         try_files $uri =404;
@@ -125,6 +154,9 @@ server {
     # index.html is never cached, otherwise a browser keeps requesting the
     # previous deploy's hashed asset URLs after a revision swap.
     location / {
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
         add_header Cache-Control "no-cache" always;
         try_files $uri $uri/ /index.html;
     }
