@@ -24,11 +24,30 @@
 # reason ruff is pinned in CI: an upstream release should not silently change
 # the lock and turn an unrelated commit red.
 #
+# ── Why the index is pinned to a date ────────────────────────────────────────
+#
+# Pinning uv was half the job. The resolution also depends on what PyPI happens
+# to be serving at the moment it runs, and CI verifies the lock by regenerating
+# it and diffing. So the check was a clock: the first upstream release of any
+# transitive dependency turned the next commit red, whatever that commit was.
+# It duly went red two days after it was written, on a docs-only change, when
+# cffi, packaging and starlette each published.
+#
+# --exclude-newer makes the resolution a pure function of requirements.txt, the
+# uv version and this timestamp. Nothing changes underneath it. Picking up new
+# versions is now a deliberate act: move the date, relock, review the diff, and
+# commit it as the dependency bump it actually is.
+#
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="${PYTHON:-python3.11}"
 UV_VERSION="0.12.1"
+
+# Index snapshot: no distribution published after this instant is considered.
+# Set to when the current lock was cut, so pinning the index changed no
+# dependency. Bump it to take upstream updates; that commit *is* the bump.
+EXCLUDE_NEWER="2026-08-03T12:00:00Z"
 
 command -v "$PY" >/dev/null 2>&1 || { echo "error: $PY not found (set PYTHON=...)" >&2; exit 1; }
 
@@ -64,6 +83,7 @@ echo "==> Resolving backend/requirements.txt for CPython 3.11 / linux x86_64 …
   "$REPO_ROOT/backend/requirements.txt" \
   --python-version 3.11 \
   --python-platform x86_64-manylinux_2_34 \
+  --exclude-newer "$EXCLUDE_NEWER" \
   --only-binary :all: \
   --generate-hashes \
   --no-header \
@@ -72,10 +92,10 @@ echo "==> Resolving backend/requirements.txt for CPython 3.11 / linux x86_64 …
   --output-file "$WORK/body.txt"
 
 echo "==> Writing backend/requirements.lock …"
-"$PY" - "$WORK/body.txt" "$REPO_ROOT/backend/requirements.lock" <<'PY'
+"$PY" - "$WORK/body.txt" "$REPO_ROOT/backend/requirements.lock" "$EXCLUDE_NEWER" <<'PY'
 import io, sys
 
-body_path, lock_path = sys.argv[1], sys.argv[2]
+body_path, lock_path, exclude_newer = sys.argv[1], sys.argv[2], sys.argv[3]
 with io.open(body_path, encoding="utf-8") as fh:
     body = fh.read().strip("\n")
 
@@ -87,13 +107,18 @@ HEADER = """\
 # Resolved for: CPython 3.11 / linux x86_64 (manylinux2014), which is what
 # python:3.11-slim-bookworm provides.
 #
+# Index snapshot: {exclude_newer}
+# Nothing published after that instant is considered, so this file regenerates
+# byte-identically. To take upstream updates, move EXCLUDE_NEWER in
+# scripts/lock-requirements.sh and relock — that commit is the dependency bump.
+#
 # Regenerate after editing requirements.txt:
 #   scripts/lock-requirements.sh
 #
 # Because the hashes are wheel-specific, this file is only installable on
 # linux/amd64. Local non-Linux development installs requirements.txt instead.
 # ─────────────────────────────────────────────────────────────────────────────
-"""
+""".format(exclude_newer=exclude_newer)
 
 # newline="\n" so a Windows checkout does not produce a CRLF lock that CI, which
 # regenerates it on Linux, would then report as stale.

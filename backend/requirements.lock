@@ -5,6 +5,11 @@
 # Resolved for: CPython 3.11 / linux x86_64 (manylinux2014), which is what
 # python:3.11-slim-bookworm provides.
 #
+# Index snapshot: 2026-08-03T12:00:00Z
+# Nothing published after that instant is considered, so this file regenerates
+# byte-identically. To take upstream updates, move EXCLUDE_NEWER in
+# scripts/lock-requirements.sh and relock — that commit is the dependency bump.
+#
 # Regenerate after editing requirements.txt:
 #   scripts/lock-requirements.sh
 #

@@ -196,6 +196,39 @@ system was unverified.
     project Site URL, still on its factory default. Now passes
     `window.location.origin`.
 
+### Found later — 2026-08-05
+
+17. **The lock freshness check was a clock, not a check.** CI verifies
+    `requirements.lock` by regenerating it and diffing. `lock-requirements.sh`
+    pinned uv for exactly the right reason — "an upstream release should not
+    silently change the lock and turn an unrelated commit red" — but left the
+    other input floating: the resolution still asked PyPI for whatever it was
+    serving at that moment. So the step went red two days later on the
+    docs-only commit above, when `cffi`, `packaging` and `starlette` each
+    published. Nothing in the repo had changed.
+    Fixed with `uv pip compile --exclude-newer`, pinned to
+    `2026-08-03T12:00:00Z` — the instant the current lock was cut, so making
+    the resolution hermetic changed no dependency: all 51 pins and every hash
+    regenerate byte-identically. Taking upstream updates is now a deliberate
+    act — move `EXCLUDE_NEWER`, relock, review the diff.
+
+18. **The 1.8 GB backend image was handed between jobs as an artifact.**
+    `build-images` did `docker save | gzip` and uploaded it; `container-tests`
+    and `image-scan` downloaded and loaded it. That is ~1 GB gzipped against
+    the **500 MB** artifact quota this plan allows, so one run exhausted it and
+    every upload afterwards hard-failed — CI red again, still on a commit that
+    changed nothing. It passed on 2026-08-03 only because the quota was empty
+    that day; it was never going to hold.
+    Both consumers now rebuild from the `type=gha` layer cache the build
+    already populates. That store is 10 GB, shared with the build, and evicts
+    rather than refusing. The jobs stay parallel.
+    `DOCKER_BUILD_SUMMARY: 'false'` also turns off `build-push-action`'s
+    per-build record upload — a small artifact nothing here reads, which was
+    warning on every build in both workflows for the same reason.
+
+    Watch for this: the quota is recalculated only every 6–12 hours, so the
+    account may still be over it for a while after the last oversized upload.
+
 ---
 
 ## 7. Outstanding — nothing blocking
