@@ -106,6 +106,9 @@ permissions:
 
 env:
   IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+  # See the note in ci.yml: the build record is an artifact nothing here reads,
+  # and it warns on every build once the storage quota is full.
+  DOCKER_BUILD_SUMMARY: 'false'
 
 jobs:
   # ══ Build and push ═════════════════════════════════════════════════════════

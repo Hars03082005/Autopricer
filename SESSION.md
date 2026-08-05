@@ -212,6 +212,23 @@ system was unverified.
     regenerate byte-identically. Taking upstream updates is now a deliberate
     act — move `EXCLUDE_NEWER`, relock, review the diff.
 
+18. **The 1.8 GB backend image was handed between jobs as an artifact.**
+    `build-images` did `docker save | gzip` and uploaded it; `container-tests`
+    and `image-scan` downloaded and loaded it. That is ~1 GB gzipped against
+    the **500 MB** artifact quota this plan allows, so one run exhausted it and
+    every upload afterwards hard-failed — CI red again, still on a commit that
+    changed nothing. It passed on 2026-08-03 only because the quota was empty
+    that day; it was never going to hold.
+    Both consumers now rebuild from the `type=gha` layer cache the build
+    already populates. That store is 10 GB, shared with the build, and evicts
+    rather than refusing. The jobs stay parallel.
+    `DOCKER_BUILD_SUMMARY: 'false'` also turns off `build-push-action`'s
+    per-build record upload — a small artifact nothing here reads, which was
+    warning on every build in both workflows for the same reason.
+
+    Watch for this: the quota is recalculated only every 6–12 hours, so the
+    account may still be over it for a while after the last oversized upload.
+
 ---
 
 ## 7. Outstanding — nothing blocking

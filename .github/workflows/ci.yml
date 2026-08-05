@@ -26,6 +26,11 @@ permissions:
 env:
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '22'
+  # docker/build-push-action uploads a build record as an artifact after every
+  # build. It is only ever read from the run summary UI, and it competes for the
+  # same 500 MB quota as everything else, warning on each build once that is
+  # full. Nothing here consults it.
+  DOCKER_BUILD_SUMMARY: 'false'
 
 jobs:
   # ══ Fast checks ════════════════════════════════════════════════════════════
@@ -191,8 +196,6 @@ jobs:
     name: Build images
     runs-on: ubuntu-latest
     needs: [backend-lint, frontend]
-    outputs:
-      backend-digest: ${{ steps.meta.outputs.backend-digest }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 1 }
@@ -262,14 +265,13 @@ jobs:
             fi
           done
 
-      - name: Save backend image for the test job
-        run: docker save priceref-backend:ci | gzip > /tmp/backend.tar.gz
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: backend-image
-          path: /tmp/backend.tar.gz
-          retention-days: 1
+  # The image is not handed to the downstream jobs as an artifact. It is ~1.8 GB
+  # (~1 GB gzipped) against a 500 MB artifact quota on this plan, so a single run
+  # exhausted it and every subsequent upload hard-failed — taking CI down on a
+  # commit that touched nothing but documentation. The layer cache below is the
+  # right store for this: 10 GB, shared with the build, and evicted rather than
+  # refused. Downstream jobs rebuild from it, which on a warm cache is a layer
+  # fetch and an image export.
 
   container-tests:
     name: Tests against the built image
@@ -279,13 +281,19 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 1 }
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: backend-image
-          path: /tmp
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Load image
-        run: docker load < /tmp/backend.tar.gz
+      - name: Restore the backend image from the layer cache
+        # cache-from only: build-images populated the cache, and a second writer
+        # would race it for no benefit.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: priceref-backend:ci
+          cache-from: type=gha,scope=backend
 
       - name: Run the full suite inside the image
         # The `models` tests only run here, where the artifacts and the exact
@@ -402,12 +410,17 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 1 }
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: backend-image
-          path: /tmp
+      - uses: docker/setup-buildx-action@v3
 
-      - run: docker load < /tmp/backend.tar.gz
+      - name: Restore the backend image from the layer cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: priceref-backend:ci
+          cache-from: type=gha,scope=backend
 
       - name: Trivy
         # Tag must carry the `v` prefix — this was pinned to `0.28.0`, which has
