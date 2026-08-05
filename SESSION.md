@@ -196,6 +196,22 @@ system was unverified.
     project Site URL, still on its factory default. Now passes
     `window.location.origin`.
 
+### Found later — 2026-08-05
+
+17. **The lock freshness check was a clock, not a check.** CI verifies
+    `requirements.lock` by regenerating it and diffing. `lock-requirements.sh`
+    pinned uv for exactly the right reason — "an upstream release should not
+    silently change the lock and turn an unrelated commit red" — but left the
+    other input floating: the resolution still asked PyPI for whatever it was
+    serving at that moment. So the step went red two days later on the
+    docs-only commit above, when `cffi`, `packaging` and `starlette` each
+    published. Nothing in the repo had changed.
+    Fixed with `uv pip compile --exclude-newer`, pinned to
+    `2026-08-03T12:00:00Z` — the instant the current lock was cut, so making
+    the resolution hermetic changed no dependency: all 51 pins and every hash
+    regenerate byte-identically. Taking upstream updates is now a deliberate
+    act — move `EXCLUDE_NEWER`, relock, review the diff.
+
 ---
 
 ## 7. Outstanding — nothing blocking

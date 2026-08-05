@@ -55,11 +55,17 @@ jobs:
         # Catches the case where someone edits requirements.txt and forgets to
         # relock, which would silently deploy a different dependency set than the
         # one declared.
+        #
+        # This only means anything because the resolution is hermetic: uv and
+        # the index snapshot are both pinned in the script, so regenerating is
+        # a pure function of the checkout. Without that the step was a clock
+        # rather than a check — it went red on a docs-only commit the first time
+        # an unrelated transitive dependency published.
         run: |
           cp backend/requirements.lock /tmp/requirements.lock.committed
           PYTHON=python ./scripts/lock-requirements.sh
           if ! diff -q /tmp/requirements.lock.committed backend/requirements.lock; then
-            echo "::error::backend/requirements.lock is stale. Run scripts/lock-requirements.sh and commit the result."
+            echo "::error::backend/requirements.lock does not match requirements.txt. Run scripts/lock-requirements.sh and commit the result."
             diff -u /tmp/requirements.lock.committed backend/requirements.lock || true
             exit 1
           fi
