@@ -862,12 +862,15 @@ def _vcfg(key: str, default):
 
 _DATASET_DF         = None
 _DATASET_LOAD_TRIED = False
+_DATASET_NORM_VER   = 0         # bump to force re-normalization on next load
+_VARIANT_NORM_VERSION = 2       # current normalization version — bump when rules change
 
 def _load_dataset_df():
-    global _DATASET_DF, _DATASET_LOAD_TRIED
-    if _DATASET_LOAD_TRIED:
+    global _DATASET_DF, _DATASET_LOAD_TRIED, _DATASET_NORM_VER
+    if _DATASET_LOAD_TRIED and _DATASET_NORM_VER == _VARIANT_NORM_VERSION:
         return _DATASET_DF
     _DATASET_LOAD_TRIED = True
+    _DATASET_NORM_VER   = _VARIANT_NORM_VERSION
     try:
         import pandas as _pd
         _here     = _os.path.dirname(_os.path.abspath(__file__))
@@ -900,9 +903,14 @@ def _load_dataset_df():
         _df   = _df[_keep].copy()
         _df   = _df.dropna(subset=["brand", "model", "selling_price"])
 
-        for c in ["brand", "model", "variant", "fuel_type", "transmission"]:
+        for c in ["brand", "model", "fuel_type", "transmission"]:
             if c in _df.columns:
                 _df[c] = _df[c].astype(str).str.strip().str.lower().fillna("unknown")
+        # Normalize variant strings so typographic variants of the same trim match:
+        # "zxi+" == "zxi plus", "sx(o)" == "sx o", "ags" == "amt", etc.
+        if "variant" in _df.columns:
+            _df["variant"] = _df["variant"].astype(str).str.strip().str.lower() \
+                                            .fillna("unknown").apply(_normalize_variant)
 
         _df["selling_price"]    = _pd.to_numeric(_df["selling_price"],    errors="coerce")
         _df["odometer_reading"] = _pd.to_numeric(_df["odometer_reading"], errors="coerce").fillna(0)
@@ -928,7 +936,103 @@ def _load_dataset_df():
     return _DATASET_DF
 
 
+def _normalize_variant(v: str) -> str:
+    """
+    Canonicalize Indian car variant name strings so that typographic variants
+    of the same trim are treated as identical during similarity scoring.
+
+    Covers ALL major Indian brands:
+      Maruti:   zxi+/zxi plus, vxi+/vxi plus, lxi+/lxi plus, zdi+/zdi plus, etc.
+      Hyundai:  sx(o)/sxo, asta(o)/asta o, magna+/magna plus, era+/era plus
+      Tata:     xz+/xz plus, xt+/xt plus, xza+/xza plus, creative+/creative plus
+      Ford:     titanium+/titanium plus, trend+/trend plus
+      Kia:      htk+/htk plus, htx+/htx plus, gtx+/gtx plus
+      Mahindra: w8(o)/w8 o, w6(o)/w6 o
+      Renault:  rxz+/rxz plus, rxt+/rxt plus, rxl(o)/rxl o, climber(o)/climber o
+      VW:       comfortline(p)/comfortline p, comfortline(d)/comfortline d
+      Others:   d-lite+/d-lite plus, k6+/k6 plus, fearless+/fearless plus
+
+    Transmission synonyms:  amt == ags == at
+    Drivetrain synonyms:    4wd == 4x4 == awd
+    Optional suffix:        (opt) → opt
+    Spacing:                dual tone == dualtone
+    """
+    import re as _re
+    s = str(v or "").strip().lower()
+    if not s or s in ("", "unknown", "nan", "none"):
+        return "unknown"
+    s = _re.sub(r"\s+", " ", s)          # collapse whitespace
+
+    # ── Step 1: Parenthesized option letters → space-separated ────────────
+    # Handles (o), (s), (p), (d), (l), (hs), (ps) for ALL brands
+    # e.g. "sx(o)" → "sx o", "asta (o)" → "asta o", "rxl(o)" → "rxl o"
+    #      "comfortline 1.5 (d)" → "comfortline 1.5 d"
+    #      "xz plus (hs)" → "xz plus hs", "fearless plus (ps)" → "fearless plus ps"
+    s = _re.sub(r"\s*\(o\)", " o", s)
+    s = _re.sub(r"\s*\(s\)", " s", s)
+    s = _re.sub(r"\s*\(p\)", " p", s)
+    s = _re.sub(r"\s*\(d\)", " d", s)
+    s = _re.sub(r"\s*\(l\)", " l", s)
+    s = _re.sub(r"\s*\(hs\)", " hs", s)
+    s = _re.sub(r"\s*\(ps\)", " ps", s)
+
+    # (opt) → opt  (e.g. "titanium 1.0 ecoboost (opt)" → "titanium 1.0 ecoboost opt")
+    s = _re.sub(r"\s*\(opt\)", " opt", s)
+
+    # Generic: any remaining single-letter/short parenthesized tokens
+    # e.g. "a(o)" → "a o", "std(o)" → "std o", "b6(o)" → "b6 o"
+    s = _re.sub(r"\(([a-z]{1,3})\)", r" \1", s)
+
+    # ── Step 2: + → plus (ALL brands, ALL positions) ─────────────────────
+    # Handles trailing, mid-word, and spaced + for every brand:
+    # "zxi+" → "zxi plus", "titanium + 1.5l" → "titanium plus 1.5l"
+    # "creative+ amt" → "creative plus amt", "d-lite+" → "d-lite plus"
+    # "vxi + (o) amt" → already (o) stripped → "vxi + o amt" → "vxi plus o amt"
+    s = _re.sub(r"\s*\+\s*", " plus ", s)
+
+    # ── Step 3: Transmission synonyms ─────────────────────────────────────
+    # amt == ags (Maruti) == at (generic automatic) — all brands
+    s = _re.sub(r"\bags\b", "amt", s)
+    # Only standalone "at" (not inside words like "asta")
+    # Use word boundary + negative lookbehind/ahead to avoid mangling
+    s = _re.sub(r"(?<!\w)\bat\b(?!\w*a)", "amt", s)
+
+    # ── Step 4: Drivetrain synonyms ───────────────────────────────────────
+    s = _re.sub(r"\b(4x4|awd)\b", "4wd", s)
+
+    # ── Step 5: Fuel type tokens in variant names ─────────────────────────
+    # "diesel" → "d", "petrol" → "p" (standalone only, all brands)
+    s = _re.sub(r"\bdiesel\b", "d", s)
+    s = _re.sub(r"\bpetrol\b", "p", s)
+
+    # ── Step 6: "dual tone" / "dualtone" / "dual-tone" normalization ──────
+    s = _re.sub(r"\bdual[\s-]?tone\b", "dualtone", s)
+
+    # ── Step 7: Abbreviation synonyms ─────────────────────────────────────
+    # "pl" → "plus" (rare scraper abbreviation)
+    s = _re.sub(r"\bpl\b", "plus", s)
+    # "bs-iv" / "bsiv" / "bs iv" → "bs4"
+    s = _re.sub(r"\bbs[\s-]?iv\b", "bs4", s)
+    s = _re.sub(r"\bbs[\s-]?vi\b", "bs6", s)
+    # "s-cng" / "scng" → "cng"
+    s = _re.sub(r"\bs[\s-]?cng\b", "cng", s)
+    # "i-vtec" / "ivtec" → "ivtec" (Honda)
+    s = _re.sub(r"\bi[\s-]vtec\b", "ivtec", s)
+    # "i-dtec" / "idtec" → "idtec" (Honda)
+    s = _re.sub(r"\bi[\s-]dtec\b", "idtec", s)
+    # "ti-vct" / "tivct" → "tivct" (Ford)
+    s = _re.sub(r"\bti[\s-]vct\b", "tivct", s)
+    # "ecoboost" stays as-is (already uniform)
+
+    # ── Step 8: Remove "outside fitted" qualifier for CNG/LPG ─────────────
+    s = _re.sub(r"\(outside fitted\)", "", s)
+    s = _re.sub(r"\boutside fitted\b", "", s)
+
+    return " ".join(s.split())   # final whitespace collapse
+
+
 class AdaptiveComparableService:
+
     """
     Production-grade adaptive comparable vehicle search.
 
@@ -943,10 +1047,10 @@ class AdaptiveComparableService:
     def __init__(self) -> None:
         # Load tuning params from config (already loaded at module level as _VCFG)
         self._weights: dict[str, float] = _vcfg("similarity_weights", {
-            "brand": 0.20, "model": 0.20, "variant": 0.12,
+            "brand": 0.18, "model": 0.18, "variant": 0.16,
             "vehicle_age": 0.12, "odometer_reading": 0.10,
-            "fuel_type": 0.10, "transmission": 0.08,
-            "owner_count": 0.05, "seller_type": 0.02, "locality": 0.01,
+            "fuel_type": 0.10, "transmission": 0.07,
+            "owner_count": 0.05, "seller_type": 0.02, "locality": 0.02,
         })
         self._age_sigma: float      = float(_vcfg("age_sigma", 3.0))
         self._odo_sigma: float      = float(_vcfg("odometer_sigma", 25_000))
@@ -984,7 +1088,8 @@ class AdaptiveComparableService:
         vehicle_age = max(0, _cy - int(year)) if year else 0
         bk  = str(brand or "").strip().lower()
         mk  = str(model or "").strip().lower()
-        vk  = str(variant or "").strip().lower()
+        # Normalize the query variant so "zxi+" and "zxi plus" resolve to the same token
+        vk  = _normalize_variant(str(variant or "").strip().lower())
         fk  = str(fuel or "").strip().lower()
         tk  = str(transmission or "").strip().lower()
         slk = str(seller_type or "").strip().lower()
@@ -1003,7 +1108,9 @@ class AdaptiveComparableService:
         s += df["fuel_type"].eq(fk).astype(float)       * W.get("fuel_type", 0.10)
         s += df["transmission"].eq(tk).astype(float)    * W.get("transmission", 0.08)
 
-        # Variant: exact = 1.0, token overlap = 0.5 × overlap_ratio, unknown = 0
+        # Variant: exact = 1.0, high overlap (≥80%) = 0.90, moderate = scaled, unknown = 0
+        # This graduated scoring ensures "zxi plus" ≈ "zxi plus amt" scores high
+        # instead of the old flat 0.5x penalty that killed match scores.
         if vk and vk not in ("", "unknown"):
             vk_tokens = set(vk.split())
             exact_mask = df["variant"].eq(vk)
@@ -1011,12 +1118,27 @@ class AdaptiveComparableService:
                 tokens = set(str(cell_val).split())
                 if not tokens or not vk_tokens:
                     return 0.0
-                overlap = len(vk_tokens & tokens) / max(len(vk_tokens), 1)
-                return overlap
+                intersection = len(vk_tokens & tokens)
+                # Jaccard-style: overlap relative to the LARGER set
+                union = len(vk_tokens | tokens)
+                jaccard = intersection / max(union, 1)
+                # Also check directional overlap (query tokens found in candidate)
+                query_recall = intersection / max(len(vk_tokens), 1)
+                # Use the better of the two signals
+                overlap = max(jaccard, query_recall)
+                # Graduated scoring: high overlap → near-exact, low → proportional
+                if overlap >= 0.90:
+                    return 0.95   # near-exact (e.g. "zxi plus" vs "zxi plus amt")
+                elif overlap >= 0.75:
+                    return 0.85   # strong match
+                elif overlap >= 0.50:
+                    return 0.65   # moderate match
+                else:
+                    return overlap * 0.50  # weak — proportional penalty
             token_scores = df["variant"].map(_token_sim)
             # Exact match overrides token overlap
-            variant_scores = _np.where(exact_mask, 1.0, token_scores * 0.5)
-            s += _pd.Series(variant_scores, index=df.index) * W.get("variant", 0.12)
+            variant_scores = _np.where(exact_mask, 1.0, token_scores)
+            s += _pd.Series(variant_scores, index=df.index) * W.get("variant", 0.16)
 
         # Seller type: exact = 1.0, missing/unknown = 0.5
         if "seller_type" in df.columns and slk:
@@ -1152,7 +1274,8 @@ class AdaptiveRangeEngine:
         self._max_range_pct: float = float(_vcfg("max_allowed_range_pct", 0.25))
 
     def build(self, *, prediction: float, comps: list[dict],
-              sim_scores: list[float], mape: float) -> dict:
+              sim_scores: list[float], mape: float,
+              odometer: float = 0.0) -> dict:
         """
         Returns:
           price_min, price_max, price_median — all ₹ integers
@@ -1212,19 +1335,59 @@ class AdaptiveRangeEngine:
         else:
             lo_frac = hi_frac = mape
 
-        # ── Anchor center: blend comp median into ML prediction when comps are strong ──
-        # KEY FIX: When similar cars are found (97%+ match), the price center should
-        # be pulled toward actual comp prices, not stay locked at the ML prediction.
+        # ── Anchor center: similarity-weighted top-comp anchor ───────────────────
+        # Diagnostic finding: with top_k=10, comps 9–12 were 1-owner BUT 72k km
+        # (vs user's 55k km), priced at ₹7.53L–₹7.62L — dragging the anchor from
+        # ₹9.5L (top 94% match) down to ₹8.37L. Fix: top_k=5 + odometer proximity
+        # penalty so high-mileage outliers carry proportionally less weight.
         if n_valid > 0 and case in ("high", "medium"):
-            comp_median = float(_np.median(prices))
+            sims_arr   = _np.array(valid_sims)
+            prices_arr = _np.array(prices)
+
+            # Use only the top 5 highest-similarity comps as the price anchor.
+            # This avoids dilution from lower-ranked comps with very different
+            # odometer readings (e.g. 72k km when query is 55k km).
+            top_k = min(5, n_valid)
+            top_prices     = prices_arr[:top_k]
+            top_sims       = sims_arr[:top_k]
+            top_comps_list = comps[:top_k]
+
+            # Query odometer for proximity penalty — use the real user input, NOT comps[0]'s
+            # odometer (which is a dataset vehicle's reading, not the car being evaluated).
+            query_odo = float(odometer) if odometer else 0.0
+
+            combined_weights = []
+            for c, s in zip(top_comps_list, top_sims):
+                oc  = c.get("owner_count", 1)
+                odo = float(c.get("odometer_reading", query_odo) or query_odo)
+
+                # Owner alignment boost: same owner count preferred
+                w_oc = 1.30 if str(oc) == "1" or oc == 1 else 0.80
+
+                # Odometer proximity: Gaussian decay with sigma=20,000 km.
+                # A comp at 72k km vs query 55k km → penalty ≈ 0.64×.
+                # A comp at 51k km vs query 55k km → penalty ≈ 0.98× (near-perfect).
+                odo_sigma = 20_000.0
+                if query_odo > 0 and odo > 0:
+                    w_odo = float(_np.exp(-0.5 * ((odo - query_odo) / odo_sigma) ** 2))
+                else:
+                    w_odo = 1.0
+
+                combined_weights.append((s ** 6) * w_oc * w_odo)
+
+            exp_weights = _np.array(combined_weights)
+            comp_weighted_anchor = float(_np.average(top_prices, weights=exp_weights))
+
+            comp_median = comp_weighted_anchor
             comp_p25    = float(_np.percentile(prices, 25))
             comp_p75    = float(_np.percentile(prices, 75))
+
             if case == "high":
-                # High confidence: trust comps heavily (70% comp, 30% ML)
-                blended_center = 0.70 * comp_median + 0.30 * pred
+                # High confidence: trust top weighted comp anchor heavily (70%)
+                blended_center = 0.70 * comp_weighted_anchor + 0.30 * pred
             else:
-                # Medium confidence: equal blend (50% comp, 50% ML)
-                blended_center = 0.50 * comp_median + 0.50 * pred
+                # Medium confidence: equal blend
+                blended_center = 0.50 * comp_weighted_anchor + 0.50 * pred
         else:
             blended_center = pred
             comp_p25 = comp_p75 = pred
@@ -1348,11 +1511,12 @@ _comparable_service = _adaptive_comparable_service
 # ── PUBLIC API ────────────────────────────────────────────────────────────────
 
 def generate_similar_cars(market_value, brand, model, year, fuel, city, segment,
-                           variant="unknown", transmission="manual", owner_count=1) -> list[dict]:
+                           variant="unknown", transmission="manual", owner_count=1,
+                           odometer=0) -> list[dict]:
     result = _adaptive_comparable_service.search(
         brand=brand, model=model, variant=variant,
         fuel=fuel, transmission=transmission,
-        year=year, odometer=0, owner_count=owner_count,
+        year=year, odometer=float(odometer or 0), owner_count=owner_count,
     )
     return result.get("similar_cars", [])
 
@@ -1388,6 +1552,7 @@ def get_market_range_result(*, brand, model, variant, fuel, transmission,
         comps=comps,
         sim_scores=sim_scores,
         mape=_mape,
+        odometer=float(odometer or 0),
     )
 
     price_min    = rng["price_min"]

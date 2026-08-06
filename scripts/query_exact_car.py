@@ -1,10 +1,10 @@
 import pandas as pd
 from pathlib import Path
 
-csv_path = Path("ml_training/data/processed_pincode without owner-4.csv")
+csv_path = Path("ml_training/data/processed_overall.csv")
 if not csv_path.exists():
     import glob
-    files = glob.glob("**/*.csv", recursive=True)
+    files = glob.glob("ml_training/data/*.csv", recursive=True)
     csv_path = Path(files[0]) if files else None
 
 if csv_path and csv_path.exists():
@@ -20,7 +20,7 @@ if csv_path and csv_path.exists():
     # Match Maruti / Swift / 2017
     b_mask = df["brand_clean"].str.contains("maruti")
     m_mask = df["model_clean"] == "swift"
-    y_mask = df["year"] == 2017
+    y_mask = (df["year"] == 2017) if "year" in df.columns else (df["vehicle_age"] == 9)
     
     match_swift_2017 = df[b_mask & m_mask & y_mask]
     print(f"\nTotal 2017 Maruti Swift rows in dataset: {len(match_swift_2017)}")
@@ -39,4 +39,5 @@ if csv_path and csv_path.exists():
         f = row.get("fuel_type", "unknown")
         t = row.get("transmission", "unknown")
         loc = row.get("locality", "Bangalore")
-        print(f"Row {idx:<6} | {row['brand']} {row['model']} {v:<8} | {row['year']} | Fuel: {f:<6} | Trans: {t:<9} | Odo: {odo:>7,} km | Price: Rs. {p:>7,} ({p/100000:.2f}L) | Locality: {loc}")
+        yr = row.get("year", 2026 - int(row.get("vehicle_age", 9)))
+        print(f"Row {idx:<6} | {row['brand']} {row['model']} {v:<8} | {yr} | Fuel: {f:<6} | Trans: {t:<9} | Odo: {odo:>7,} km | Price: Rs. {p:>7,} ({p/100000:.2f}L) | Locality: {loc}")

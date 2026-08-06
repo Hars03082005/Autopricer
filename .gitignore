@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Build output (generated; run `npm run build` to reproduce)
 dist/
@@ -35,56 +36,23 @@ htmlcov/
 
 # ── ML runtime / training cache ───────────────────────────────────────────────
 catboost_info/
+ml_training/catboost_info/
 mlruns/
 .wandb/
 
-# ── Datasets (NEVER COMMIT DATASETS) ─────────────────────────────────────────
+# ── Datasets & data folder (NEVER COMMIT DATASETS) ───────────────────────────
 *.csv
 *.xlsx
 *.parquet
 *.zip
-ml_training/data/*
-!ml_training/data/.gitkeep
-
-# ── ML training scripts: keep all 4 active variants (clean-1/2/3/s5 & train-1/2/3/s5) ──
-ml_training/clean_data.py
-ml_training/clean-4.py
-ml_training/clean-5.py
-ml_training/clean-6.py
-
-ml_training/train_*.py
-ml_training/train-1_.py
-ml_training/train-4.py
-ml_training/train-5.py
-ml_training/train-6.py
-ml_training/train_ml_model.py
-ml_training/train_price_split_comparison.py
-ml_training/train_unified.py
-run_all_training.py
-
-# Explicitly track all 4 active clean & train scripts
-!ml_training/clean-1.py
-!ml_training/clean-2.py
-!ml_training/clean-3.py
-!ml_training/clean-s5.py
-!ml_training/train-1.py
-!ml_training/train-2.py
-!ml_training/train-3.py
-!ml_training/train-s5.py
-
-# ── Model Registry: keep Variants 1–4 ────────────────────────────────────────
-model_registry/variant_5/
-model_registry/variant_6/
-model_registry/variant_7/
+ml_training/data/
 
 # ── Large model artifacts ─────────────────────────────────────────────────────
 model_artifacts/ensemble_*.pkl
 model_artifacts/vehicle_price_catboost.cbm
 model_artifacts/vehicle_price_xgboost.json
 model_artifacts/training_report.json
-model_artifacts_cell7/
-model_artifacts_owner_assumed/
-model_artifacts_split_compare/
+
 
 # ── Mobile (Flutter) ──────────────────────────────────────────────────────────
 mobile/.dart_tool/
@@ -93,14 +61,6 @@ mobile/.flutter-plugins-dependencies
 mobile/.metadata
 mobile/build/
 mobile/assets/flutter_assets/
-
-# ── Environment & secrets ─────────────────────────────────────────────────────
-.env
-.env.*
-!.env.example
-*.pem
-credentials.json
-secrets.json
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 logs/
@@ -134,9 +94,6 @@ Desktop.ini
 *.ipynb
 
 # ── Temp / scratch files ──────────────────────────────────────────────────────
-ml_training/scratch_diff.txt
-catboost_info/
-ml_training/catboost_info/
-analyze_raw.py
-split_dataset.py
-ml_training/find_dropped.py
+test_adaptive.py
+scripts/verify_fixes.py
+scripts/query_exact_car.py

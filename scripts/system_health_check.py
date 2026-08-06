@@ -1,7 +1,9 @@
 import urllib.request
 import json
 
-BASE_URL = "http://127.0.0.1:9000"
+import os
+
+BASE_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
 
 def get(path):
     req = urllib.request.Request(f"{BASE_URL}{path}")

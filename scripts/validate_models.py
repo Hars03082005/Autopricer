@@ -33,7 +33,11 @@ warnings.filterwarnings("ignore")
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
 DATA_DIR     = ROOT / "ml_training" / "data"
-DATASET_PATH = DATA_DIR / "processed_widown-1.csv"
+DATASET_PATH = DATA_DIR / "processed_overall.csv"
+if not DATASET_PATH.exists():
+    csv_files = list(DATA_DIR.glob("*.csv"))
+    if csv_files:
+        DATASET_PATH = csv_files[0]
 
 SAMPLE_SIZE = 5_000
 RANDOM_SEED = 42
@@ -152,8 +156,8 @@ df = enrich(df)
 # ── Load metadata ─────────────────────────────────────────────────────────────
 with open(ARTIFACT_DIR / "model_metadata.json") as f:
     META = json.load(f)
-MODEL_FEATURES = META["features"]
-CAT_FEATURES   = META["categorical_features"]
+MODEL_FEATURES = META.get("features", [])
+CAT_FEATURES   = META.get("cat_features") or META.get("categorical_features") or []
 
 def align_frame(df: pd.DataFrame, feature_names: list, cat_features: list, category_levels: dict = {}) -> pd.DataFrame:
     """Select & type-cast exactly the columns the model needs."""
