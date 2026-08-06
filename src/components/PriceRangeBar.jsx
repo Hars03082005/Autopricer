@@ -1,11 +1,9 @@
 import { formatINR } from '../utils/mockData.js';
-
 // Visual price confidence interval bar
 // Shows: Min ─────[▓▓▓predicted▓▓▓]───── Max
 export default function PriceRangeBar({ min, predicted, max }) {
   const range = max - min;
   const predPct = range > 0 ? ((predicted - min) / range) * 100 : 50;
-
   return (
     <div className="price-range-bar-wrapper">
       <div className="price-range-labels">
@@ -14,9 +12,7 @@ export default function PriceRangeBar({ min, predicted, max }) {
         <span className="pr-label-max">{formatINR(max)}</span>
       </div>
       <div className="price-range-track">
-        {/* Gradient fill from min to max */}
         <div className="price-range-fill" />
-        {/* Predicted price marker */}
         <div
           className="price-range-marker"
           style={{ left: `${Math.max(5, Math.min(95, predPct))}%` }}

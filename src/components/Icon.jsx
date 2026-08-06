@@ -1,10 +1,3 @@
-﻿/**
- * PriceRef — SVG Icon Library
- * All icons are 2D line-art SVGs, consistent style:
- *   strokeWidth=1.8, strokeLinecap="round", strokeLinejoin="round"
- * Usage: <Icon name="car" size={20} color="#f75d34" />
- */
-
 const ICONS = {
   // Navigation
   home: (
@@ -49,7 +42,6 @@ const ICONS = {
       <path d="M5 20V12M9 20V8M13 20v-6M17 20V4" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
-
   // Roles
   store: (
     <svg viewBox="0 0 24 24" fill="none">
@@ -72,7 +64,6 @@ const ICONS = {
       <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
     </svg>
   ),
-
   // Input Screen
   search: (
     <svg viewBox="0 0 24 24" fill="none">
@@ -92,7 +83,6 @@ const ICONS = {
       <path d="M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" strokeLinecap="round"/>
     </svg>
   ),
-
   // Fuel types
   fuelPump: (
     <svg viewBox="0 0 24 24" fill="none">
@@ -123,7 +113,6 @@ const ICONS = {
       <path d="M8 5l4-4 4 4M12 1v9M16 19l-4 4-4-4M12 23v-9" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
-
   // Result / General
   mapPin: (
     <svg viewBox="0 0 24 24" fill="none">
@@ -164,7 +153,6 @@ const ICONS = {
       <path d="M21 4v4h-4" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
-
   // Analytics / Dashboard
   trendUp: (
     <svg viewBox="0 0 24 24" fill="none">
@@ -197,7 +185,6 @@ const ICONS = {
       <path d="M7 20V10M12 20V4M17 20V14" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
-
   // Info / misc
   bell: (
     <svg viewBox="0 0 24 24" fill="none">
@@ -275,18 +262,9 @@ const ICONS = {
     </svg>
   ),
 };
-
-/**
- * Icon component
- * @param {string} name – icon key from ICONS
- * @param {number} size – px size (default 20)
- * @param {string} color – CSS color (default "currentColor")
- * @param {string} className
- */
 export default function Icon({ name, size = 20, color = 'currentColor', className = '', strokeWidth = 1.8 }) {
   const svg = ICONS[name];
   if (!svg) return null;
-
   return (
     <span
       className={`svg-icon ${className}`}
@@ -300,7 +278,6 @@ export default function Icon({ name, size = 20, color = 'currentColor', classNam
         color,
       }}
     >
-      {/* Clone SVG with current props */}
       <svg
         viewBox="0 0 24 24"
         width={size}

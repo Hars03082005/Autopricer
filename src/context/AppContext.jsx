@@ -1,9 +1,7 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
 import { supabase } from '../lib/supabaseClient.js';
-
 const DEFAULT_INPUTS = {
   brand: 'Honda', model: 'City', variant: '', year: '2021',
   fuel: 'Petrol', transmission: 'Manual', mileage: '28000', fuelEfficiency: '17.5',
@@ -12,7 +10,6 @@ const DEFAULT_INPUTS = {
   color: 'White', inspected: false,
   sellerAskingPrice: '0', targetMarginPct: '10', repairBuffer: '25000',
 };
-
 const DEFAULT_INSPECTION = {
   accidentHistory: 'none',
   loanOutstanding: false,
@@ -33,17 +30,14 @@ const DEFAULT_INSPECTION = {
     electrical: 'vendor',
   },
 };
-
-const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1'; // kept for demo-user fallback
+const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1';
 const AppContext = createContext(null);
-
 function toNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === '') return fallback;
   const match = String(value).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
   const n = match ? Number(match[0]) : Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
-
 function loadLocalHistory() {
   try {
     const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
@@ -52,7 +46,6 @@ function loadLocalHistory() {
     return [];
   }
 }
-
 function recordFromResult(inputs, result, source = 'Single Vehicle') {
   const marketValue = toNumber(result?.predictedPrice ?? result?.marketValue, 0);
   const buyPrice = toNumber(result?.recommendedBuyPrice ?? result?.dealerAcqPrice ?? result?.buyPrice, 0);
@@ -61,7 +54,6 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
   const odometer = toNumber(inputs?.mileage ?? inputs?.odometer_reading ?? result?.odometer, 0);
   const riskScore = toNumber(result?.riskScore, 0);
   const dealQualityScore = toNumber(result?.dealQualityScore ?? result?.dealQuality, 0);
-
   return {
     id: result?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     createdAt: new Date().toISOString(),
@@ -103,8 +95,6 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
     negativeFactors: result?.negativeFactors || [],
   };
 }
-
-/** Convert camelCase record → snake_case DB row for Supabase insert */
 function recordToDbRow(rec, userId) {
   return {
     id:                   rec.id,
@@ -140,8 +130,6 @@ function recordToDbRow(rec, userId) {
     negative_factors:     rec.negativeFactors,
   };
 }
-
-/** Convert snake_case DB row → camelCase record for the UI */
 function dbRowToRecord(row) {
   return {
     id:                   row.id,
@@ -185,9 +173,7 @@ function dbRowToRecord(row) {
     valuationSource:      'CatBoost ML Backend',
   };
 }
-
 export function AppProvider({ children }) {
-
   const { currentUser } = useAuth();
   const [activeScreen, setActiveScreen] = useState('home');
   const [role] = useState(currentUser?.role || 'Dealer');
@@ -200,11 +186,8 @@ export function AppProvider({ children }) {
   const [evaluations, setEvaluations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dashFilters, setDashFilters] = useState({ brand: 'All', city: 'All', priceRange: 'All' });
-
-  // Load evaluations from Supabase (or localStorage fallback)
   useEffect(() => {
     const userId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
-
     supabase
       .from('evaluations')
       .select('*')
@@ -227,12 +210,10 @@ export function AppProvider({ children }) {
         setEvaluations(loadLocalHistory());
       });
   }, [currentUser]);
-
   // Persist local evaluations backup
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
   }, [evaluations]);
-
   const updateInput = useCallback((field, value) => {
     setInputs(prev => {
       const next = { ...prev, [field]: value };
@@ -241,7 +222,6 @@ export function AppProvider({ children }) {
       return next;
     });
   }, []);
-
   const fillFromVIN = useCallback((vinData) => {
     setInputs(prev => ({
       ...prev,
@@ -258,12 +238,9 @@ export function AppProvider({ children }) {
       sellerAskingPrice: vinData.sellerAskingPrice ? String(vinData.sellerAskingPrice) : prev.sellerAskingPrice,
     }));
   }, []);
-
   const addEvaluation = useCallback(async (vehicleInputs, result, source = 'Single Vehicle') => {
     const record = recordFromResult(vehicleInputs, result, source);
     setEvaluations(prev => [record, ...prev].slice(0, 500));
-
-    // ALWAYS persist evaluation inputs & predictions to Supabase database!
     const targetUserId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
     try {
       const dbRow = recordToDbRow(record, targetUserId);
@@ -276,10 +253,8 @@ export function AppProvider({ children }) {
     } catch (err) {
       console.warn('[PriceRef] Supabase save exception:', err);
     }
-
     return record;
   }, [currentUser]);
-
   const clearEvaluations = useCallback(async () => {
     setEvaluations([]);
     localStorage.removeItem(HISTORY_KEY);
@@ -294,18 +269,15 @@ export function AppProvider({ children }) {
       console.warn('[PriceRef] Supabase clear exception:', err);
     }
   }, [currentUser]);
-
   const updateEnhancedInspection = useCallback((field, value) => {
     setEnhancedInspection(prev => ({ ...prev, [field]: value }));
   }, []);
-
   const updateVendorType = useCallback((category, value) => {
     setEnhancedInspection(prev => ({
       ...prev,
       vendorType: { ...prev.vendorType, [category]: value },
     }));
   }, []);
-
   return (
     <AppContext.Provider value={{
       activeScreen, setActiveScreen,
@@ -324,7 +296,6 @@ export function AppProvider({ children }) {
     </AppContext.Provider>
   );
 }
-
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');

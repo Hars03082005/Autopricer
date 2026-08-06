@@ -1,72 +1,57 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import Icon from '../components/Icon.jsx';
-
 export default function AuthScreen() {
   const { login, signup } = useAuth();
-  
   // Tab control: 'signin' or 'signup'
   const [activeTab, setActiveTab] = useState('signin');
-  
   // Sign In inputs
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
-  
   // Sign Up inputs
   const [signUpName, setSignUpName] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
-  
   const [showPass, setShowPass]   = useState(false);
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
-
   // Quick fill demo account credentials
   const fillDemo = () => {
     setSignInEmail('dealer@PriceRef.ai');
     setSignInPassword('dealer123');
     setError('');
   };
-
   const handleSignIn = async (e) => {
     e.preventDefault();
     if (!signInEmail.trim()) { setError('Email address is required'); return; }
     if (!signInPassword) { setError('Password is required'); return; }
-
     setLoading(true);
     setError('');
-
     const result = await login({ email: signInEmail, password: signInPassword });
     if (!result.ok) {
       setError(result.error || 'Invalid email or password');
     }
     setLoading(false);
   };
-
   const handleSignUp = async (e) => {
     e.preventDefault();
     if (!signUpName.trim()) { setError('Name is required'); return; }
     if (!signUpEmail.trim()) { setError('Email address is required'); return; }
     if (!signUpPassword) { setError('Password is required'); return; }
-
     setLoading(true);
     setError('');
-
     const result = await signup({ name: signUpName, email: signUpEmail, password: signUpPassword });
     if (!result.ok) {
       setError(result.error || 'Registration failed');
     } else {
-      // Clear sign-up inputs on success (auto-login handled by onAuthStateChange)
       setSignUpName('');
       setSignUpEmail('');
       setSignUpPassword('');
     }
     setLoading(false);
   };
-
   return (
     <div className="auth-root">
-      {/* Left panel — marketing panel */}
       <div className="auth-left">
         <div className="auth-left-brand">
           <div className="auth-left-logo">
@@ -77,7 +62,6 @@ export default function AuthScreen() {
             <div className="auth-left-sub">Dealer Decision OS</div>
           </div>
         </div>
-
         <div>
           <div className="auth-left-tagline">
             Know the exact<br />
@@ -89,7 +73,6 @@ export default function AuthScreen() {
             Get instant buy/sell recommendations with full cost breakdowns.
           </div>
         </div>
-
         <div className="auth-value-props">
           {[
             { icon: 'robot', text: 'Ensemble ML engine trained on market transactions' },
@@ -106,29 +89,22 @@ export default function AuthScreen() {
           ))}
         </div>
       </div>
-
-      {/* Right panel — login/signup form */}
       <div className="auth-right">
         <div className="auth-form-wrap">
-          
-          {/* Logo header for mobile view */}
           <div className="auth-mobile-header">
             <Icon name="car" size={28} color="#f75d34" strokeWidth={2.2} />
             <div className="auth-mobile-title">PriceRef</div>
           </div>
-
           <div className="auth-form-title">
             {activeTab === 'signin' ? 'Welcome back' : 'Create Dealer Account'}
           </div>
           <div className="auth-form-sub" style={{ marginBottom: 24 }}>
-            {activeTab === 'signin' 
-              ? 'Sign in to access your valuations & analytics' 
+            {activeTab === 'signin'
+              ? 'Sign in to access your valuations & analytics'
               : 'Register your dealership to get started'}
           </div>
-
-          {/* Form Tabs */}
           <div className="auth-tabs" style={{ display: 'flex', gap: 4, background: '#f1f5f9', padding: 4, borderRadius: 10, marginBottom: 24 }}>
-            <button 
+            <button
               type="button"
               className={`auth-tab-btn ${activeTab === 'signin' ? 'active' : ''}`}
               onClick={() => { setActiveTab('signin'); setError(''); }}
@@ -148,7 +124,7 @@ export default function AuthScreen() {
             >
               Sign In
             </button>
-            <button 
+            <button
               type="button"
               className={`auth-tab-btn ${activeTab === 'signup' ? 'active' : ''}`}
               onClick={() => { setActiveTab('signup'); setError(''); }}
@@ -169,17 +145,13 @@ export default function AuthScreen() {
               Sign Up
             </button>
           </div>
-
-          {/* Error Banner */}
           {error && (
             <div className="error-banner" style={{ marginBottom: 20 }}>
               <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
               {error}
             </div>
           )}
-
           {activeTab === 'signin' ? (
-            /* SIGN IN FORM */
             <form onSubmit={handleSignIn} className="auth-form">
               <div className="field-group" style={{ marginBottom: 16 }}>
                 <label className="field-label">Email Address</label>
@@ -193,13 +165,12 @@ export default function AuthScreen() {
                   required
                 />
               </div>
-
               <div className="field-group" style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <label className="field-label" style={{ marginBottom: 0 }}>Password</label>
-                  <button 
-                    type="button" 
-                    className="demo-pill-btn" 
+                  <button
+                    type="button"
+                    className="demo-pill-btn"
                     onClick={fillDemo}
                     style={{
                       border: 'none',
@@ -240,7 +211,6 @@ export default function AuthScreen() {
                   </button>
                 </div>
               </div>
-
               <button
                 type="submit"
                 className="btn btn-primary btn-full btn-lg"
@@ -260,7 +230,6 @@ export default function AuthScreen() {
               </button>
             </form>
           ) : (
-            /* SIGN UP FORM */
             <form onSubmit={handleSignUp} className="auth-form">
               <div className="field-group" style={{ marginBottom: 16 }}>
                 <label className="field-label">FullName / Dealership Name</label>
@@ -273,7 +242,6 @@ export default function AuthScreen() {
                   required
                 />
               </div>
-
               <div className="field-group" style={{ marginBottom: 16 }}>
                 <label className="field-label">Email Address</label>
                 <input
@@ -285,7 +253,6 @@ export default function AuthScreen() {
                   required
                 />
               </div>
-
               <div className="field-group" style={{ marginBottom: 24 }}>
                 <label className="field-label">Password</label>
                 <div style={{ position: 'relative' }}>
@@ -312,7 +279,6 @@ export default function AuthScreen() {
                   </button>
                 </div>
               </div>
-
               <button
                 type="submit"
                 className="btn btn-primary btn-full btn-lg"
@@ -332,7 +298,6 @@ export default function AuthScreen() {
               </button>
             </form>
           )}
-
         </div>
       </div>
     </div>

@@ -12,9 +12,7 @@ import { runReverseCalculate } from '../utils/apiValuation.js';
 import { ConditionGradesSection } from '../components/ConditionGradeField.jsx';
 import { DealHealthBanner, NegotiationPlaybook } from '../components/WheelrPanels.jsx';
 import Icon from '../components/Icon.jsx';
-
 const OWNER_COUNTS = ['1', '2', '3', '4'];
-
 export default function ReverseCalculatorScreen() {
   const { setReverseResult, reverseResult, inputs } = useApp();
   const [expectedSellPrice, setExpectedSellPrice] = useState('950000');
@@ -37,19 +35,15 @@ export default function ReverseCalculatorScreen() {
   const [vendorType, setVendorType] = useState({ ...DEFAULT_VENDOR_TYPE });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
   const seasonal = getSeasonalContext(new Date().getMonth() + 1);
   const liveRecon = useMemo(() => getReconCost(grades, vendorType), [grades, vendorType]);
   const profitPreview = Math.round(Number(expectedSellPrice || 0) * (targetMarginPct / 100));
-
   const handleGradeChange = (category, value) => {
     setGrades(prev => ({ ...prev, [category]: value }));
   };
-
   const handleVendorChange = (category, value) => {
     setVendorType(prev => ({ ...prev, [category]: value }));
   };
-
   const handleCalculate = async () => {
     setError('');
     setLoading(true);
@@ -82,7 +76,6 @@ export default function ReverseCalculatorScreen() {
       setLoading(false);
     }
   };
-
   return (
     <div className="screen screen-wide enhanced-screen">
       <div className="page-header">
@@ -91,21 +84,14 @@ export default function ReverseCalculatorScreen() {
           <div className="page-subtitle">Determine acquisition ceiling by working backwards from expected sale price</div>
         </div>
       </div>
-
       {error && (
         <div className="error-banner" style={{ marginBottom: 16 }}>
           <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
           {error}
         </div>
       )}
-
-      {/* Main 2-column workspace */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, alignItems: 'start' }}>
-        
-        {/* Left Column: Input Form parameters */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          
-          {/* Expected Sell Price Card */}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Expected Listing Price</div>
             <div style={{ position: 'relative' }}>
@@ -123,8 +109,6 @@ export default function ReverseCalculatorScreen() {
               Expected retail value of this vehicle post-recon
             </div>
           </div>
-
-          {/* Target Margin Input */}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Target Margin %</div>
             <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -145,8 +129,6 @@ export default function ReverseCalculatorScreen() {
               <span>Target Profit: <strong>{formatINR(profitPreview)}</strong></span>
             </div>
           </div>
-
-          {/* Condition Grades */}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Condition Grades</div>
             <ConditionGradesSection
@@ -161,11 +143,8 @@ export default function ReverseCalculatorScreen() {
               <strong style={{ color: 'var(--text-1)' }}>{formatINR(liveRecon.total)}</strong>
             </div>
           </div>
-
-          {/* Risk Factors */}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 16 }}>Risk Adjustments</div>
-            
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div className="field-group">
                 <label className="field-label">Year</label>
@@ -178,12 +157,10 @@ export default function ReverseCalculatorScreen() {
                 </select>
               </div>
             </div>
-
             <div className="field-group">
               <label className="field-label">Odometer (km)</label>
               <input type="number" className="field-input" value={odometer} onChange={e => setOdometer(e.target.value)} />
             </div>
-
             <div className="field-group">
               <label className="field-label">Accident History</label>
               <div className="seg-control" style={{ display: 'flex', gap: 4 }}>
@@ -199,14 +176,12 @@ export default function ReverseCalculatorScreen() {
                 ))}
               </div>
             </div>
-
             <div className="field-group">
               <label className="field-label">Registration State</label>
               <select className="field-input field-select" value={registrationState} onChange={e => setRegistrationState(e.target.value)}>
                 {INDIAN_STATES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div className="field-group">
                 <label className="field-label">Sale Jurisdiction</label>
@@ -215,7 +190,6 @@ export default function ReverseCalculatorScreen() {
                   <button type="button" className={`seg-btn ${!sameState ? 'active' : ''}`} onClick={() => setSameState(false)}>Out-State</button>
                 </div>
               </div>
-
               <div className="field-group">
                 <label className="field-label">Loan Outstanding</label>
                 <div className="seg-control">
@@ -224,26 +198,19 @@ export default function ReverseCalculatorScreen() {
                 </div>
               </div>
             </div>
-
             <div className="field-group" style={{ marginBottom: 0 }}>
               <label className="field-label">Seller Reason</label>
               <select className="field-input field-select" value={sellerReason} onChange={e => setSellerReason(e.target.value)}>
                 {SELLER_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
-
           </div>
-
           <button className="btn btn-primary btn-full btn-lg" onClick={handleCalculate} disabled={loading}>
             <Icon name="arrowLeftRight" size={16} color="white" strokeWidth={2.2} />
             {loading ? 'Performing calculations…' : 'Calculate Max Buy Price'}
           </button>
         </div>
-
-        {/* Right Column: Results & Playbook */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          
-          {/* Seasonal context banner */}
           <div className="card" style={{ background: 'var(--info-light)', borderLeft: '3px solid var(--info)' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon name="calendar" size={16} color="var(--info)" strokeWidth={2.2} />
@@ -257,8 +224,6 @@ export default function ReverseCalculatorScreen() {
               </div>
             </div>
           </div>
-
-          {/* Pre-screening failure */}
           {reverseResult?.disqualifier?.disqualified && (
             <div className="card card-danger" style={{ borderLeft: '3px solid' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -274,17 +239,13 @@ export default function ReverseCalculatorScreen() {
               </div>
             </div>
           )}
-
           {reverseResult ? (
             <>
               {reverseResult.dealHealth && (
                 <DealHealthBanner dealHealth={reverseResult.dealHealth} meta={DEAL_HEALTH_META} />
               )}
-
-              {/* Price Waterfall */}
               <div className="card">
                 <div className="label-xs" style={{ marginBottom: 12 }}>Cost Deductions Waterfall</div>
-                
                 <div className="waterfall">
                   {(reverseResult.priceBreakdown || []).map((row, i) => {
                     const isTotal = row.sign === '=';
@@ -309,7 +270,6 @@ export default function ReverseCalculatorScreen() {
                     );
                   })}
                 </div>
-
                 <div
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -322,8 +282,6 @@ export default function ReverseCalculatorScreen() {
                   </div>
                 </div>
               </div>
-
-              {/* Negotiation Playbook */}
               <div className="card" style={{ padding: '20px' }}>
                 <NegotiationPlaybook negotiation={reverseResult.negotiation} variant="reverse" />
               </div>

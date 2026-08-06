@@ -1,34 +1,17 @@
-"""
-validate_models.py
-==================
-Validates ALL loadable models in model_artifacts/ against a processed dataset.
-Derives missing features from dataset columns to match what each model expects.
-Reports MAE, RMSE, R2, MAPE for each model on a sample of up to 5000 rows.
-
-Usage:
-    python scripts/validate_models.py
-"""
 from __future__ import annotations
-
 import json
 import math
 import sys
 import time
 import warnings
 from pathlib import Path
-
-# Force UTF-8 output on Windows so ANSI sequences don't crash
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
 import joblib
 import numpy as np
 import pandas as pd
 from catboost import CatBoostRegressor
-
-
 warnings.filterwarnings("ignore")
-
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
@@ -38,10 +21,8 @@ if not DATASET_PATH.exists():
     csv_files = list(DATA_DIR.glob("*.csv"))
     if csv_files:
         DATASET_PATH = csv_files[0]
-
 SAMPLE_SIZE = 5_000
 RANDOM_SEED = 42
-
 # ── ANSI colours ──────────────────────────────────────────────────────────────
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
@@ -49,12 +30,10 @@ RED    = "\033[91m"
 CYAN   = "\033[96m"
 BOLD   = "\033[1m"
 RESET  = "\033[0m"
-
 def ok(t):   return f"{GREEN}{t}{RESET}"
 def warn(t): return f"{YELLOW}{t}{RESET}"
 def bad(t):  return f"{RED}{t}{RESET}"
 def hdr(t):  return f"{BOLD}{CYAN}{t}{RESET}"
-
 # ── Metrics ───────────────────────────────────────────────────────────────────
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     mask = np.isfinite(y_pred) & np.isfinite(y_true) & (y_true > 0)
@@ -68,14 +47,12 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     r2   = float(1 - ss_r / ss_t) if ss_t > 0 else float("nan")
     mape = float(np.mean(np.abs((yt - yp) / yt)) * 100)
     return dict(mae=mae, rmse=rmse, r2=r2, mape=mape, n=int(len(yt)))
-
 def print_result(name: str, m: dict, elapsed: float):
     def fmt(val, good, bad_, higher=True, pct=False):
         if math.isnan(val): return warn("N/A")
         s = f"{val:.2f}%" if pct else f"{val:.4f}"
         if higher: return ok(s) if val >= good else (bad(s) if val <= bad_ else warn(s))
         else:      return ok(s) if val <= good else (bad(s) if val >= bad_ else warn(s))
-
     print(f"\n{'─'*60}")
     print(f"{BOLD}{name}{RESET}")
     print(f"  R2  : {fmt(m['r2'],   0.95, 0.85,  higher=True)}")
@@ -83,7 +60,6 @@ def print_result(name: str, m: dict, elapsed: float):
     print(f"  RMSE: {fmt(m['rmse'], 80_000, 200_000, higher=False)} (Rs {m['rmse']/1000:.1f}K)" if not math.isnan(m['rmse']) else f"  RMSE: {warn('N/A')}")
     print(f"  MAPE: {fmt(m['mape'], 8.0,  20.0, higher=False, pct=True)}")
     print(f"  n   : {m['n']:,}  |  time: {elapsed:.2f}s")
-
 # ── Load dataset ──────────────────────────────────────────────────────────────
 print(f"\n{'='*60}")
 print("  PricerPoint -- Model Validation")
@@ -93,19 +69,14 @@ df = pd.read_csv(DATASET_PATH)
 print(f"Total   : {len(df):,} rows  |  {len(df.columns)} columns")
 df = df.dropna(subset=["selling_price"])
 df = df[df["selling_price"] > 0].reset_index(drop=True)
-
 if SAMPLE_SIZE and len(df) > SAMPLE_SIZE:
     df = df.sample(SAMPLE_SIZE, random_state=RANDOM_SEED).reset_index(drop=True)
     print(f"Sample  : {len(df):,} rows")
 else:
     print(f"Using   : {len(df):,} rows")
-
 y_true = df["selling_price"].values
-
-# ── Feature engineering to match model expectations ───────────────────────────
 LUXURY_BRANDS = {"bmw","mercedes-benz","audi","jaguar","land rover","porsche",
                  "maserati","aston martin","bentley","rolls-royce","ferrari","lamborghini","hummer"}
-
 BRAND_SEGMENT_MAP = {
     "maruti":"economy","maruti suzuki":"economy","datsun":"economy","bajaj":"economy",
     "chevrolet":"economy","fiat":"economy","opel":"economy","premier":"economy",
@@ -121,46 +92,34 @@ BRAND_SEGMENT_MAP = {
     "bentley":"luxury","rolls-royce":"luxury","ferrari":"luxury","lamborghini":"luxury",
     "hummer":"luxury",
 }
-
 def enrich(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-    # rto_state: map 'rto' column if rto_state missing
     if "rto_state" not in d.columns:
         d["rto_state"] = d["rto"].astype(str) if "rto" in d.columns else "unknown"
-    # color: not in dataset → use 'unknown'
     if "color" not in d.columns:
         d["color"] = "unknown"
     # luxury_brand
     if "luxury_brand" not in d.columns:
         d["luxury_brand"] = d["brand"].str.lower().map(lambda b: 1 if b in LUXURY_BRANDS else 0).astype(float)
-    # high_mileage (75th pct ≈ 93143 km)
     if "high_mileage" not in d.columns:
         d["high_mileage"] = (d["odometer_reading"] > 93_143).astype(float)
-    # inspected: not in dataset → assume 0
     if "inspected" not in d.columns:
         d["inspected"] = 0.0
-    # has_list_price: not in dataset → assume 0
     if "has_list_price" not in d.columns:
         d["has_list_price"] = 0.0
-    # segment_class: derive from brand if missing or fill 'unknown'
     if "segment_class" not in d.columns:
         d["segment_class"] = d["brand"].str.lower().map(lambda b: BRAND_SEGMENT_MAP.get(b, "economy"))
-    # Ensure all cat columns are strings
     for col in ["brand","model","variant","city","rto_state","color","segment_class","fuel_type","transmission","seller_type"]:
         if col in d.columns:
             d[col] = d[col].fillna("unknown").astype(str)
     return d
-
 df = enrich(df)
-
 # ── Load metadata ─────────────────────────────────────────────────────────────
 with open(ARTIFACT_DIR / "model_metadata.json") as f:
     META = json.load(f)
 MODEL_FEATURES = META.get("features", [])
 CAT_FEATURES   = META.get("cat_features") or META.get("categorical_features") or []
-
 def align_frame(df: pd.DataFrame, feature_names: list, cat_features: list, category_levels: dict = {}) -> pd.DataFrame:
-    """Select & type-cast exactly the columns the model needs."""
     frame = {}
     for col in feature_names:
         if col in df.columns:
@@ -177,12 +136,9 @@ def align_frame(df: pd.DataFrame, feature_names: list, cat_features: list, categ
             raw = raw.where(raw.isin(levels), "unknown")
         frame_df[col] = raw
     return frame_df[feature_names]
-
 results: list[dict] = []
-
 # ══════════════════════════════════════════════════════════════════════════════
 print(f"\n{hdr('Loading and evaluating models...')}")
-
 # ── 1. Global CatBoost ────────────────────────────────────────────────────────
 p = ARTIFACT_DIR / "vehicle_price_catboost.cbm"
 if p.exists():
@@ -200,8 +156,6 @@ if p.exists():
         print(f"    FAILED: {e}")
 else:
     print(f"  - vehicle_price_catboost.cbm  NOT FOUND")
-
-# ── 2. Segment PKL ensembles ──────────────────────────────────────────────────
 for seg in ["economy", "premium", "luxury"]:
     p = ARTIFACT_DIR / f"ensemble_{seg}.pkl"
     if not p.exists():
@@ -222,8 +176,6 @@ for seg in ["economy", "premium", "luxury"]:
         results.append({"model": f"Segment PKL {seg}", **m})
     except Exception as e:
         print(f"    FAILED: {e}")
-
-# ── 3. Standalone .cbm files ──────────────────────────────────────────────────
 standalone = [
     ("segment_economy.cbm",      "segment_economy_levels.pkl"),
     ("segment_budget.cbm",       "segment_budget_levels.pkl"),
@@ -241,27 +193,21 @@ for cbm_name, lvl_name in standalone:
     try:
         cb = CatBoostRegressor(); cb.load_model(str(p))
         feat_names = list(cb.feature_names_)
-
         levels: dict = {}
         if lvl_name and (ARTIFACT_DIR / lvl_name).exists():
             levels = joblib.load(ARTIFACT_DIR / lvl_name)
-
         cat_idx  = cb.get_cat_feature_indices()
         cat_cols = [feat_names[i] for i in cat_idx] if cat_idx else CAT_FEATURES
-
         frame = align_frame(df, feat_names, cat_cols, levels)
         t0 = time.perf_counter()
         raw = cb.predict(frame)
         elapsed = time.perf_counter() - t0
-
-        # Auto-detect log scale vs raw price
         y_pred = np.expm1(raw) if float(np.median(raw)) < 20 else raw
         m = compute_metrics(y_true, y_pred)
         print_result(f"Standalone CatBoost  ({cbm_name})", m, elapsed)
         results.append({"model": cbm_name, **m})
     except Exception as e:
         print(f"    FAILED: {e}")
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Summary table
 # ══════════════════════════════════════════════════════════════════════════════
@@ -278,6 +224,5 @@ for r in sorted(results, key=lambda x: x.get("r2", -999), reverse=True):
     mape_s = f"{mape:.2f}%"        if not math.isnan(mape) else "N/A"
     r2_c = (ok(r2_s) if r2 >= 0.95 else (bad(r2_s) if r2 < 0.85 else warn(r2_s))) if not math.isnan(r2) else warn(r2_s)
     print(f"{r['model']:<48} {r2_c:>7} {mae_s:>11} {mape_s:>8} {n:>7,}")
-
 print(f"\n  {ok('GREEN')} = R2 >= 0.95 (excellent)  |  {warn('YELLOW')} = 0.85-0.95 (acceptable)  |  {bad('RED')} = < 0.85 (poor)")
 print()

@@ -1,6 +1,5 @@
 import { formatINR } from '../utils/format.js';
 import { GRADE_OPTIONS, getGradePreview } from '../utils/wheelrCosts.js';
-
 const CATEGORY_LABELS = {
   engine: 'Engine',
   tyre: 'Tyres',
@@ -8,13 +7,11 @@ const CATEGORY_LABELS = {
   interior: 'Interior',
   electrical: 'Electricals',
 };
-
 export default function ConditionGradeField({ category, grade, vendorType, onGradeChange, onVendorChange }) {
   const options = GRADE_OPTIONS[category] || [];
   const preview = getGradePreview(category, grade);
   const vendor = vendorType[category] || 'vendor';
   const selectedCost = vendor === 'inhouse' ? preview.inhouse : preview.vendor;
-
   return (
     <div className="grade-field">
       <label className="spec-label">{CATEGORY_LABELS[category]}</label>
@@ -52,9 +49,7 @@ export default function ConditionGradeField({ category, grade, vendorType, onGra
     </div>
   );
 }
-
 const GRADE_KEYS = ['engine', 'tyre', 'body', 'interior', 'electrical'];
-
 export function ConditionGradesSection({ grades, vendorType, onGradeChange, onVendorChange }) {
   return (
     <div className="grade-grid">

@@ -7,17 +7,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, Cell,
 } from 'recharts';
-
 const TABS   = ['Overview', 'Brands', 'Profit', 'Trends'];
 const COLORS  = ['#f75d34','#2563eb','#16a34a','#d97706','#7c3aed','#0891b2','#be185d','#059669','#9333ea','#c2410c'];
 const ACTION_COLORS = { BUY:'#16a34a', NEGOTIATE:'#d97706', REJECT:'#dc2626', 'MANUAL REVIEW':'#94a3b8' };
-
 const fmtL = (n) => {
   const v = Number(n||0);
   if (v >= 100000) return `₹${(v/100000).toFixed(2)}L`;
   return formatINR(v);
 };
-
 function price_ok(price, range) {
   if (range === 'Under ₹5L')   return price < 500000;
   if (range === '₹5L–₹10L')   return price >= 500000  && price <= 1000000;
@@ -25,7 +22,6 @@ function price_ok(price, range) {
   if (range === 'Above ₹30L') return price > 3000000;
   return true;
 }
-
 const Tip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -37,7 +33,6 @@ const Tip = ({ active, payload, label }) => {
     </div>
   );
 };
-
 function EmptyAnalytics({ setActiveScreen }) {
   return (
     <div className="empty-screen">
@@ -55,24 +50,20 @@ function EmptyAnalytics({ setActiveScreen }) {
     </div>
   );
 }
-
 export default function DashboardScreen() {
   const { evaluations, dashFilters, setDashFilters, setActiveScreen, clearEvaluations } = useApp();
   const [activeTab, setActiveTab]       = useState('Overview');
   const [confirmClear, setConfirmClear] = useState(false);
   const upd = (k, v) => setDashFilters(p => ({ ...p, [k]: v }));
-
   const brands    = useMemo(() => ['All',...Array.from(new Set(evaluations.map(v=>v.brand).filter(Boolean))).sort()], [evaluations]);
   const cities    = useMemo(() => ['All',...Array.from(new Set(evaluations.map(v=>v.city).filter(Boolean))).sort()], [evaluations]);
   const priceRanges = ['All','Under ₹5L','₹5L–₹10L','₹10L–₹30L','Above ₹30L'];
-
   const filtered = useMemo(() => evaluations.filter(v => {
     if (dashFilters.brand !== 'All' && v.brand !== dashFilters.brand) return false;
     if (dashFilters.city  !== 'All' && v.city  !== dashFilters.city)  return false;
     if (!price_ok(Number(v.marketValue||0), dashFilters.priceRange))  return false;
     return true;
   }), [evaluations, dashFilters]);
-
   const metrics = useMemo(() => {
     const count = filtered.length;
     const avgPrice  = count ? Math.round(filtered.reduce((s,v) => s + Number(v.marketValue||0), 0) / count) : 0;
@@ -80,7 +71,6 @@ export default function DashboardScreen() {
     const avgProfit = count ? Math.round(filtered.reduce((s,v) => s + Number(v.expectedProfit||0), 0) / count) : 0;
     const buyCount  = filtered.filter(v=>v.action==='BUY').length;
     const convRate  = count ? Math.round((buyCount/count)*100) : 0;
-
     // 1. Most Profitable Brand
     const brandProfitMap = {};
     filtered.forEach(v => {
@@ -95,7 +85,6 @@ export default function DashboardScreen() {
         mostProfitableBrand = brand;
       }
     });
-
     // 2. Fastest Selling Segment
     const segmentLiquidityMap = {};
     const segmentCountMap = {};
@@ -114,16 +103,11 @@ export default function DashboardScreen() {
         fastestSellingSegment = seg.charAt(0).toUpperCase() + seg.slice(1);
       }
     });
-
     // 3. High Risk Vehicles Count
     const highRiskCount = filtered.filter(v => Number(v.riskScore || 0) > 60).length;
-
     // 4. Average Confidence
     const avgConfidence = count ? Math.round(filtered.reduce((s,v) => s + Number(v.confidenceScore||0), 0) / count) : 0;
-
-    // 5. Monthly Pipeline (sum of active buyPrices)
     const monthlyPipeline = filtered.reduce((s,v) => s + Number(v.buyPrice||0), 0);
-
     // Brand performance
     const brandMap = {};
     filtered.forEach(v => {
@@ -137,7 +121,6 @@ export default function DashboardScreen() {
       .map(b => ({ brand:b.brand, count:b.count, avgVal:Math.round(b.totalVal/b.count), avgProfit:Math.round(b.profit/b.count) }))
       .sort((a,b) => b.avgVal-a.avgVal)
       .slice(0,10);
-
     // City profitability
     const cityMap = {};
     filtered.forEach(v => {
@@ -147,17 +130,14 @@ export default function DashboardScreen() {
       cityMap[v.city].profit += Number(v.expectedProfit||0);
     });
     const cityProf = Object.values(cityMap).map(c => ({...c, avgProfit:Math.round(c.profit/c.count)})).sort((a,b)=>b.avgProfit-a.avgProfit).slice(0,8);
-
     // Action distribution
     const actionDist = ['BUY','NEGOTIATE','REJECT','MANUAL REVIEW'].map(a => ({
       action: a.replace(' REVIEW',''), count: filtered.filter(v=>v.action===a).length,
     })).filter(a=>a.count>0);
-
     // Scatter: mileage vs price
     const scatter = filtered
       .filter(v => v.marketValue>0 && v.kmDriven>0)
       .map(v => ({ x:Math.round(Number(v.kmDriven||0)/1000), y:Math.round(Number(v.marketValue||0)/100000*10)/10, action:v.action }));
-
     // Profit histogram
     const profitBuckets = [
       { range:'<₹0',     min:-Infinity, max:0         },
@@ -166,7 +146,6 @@ export default function DashboardScreen() {
       { range:'₹50-80K', min:50000,     max:80000     },
       { range:'₹80K+',   min:80000,     max:Infinity  },
     ].map(b => ({ range:b.range, count:filtered.filter(v=>{ const p=Number(v.expectedProfit||0); return p>b.min && p<=b.max; }).length }));
-
     return {
       count,
       avgPrice,
@@ -187,7 +166,6 @@ export default function DashboardScreen() {
       profitBuckets
     };
   }, [filtered]);
-
   if (evaluations.length === 0) {
     return (
       <div className="screen">
@@ -195,7 +173,6 @@ export default function DashboardScreen() {
       </div>
     );
   }
-
   return (
     <div className="screen screen-wide">
       <div className="page-header">
@@ -249,8 +226,6 @@ export default function DashboardScreen() {
           )}
         </div>
       </div>
-
-      {/* Filters */}
       <div className="analytics-filters">
         <select className="filter-select" value={dashFilters.brand} onChange={e => upd('brand',e.target.value)}>
           {brands.map(b => <option key={b}>{b}</option>)}
@@ -262,8 +237,6 @@ export default function DashboardScreen() {
           {priceRanges.map(r => <option key={r}>{r}</option>)}
         </select>
       </div>
-
-      {/* KPIs */}
       <div className="kpi-grid">
         <div className="kpi-tile">
           <div className="kpi-tile-header">
@@ -346,8 +319,6 @@ export default function DashboardScreen() {
           <div className="kpi-tile-sub">ML uncertainty score</div>
         </div>
       </div>
-
-      {/* Pipeline Summary Bar */}
       <div className="cd-card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px' }}>
         <div>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Active Acquisition Pipeline</div>
@@ -357,8 +328,6 @@ export default function DashboardScreen() {
           {fmtL(metrics.monthlyPipeline)}
         </div>
       </div>
-
-      {/* Tabs */}
       <div className="analytics-tabs">
         {TABS.map(t => (
           <button
@@ -370,11 +339,8 @@ export default function DashboardScreen() {
           </button>
         ))}
       </div>
-
-      {/* Tab content */}
       {activeTab === 'Overview' && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))', gap:16 }}>
-          {/* Action distribution */}
           <div className="chart-card">
             <div className="chart-card-title">Decision Distribution</div>
             <div className="chart-card-sub">BUY / NEGOTIATE / REJECT breakdown</div>
@@ -392,8 +358,6 @@ export default function DashboardScreen() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Profit histogram */}
           <div className="chart-card">
             <div className="chart-card-title">Profit Distribution</div>
             <div className="chart-card-sub">Number of deals by profit range</div>
@@ -407,8 +371,6 @@ export default function DashboardScreen() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Mileage vs Price scatter */}
           {metrics.scatter.length > 1 && (
             <div className="chart-card">
               <div className="chart-card-title">Odometer vs Market Value</div>
@@ -426,7 +388,6 @@ export default function DashboardScreen() {
           )}
         </div>
       )}
-
       {activeTab === 'Brands' && (
         <div className="chart-card">
           <div className="chart-card-title">Brand Performance</div>
@@ -444,7 +405,6 @@ export default function DashboardScreen() {
           </ResponsiveContainer>
         </div>
       )}
-
       {activeTab === 'Profit' && (
         <div style={{ display:'grid', gap:16 }}>
           <div className="chart-card">
@@ -462,7 +422,6 @@ export default function DashboardScreen() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-
           <div className="chart-card">
             <div className="chart-card-title">Brand Profit Ranking</div>
             <div className="chart-card-sub">Average net profit per brand</div>
@@ -480,7 +439,6 @@ export default function DashboardScreen() {
           </div>
         </div>
       )}
-
       {activeTab === 'Trends' && (
         <div className="chart-card">
           <div className="chart-card-title">Evaluation Activity</div>

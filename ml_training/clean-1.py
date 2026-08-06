@@ -1,23 +1,4 @@
-"""
-ml_training/clean-1.py
-AutoPricer Preprocessing Pipeline — clean-1
-Source  : overall.csv
-Output  : processed_overall.csv  +  processed_overall_report.json
-
-Design principles
------------------
-* Maximize data quality, consistency, and generalization.
-* Remove impossible records; never silently clip/correct them.
-* Retain meaningful location features (locality, rto, pincode).
-* Drop redundant derived columns (city, age_bucket, make_model_trim).
-* Generate only km_per_year as an engineered feature; let tree models
-  learn everything else natively.
-* Distinguish truly unknown values from valid categories (certified,
-  pincode stay as NaN when genuinely missing).
-* Produce a full JSON audit report alongside every CSV.
-"""
 from __future__ import annotations
-
 import hashlib
 import json
 import re
@@ -25,34 +6,27 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
-
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
-
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 HERE         = Path(__file__).resolve().parent
 DATA_DIR     = HERE / "data"
 CURRENT_YEAR = datetime.now().year
 SCRIPT_NAME  = "clean-1"
 DIV          = "=" * 80
-
 INPUT_FILES = {
     "overall": DATA_DIR / "overall.csv",
 }
-
 # ── REQUIRED SOURCE COLUMNS ───────────────────────────────────────────────────
 REQUIRED_COLS = {"make", "model", "selling price", "odometer", "fuel", "trans"}
-
 # ── RANGE LIMITS ─────────────────────────────────────────────────────────────
 PRICE_MIN, PRICE_MAX = 50_000, 20_000_000
 AGE_MIN,   AGE_MAX   = 0, 30
 ODO_MIN,   ODO_MAX   = 0, 600_000
-
 # ── BRAND NORMALIZATION ───────────────────────────────────────────────────────
 OEM_ALLOWLIST = {
     "maruti suzuki", "hyundai", "tata", "renault", "honda",
@@ -63,7 +37,6 @@ OEM_ALLOWLIST = {
     "porsche", "maserati", "lamborghini", "ferrari", "rolls-royce",
     "bentley", "aston martin",
 }
-
 BRAND_ALIAS = {
     "mercedes benz":   "mercedes-benz",
     "mercedes-benz":   "mercedes-benz",
@@ -86,10 +59,8 @@ BRAND_ALIAS = {
     "rollsroyce":      "rolls-royce",
     "aston-martin":    "aston martin",
 }
-
 # ── FUEL NORMALIZATION ────────────────────────────────────────────────────────
 VALID_FUEL = {"petrol", "diesel", "electric", "cng", "lpg", "hybrid"}
-
 FUEL_ALIAS = {
     "petrol+cng":       "cng",
     "cng+petrol":       "cng",
@@ -107,10 +78,8 @@ FUEL_ALIAS = {
     "bev":              "electric",
     "battery electric": "electric",
 }
-
 # ── TRANSMISSION NORMALIZATION ────────────────────────────────────────────────
 VALID_TRANS = {"manual", "automatic"}
-
 TRANS_ALIAS = {
     "amt":             "automatic",
     "cvt":             "automatic",
@@ -122,15 +91,12 @@ TRANS_ALIAS = {
     "at":              "automatic",
     "auto":            "automatic",
 }
-
 # ── SELLER TYPE ───────────────────────────────────────────────────────────────
 _DEALER_KEYWORDS     = {"dealer", "direct", "s1", "s2", "s3", "s4", "showroom", "authorized"}
 _INDIVIDUAL_KEYWORDS = {"individual", "private", "owner", "person"}
-
 # ── COLOR NORMALIZATION ───────────────────────────────────────────────────────
 VALID_COLORS = {"white", "black", "silver", "grey", "red", "blue",
                 "brown", "orange", "green", "beige", "yellow", "purple"}
-
 COLOR_ALIAS = {
     "pearl white": "white",  "ivory white": "white",  "solid white": "white",
     "arctic white":"white",  "oxford white":"white",  "star white":  "white",
@@ -161,7 +127,6 @@ COLOR_ALIAS = {
     "forest green":"green",  "mint":        "green", "olive":        "green",
     "dark green":  "green",  "emerald":     "green", "moss green":   "green",
 }
-
 # ── LOCALITY NORMALIZATION ────────────────────────────────────────────────────
 LOCALITY_ALIAS: dict[str, str] = {
     "nexus whitefield":               "whitefield",
@@ -222,7 +187,6 @@ LOCALITY_ALIAS: dict[str, str] = {
     "laggere":                        "rajajinagar",
     "jigani":                         "electronic city",
 }
-
 _KEYWORD_MAP = [
     ("nexus whitefield",       "whitefield"),
     ("shriram wytfield",       "whitefield"),
@@ -316,12 +280,8 @@ _KEYWORD_MAP = [
     ("mysuru",                 "mysuru"),
     ("mysore",                 "mysuru"),
 ]
-
 # ── OUTPUT FEATURE SET ────────────────────────────────────────────────────────
 # city, age_bucket, make_model_trim intentionally excluded:
-#   - city       : redundant (locality + rto capture all geographic signal)
-#   - age_bucket : discretised vehicle_age — tree models learn splits natively
-#   - make_model_trim: exact concat of brand+model+variant — redundant
 ML_FEATURES = [
     "brand", "model", "variant",
     "locality", "rto",
@@ -330,7 +290,6 @@ ML_FEATURES = [
     "owner_count", "certified", "pincode",
     "selling_price",
 ]
-
 # ── SOURCE-COLUMN MAPPING ─────────────────────────────────────────────────────
 RAW_KEEP = [
     "seller type", "certified", "make", "model", "trim",
@@ -348,17 +307,12 @@ RENAME_MAP = {
     "seller type":   "seller_type_raw",
     "odometer":      "odometer_raw",
 }
-
-
 # ── HELPERS ───────────────────────────────────────────────────────────────────
 def _norm(value, default: str = "unknown") -> str:
-    """Normalize: lowercase, collapse whitespace, strip."""
     if pd.isna(value):
         return default
     s = re.sub(r"\s+", " ", str(value).strip().lower())
     return s if s not in {"", "nan", "none", "null"} else default
-
-
 def _log_step(audit: list, step: str, before: int, after: int, detail: str = "") -> None:
     dropped = before - after
     msg = f"  [{step:<38}]  {before:>7,} → {after:>7,}  (dropped {dropped:>6,})"
@@ -367,8 +321,6 @@ def _log_step(audit: list, step: str, before: int, after: int, detail: str = "")
     print(msg)
     audit.append({"step": step, "rows_before": before, "rows_after": after,
                   "rows_dropped": dropped, "detail": detail})
-
-
 def _fingerprint(path: Path) -> dict:
     sha = hashlib.sha256()
     with open(path, "rb") as f:
@@ -377,8 +329,6 @@ def _fingerprint(path: Path) -> dict:
     s = path.stat()
     return {"filename": path.name, "sha256": sha.hexdigest(),
             "size_bytes": s.st_size, "size_mb": round(s.st_size / 1_048_576, 3)}
-
-
 # ── STAGE 1: LOAD ─────────────────────────────────────────────────────────────
 def load_raw(path: Path) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 1 — LOAD  |  {path.name}\n{DIV}")
@@ -387,9 +337,6 @@ def load_raw(path: Path) -> pd.DataFrame:
     print(f"  Columns : {df.shape[1]}")
     print(f"  Names   : {list(df.columns)}")
     return df
-
-
-# ── STAGE 2: SCHEMA VALIDATION ────────────────────────────────────────────────
 def validate_schema(df: pd.DataFrame) -> None:
     print(f"\n{DIV}\nSTAGE 2 — SCHEMA VALIDATION\n{DIV}")
     missing_required = REQUIRED_COLS - set(df.columns)
@@ -399,9 +346,6 @@ def validate_schema(df: pd.DataFrame) -> None:
     optional_present = [c for c in ["trim", "locality", "rto", "pincode", "color",
                                     "owner", "certified", "age", "year"] if c in df.columns]
     print(f"  Optional columns found: {optional_present}")
-
-
-# ── STAGE 3: SELECT & RENAME ──────────────────────────────────────────────────
 def select_and_rename(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 3 — SELECT & RENAME\n{DIV}")
     available = [c for c in RAW_KEEP if c in df.columns]
@@ -409,9 +353,6 @@ def select_and_rename(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={k: v for k, v in RENAME_MAP.items() if k in df.columns})
     print(f"  Columns selected : {len(available)}  →  {list(df.columns)}")
     return df
-
-
-# ── STAGE 4: VALIDATE PRICE ───────────────────────────────────────────────────
 def validate_price(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 4 — VALIDATE PRICE\n{DIV}")
     b = len(df)
@@ -424,9 +365,6 @@ def validate_price(df: pd.DataFrame, audit: list) -> pd.DataFrame:
               f"non-numeric={n_non_num}, out-of-range=[{PRICE_MIN:,}–{PRICE_MAX:,}]:{n_range}")
     print(f"  Range : ₹{df['selling_price'].min():,.0f} – ₹{df['selling_price'].max():,.0f}")
     return df
-
-
-# ── STAGE 5: VALIDATE VEHICLE AGE ─────────────────────────────────────────────
 def validate_age(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 5 — VALIDATE VEHICLE AGE\n{DIV}")
     b = len(df)
@@ -440,16 +378,12 @@ def validate_age(df: pd.DataFrame, audit: list) -> pd.DataFrame:
         df.loc[mask, "vehicle_age"] = (CURRENT_YEAR - df.loc[mask, "year_num"]).clip(lower=0)
     n_missing = int(df["vehicle_age"].isna().sum())
     df = df[df["vehicle_age"].notna()]
-    # Drop impossible ages — don't clip (a 35-year-old car in an active listing = data error)
     n_range = int((~df["vehicle_age"].between(AGE_MIN, AGE_MAX)).sum())
     df = df[df["vehicle_age"].between(AGE_MIN, AGE_MAX)]
     _log_step(audit, "age_invalid", b, len(df),
               f"missing={n_missing}, impossible=[0–{AGE_MAX}yrs]:{n_range}")
     print(f"  Range : {df['vehicle_age'].min():.0f} – {df['vehicle_age'].max():.0f} years")
     return df
-
-
-# ── STAGE 6: VALIDATE ODOMETER ────────────────────────────────────────────────
 def validate_odometer(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 6 — VALIDATE ODOMETER\n{DIV}")
     b = len(df)
@@ -461,9 +395,6 @@ def validate_odometer(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     _log_step(audit, "odometer_invalid", b, len(df),
               f"non-numeric={n_non_num}, out-of-range=[{ODO_MIN:,}–{ODO_MAX:,}]:{n_range}")
     return df
-
-
-# ── STAGE 7: NORMALIZE BRAND ──────────────────────────────────────────────────
 def normalize_brand(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 7 — NORMALIZE BRAND\n{DIV}")
     b = len(df)
@@ -475,9 +406,6 @@ def normalize_brand(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"  Unique brands : {df['brand'].nunique()}")
     print(df["brand"].value_counts().head(10).to_string())
     return df
-
-
-# ── STAGE 8: NORMALIZE MODEL ──────────────────────────────────────────────────
 def normalize_model(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 8 — NORMALIZE MODEL\n{DIV}")
     b = len(df)
@@ -487,11 +415,7 @@ def normalize_model(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     _log_step(audit, "model_blank", b, len(df), f"blank/unknown={n_unknown}")
     print(f"  Unique models : {df['model'].nunique()}")
     return df
-
-
-# ── STAGE 9: NORMALIZE VARIANT ────────────────────────────────────────────────
 def normalize_variant(df: pd.DataFrame) -> pd.DataFrame:
-    """Variant stays 'unknown' when genuinely missing — retained in dataset."""
     print(f"\n{DIV}\nSTAGE 9 — NORMALIZE VARIANT\n{DIV}")
     if "variant_raw" in df.columns:
         df["variant"] = df["variant_raw"].apply(_norm)
@@ -501,9 +425,6 @@ def normalize_variant(df: pd.DataFrame) -> pd.DataFrame:
     print(f"  Unique variants   : {df['variant'].nunique()}")
     print(f"  Unknown/missing   : {n_unk:,} ({n_unk / len(df) * 100:.1f}%)  — retained")
     return df
-
-
-# ── STAGE 10: NORMALIZE FUEL TYPE ────────────────────────────────────────────
 def normalize_fuel(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 10 — NORMALIZE FUEL TYPE\n{DIV}")
     b = len(df)
@@ -516,9 +437,6 @@ def normalize_fuel(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     _log_step(audit, "fuel_invalid", b, len(df), f"invalid={n_invalid}")
     print(df["fuel_type"].value_counts().to_string())
     return df
-
-
-# ── STAGE 11: NORMALIZE TRANSMISSION ─────────────────────────────────────────
 def normalize_transmission(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 11 — NORMALIZE TRANSMISSION\n{DIV}")
     b = len(df)
@@ -531,9 +449,6 @@ def normalize_transmission(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     _log_step(audit, "transmission_invalid", b, len(df), f"invalid={n_invalid}")
     print(df["transmission"].value_counts().to_string())
     return df
-
-
-# ── STAGE 12: NORMALIZE SELLER TYPE ──────────────────────────────────────────
 def normalize_seller_type(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 12 — NORMALIZE SELLER TYPE\n{DIV}")
     def _seller(value) -> str:
@@ -549,9 +464,6 @@ def normalize_seller_type(df: pd.DataFrame) -> pd.DataFrame:
         df["seller_type"] = "unknown"
     print(df["seller_type"].value_counts(dropna=False).to_string())
     return df
-
-
-# ── STAGE 13: NORMALIZE LOCALITY ─────────────────────────────────────────────
 def _normalize_locality(raw) -> str:
     if pd.isna(raw):
         return "unknown"
@@ -565,10 +477,7 @@ def _normalize_locality(raw) -> str:
     for keyword, canonical in _KEYWORD_MAP:
         if keyword in s:
             return canonical
-    # 3. Preserve raw string — contains geographic info for tree models
     return s
-
-
 def normalize_locality(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 13 — NORMALIZE LOCALITY\n{DIV}")
     if "locality" in df.columns:
@@ -581,9 +490,6 @@ def normalize_locality(df: pd.DataFrame) -> pd.DataFrame:
     print("  Top 15:")
     print(df["locality"].value_counts().head(15).to_string())
     return df
-
-
-# ── STAGE 14: NORMALIZE RTO ───────────────────────────────────────────────────
 def normalize_rto(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 14 — NORMALIZE RTO\n{DIV}")
     if "rto" in df.columns:
@@ -596,9 +502,6 @@ def normalize_rto(df: pd.DataFrame) -> pd.DataFrame:
     print("  Top 10:")
     print(df["rto"].value_counts().head(10).to_string())
     return df
-
-
-# ── STAGE 15: NORMALIZE COLOR ─────────────────────────────────────────────────
 def normalize_color(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 15 — NORMALIZE COLOR\n{DIV}")
     def _color(value) -> str:
@@ -619,11 +522,7 @@ def normalize_color(df: pd.DataFrame) -> pd.DataFrame:
         df["color"] = "unknown"
     print(df["color"].value_counts(dropna=False).to_string())
     return df
-
-
-# ── STAGE 16: NORMALIZE CERTIFIED ────────────────────────────────────────────
 def normalize_certified(df: pd.DataFrame) -> pd.DataFrame:
-    """Map yes→1, no→0, genuinely unknown→NaN (NOT forced to 0)."""
     print(f"\n{DIV}\nSTAGE 16 — NORMALIZE CERTIFIED\n{DIV}")
     _MAP = {"yes": 1.0, "1": 1.0, "true": 1.0, "y": 1.0,
             "no": 0.0,  "0": 0.0, "false": 0.0, "n": 0.0}
@@ -638,11 +537,7 @@ def normalize_certified(df: pd.DataFrame) -> pd.DataFrame:
     print(f"  Certified = 0     : {c0:,}")
     print(f"  Truly unknown→NaN : {nan:,}  (tree models handle NaN natively)")
     return df
-
-
-# ── STAGE 17: NORMALIZE PINCODE ───────────────────────────────────────────────
 def normalize_pincode(df: pd.DataFrame) -> pd.DataFrame:
-    """Valid Indian pincodes [100000–999999]; invalid → NaN (NOT forced to 0)."""
     print(f"\n{DIV}\nSTAGE 17 — NORMALIZE PINCODE\n{DIV}")
     if "pincode" in df.columns:
         df["pincode"] = pd.to_numeric(df["pincode"], errors="coerce")
@@ -658,9 +553,6 @@ def normalize_pincode(df: pd.DataFrame) -> pd.DataFrame:
         df["pincode"] = np.nan
         print("  pincode column not present — set to NaN")
     return df
-
-
-# ── STAGE 18: NORMALIZE OWNER COUNT ──────────────────────────────────────────
 def normalize_owner_count(df: pd.DataFrame) -> pd.DataFrame:
     print(f"\n{DIV}\nSTAGE 18 — NORMALIZE OWNER COUNT\n{DIV}")
     def _parse(value) -> int:
@@ -677,15 +569,7 @@ def normalize_owner_count(df: pd.DataFrame) -> pd.DataFrame:
         df["owner_count"] = 1
     print(df["owner_count"].value_counts().sort_index().to_string())
     return df
-
-
-# ── STAGE 19: FEATURE ENGINEERING ────────────────────────────────────────────
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Generate only km_per_year — the one engineered feature that provides
-    genuine signal beyond the raw components. Tree models learn age brackets,
-    brand-model combinations, and all other interactions natively.
-    """
     print(f"\n{DIV}\nSTAGE 19 — FEATURE ENGINEERING\n{DIV}")
     safe_age = df["vehicle_age"].clip(lower=0.5)
     df["km_per_year"] = (df["odometer_reading"] / safe_age).clip(0, 100_000).round(1)
@@ -695,8 +579,6 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     print("  NOTE: age_bucket not created — tree models learn splits natively")
     print("  NOTE: make_model_trim not created — brand+model+variant already present")
     return df
-
-
 # ── STAGE 20: DEDUPLICATION ───────────────────────────────────────────────────
 DUPLICATE_COLUMNS = [
     "brand",
@@ -711,12 +593,7 @@ DUPLICATE_COLUMNS = [
     "locality",
     "selling_price",
 ]
-
-
 def deduplicate(df: pd.DataFrame, audit: list) -> pd.DataFrame:
-    """
-    Remove duplicate records based on core physical and pricing attributes.
-    """
     print(f"\n{DIV}\nSTAGE 20 — DEDUPLICATION\n{DIV}")
     b = len(df)
     dedup_cols = [c for c in DUPLICATE_COLUMNS if c in df.columns]
@@ -728,24 +605,17 @@ def deduplicate(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     _log_step(audit, "exact_duplicates_removed", b, a,
               f"duplicates={b - a}")
     return df
-
-
-
-# ── STAGE 21: AUDIT REPORT ───────────────────────────────────────────────────
 def generate_report(df: pd.DataFrame, src: Path, audit: list, duration: float) -> dict:
     print(f"\n{DIV}\nSTAGE 21 — AUDIT REPORT\n{DIV}")
-
     miss = {}
     for col in ML_FEATURES:
         if col in df.columns:
             n = int(df[col].isna().sum())
             miss[col] = {"missing_count": n, "missing_pct": round(n / len(df) * 100, 2)}
-
     print("  MISSING VALUE SUMMARY")
     for col, info in miss.items():
         if info["missing_count"] > 0:
             print(f"    {col:<25} {info['missing_count']:>7,}  ({info['missing_pct']:.1f}%)")
-
     cat_cols = ["brand", "model", "variant", "locality", "rto",
                 "fuel_type", "transmission", "seller_type", "color"]
     cats = {}
@@ -754,7 +624,6 @@ def generate_report(df: pd.DataFrame, src: Path, audit: list, duration: float) -
             vc = df[col].value_counts(dropna=False)
             cats[col] = {"unique": int(df[col].nunique()),
                          "top_10": {str(k): int(v) for k, v in vc.head(10).items()}}
-
     num_cols = ["vehicle_age", "odometer_reading", "km_per_year",
                 "owner_count", "certified", "pincode", "selling_price"]
     nums = {}
@@ -762,7 +631,6 @@ def generate_report(df: pd.DataFrame, src: Path, audit: list, duration: float) -
         if col in df.columns:
             s = df[col].describe()
             nums[col] = {k: round(float(v), 2) for k, v in s.items()}
-
     print("\n  NUMERIC FEATURE STATISTICS")
     for col in ["vehicle_age", "odometer_reading", "km_per_year", "selling_price"]:
         if col in nums:
@@ -771,7 +639,6 @@ def generate_report(df: pd.DataFrame, src: Path, audit: list, duration: float) -
                   f"std={s.get('std', 0):>10,.0f}  "
                   f"min={s.get('min', 0):>8,.0f}  "
                   f"max={s.get('max', 0):>12,.0f}")
-
     return {
         "script":                    SCRIPT_NAME,
         "source_file":               src.name,
@@ -789,9 +656,6 @@ def generate_report(df: pd.DataFrame, src: Path, audit: list, duration: float) -
         "categorical_distributions": cats,
         "numeric_statistics":        nums,
     }
-
-
-# ── STAGE 22: SAVE OUTPUTS ───────────────────────────────────────────────────
 def save_outputs(df: pd.DataFrame, report: dict, out_name: str) -> None:
     print(f"\n{DIV}\nSTAGE 22 — SAVE OUTPUTS\n{DIV}")
     csv_path    = DATA_DIR / f"processed_{out_name}.csv"
@@ -803,27 +667,21 @@ def save_outputs(df: pd.DataFrame, report: dict, out_name: str) -> None:
     print(f"  CSV    : {csv_path}  ({len(df):,} rows × {len(out_cols)} cols)")
     print(f"  Report : {report_path}")
     print(f"\n  Output columns: {out_cols}")
-
-
 # ── PIPELINE ─────────────────────────────────────────────────────────────────
 def process_file(out_name: str, in_path: Path) -> None:
     t0    = time.perf_counter()
     audit: list[dict] = []
-
     print(f"\n{'#' * 80}")
     print(f"  AutoPricer Preprocessing Pipeline  ({SCRIPT_NAME})")
     print(f"  Source  : {in_path.name}")
     print(f"  Started : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'#' * 80}")
-
     df = load_raw(in_path)
     validate_schema(df)
     df = select_and_rename(df)
-
     # Seed audit with raw count
     audit.append({"step": "raw_loaded", "rows_before": 0, "rows_after": len(df),
                   "rows_dropped": 0, "detail": in_path.name})
-
     df = validate_price(df, audit)
     df = validate_age(df, audit)
     df = validate_odometer(df, audit)
@@ -841,25 +699,19 @@ def process_file(out_name: str, in_path: Path) -> None:
     df = normalize_owner_count(df)
     df = engineer_features(df)
     df = deduplicate(df, audit)
-
     duration = time.perf_counter() - t0
     report   = generate_report(df, in_path, audit, duration)
     save_outputs(df, report, out_name)
-
     print(f"\n{'#' * 80}")
     print(f"  PIPELINE COMPLETE")
     print(f"  Output : {len(df):,} records  ×  {len(ML_FEATURES)} features")
     print(f"  Time   : {duration:.2f}s")
     print(f"{'#' * 80}\n")
-
-
 def main() -> None:
     for out_name, in_path in INPUT_FILES.items():
         if not in_path.exists():
             print(f"WARNING: {in_path} not found — skipping")
             continue
         process_file(out_name, in_path)
-
-
 if __name__ == "__main__":
     main()

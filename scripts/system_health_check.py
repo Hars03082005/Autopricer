@@ -1,25 +1,19 @@
 import urllib.request
 import json
-
 import os
-
 BASE_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
-
 def get(path):
     req = urllib.request.Request(f"{BASE_URL}{path}")
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read().decode())
-
 def post(path, payload):
     data = json.dumps(payload).encode('utf-8')
     req = urllib.request.Request(f"{BASE_URL}{path}", data=data, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read().decode())
-
 print("==================================================================")
 print("       PRICEREF SYSTEM COMPREHENSIVE END-TO-END HEALTH AUDIT       ")
 print("==================================================================")
-
 # 1. Health Check
 try:
     health = get("/health")
@@ -30,7 +24,6 @@ try:
     print(f"    Ensemble Enabled : {health.get('ensemble_enabled')}")
 except Exception as e:
     print(f"[FAIL] GET /health error: {e}")
-
 # 2. Registry Check
 try:
     reg = get("/api/registry")
@@ -39,7 +32,6 @@ try:
     print(f"    Total Variants   : {len(reg.get('variants', []))}")
 except Exception as e:
     print(f"[FAIL] GET /api/registry error: {e}")
-
 # 3. Brands Catalog
 try:
     brands = get("/api/brands")
@@ -47,8 +39,6 @@ try:
     print(f"    Total Brands     : {len(brands.get('brands', {}))}")
 except Exception as e:
     print(f"[FAIL] GET /api/brands error: {e}")
-
-# 4. Standard /predict Endpoint Test (Swift 2017)
 try:
     payload = {
         "brand": "Maruti",
@@ -71,8 +61,6 @@ try:
     print(f"    IRDAI Note        : {res.get('irdai_note') or '(n/a — variant known)'}")
 except Exception as e:
     print(f"[FAIL] POST /predict error: {e}")
-
-# 5. Standard /evaluate Endpoint Test (Hyundai i20 2021)
 try:
     payload2 = {
         "brand": "Hyundai",
@@ -95,8 +83,6 @@ try:
     print(f"    Similar Cars Comps: {len(res2.get('similar_cars', []))} items returned")
 except Exception as e:
     print(f"[FAIL] POST /evaluate error: {e}")
-
-# 6. Enhanced Evaluation /evaluate-enhanced Test (Mercedes C-Class 2019)
 try:
     payload3 = {
         "brand": "Mercedes-Benz",
@@ -124,7 +110,6 @@ try:
     print(f"    IDV Analysis      : {res3.get('idv_analysis', {}).get('flag')}")
 except Exception as e:
     print(f"[FAIL] POST /evaluate-enhanced error: {e}")
-
 print("\n==================================================================")
 print("             AUDIT COMPLETE — ALL SYSTEMS OPERATIONAL             ")
 print("==================================================================")
