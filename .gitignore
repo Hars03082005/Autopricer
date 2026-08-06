@@ -47,11 +47,10 @@ mlruns/
 *.zip
 ml_training/data/
 
-# ── Large model artifacts ─────────────────────────────────────────────────────
-model_artifacts/ensemble_*.pkl
-model_artifacts/vehicle_price_catboost.cbm
-model_artifacts/vehicle_price_xgboost.json
-model_artifacts/training_report.json
+# ── Model Registry (Keep only Variant 1 active default) ───────────────────────
+model_registry/variant_2/
+model_registry/variant_3/
+model_registry/variant_4/
 
 
 # ── Mobile (Flutter) ──────────────────────────────────────────────────────────

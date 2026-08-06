@@ -105,17 +105,13 @@ _CLAMP_TOLERANCE_CFG: dict[str, list[float]] = _cfg_get("clamp_tolerance", {
     "luxury":  [0.80, 1.20],
 })
 
-# Confidence baseline from training metrics (BUG-10 fix: mape_frac matches actual variant_1 MAPE=6.16%)
+# Confidence baseline from training metrics
 _CONF_BASELINE: dict = _cfg_get("confidence_baseline", {
     "mc_base": 88.0,
     "bc_base": 84.0,
     "mape_frac": 0.0616,
     "r2": 0.9777,
 })
-
-# BUG-04 fix: removed the duplicate _load_dataset_df() that existed here (lines 119–142).
-# The authoritative definition with caching and full column selection is at lines 880–942.
-# Keeping this duplicate caused non-deterministic CSV loading priority.
 
 # Certified vehicle premium
 _CERTIFIED_PREMIUM: float = float(_cfg_get("certified_vehicle_premium", 0.035))

@@ -90,7 +90,7 @@ graph TD
 
 ## 📊 Complete Model Results & Benchmarks
 
-PriceRef ships with **all 4 trained model variants** in `model_registry/` — Variants 1–3 are archived benchmarks, Variant 4 is the active S5 specialist.
+PriceRef ships with **`variant_1`** in `model_registry/` as the single active default model for general vehicle valuations, alongside `variant_4` for S5 quality shop stock.
 
 ### 1. Variant 1 — Global Ensemble Metrics (Active Default)
 
@@ -119,30 +119,14 @@ PriceRef ships with **all 4 trained model variants** in `model_registry/` — Va
 | **Mid Tier** (`₹6L – ₹12 Lakhs`) | 6,525 listings | **`5.64%`** | **`0.8522`** | `segment_6_12_lakh.cbm` |
 | **Luxury / High-Value** (`₹12L+`) | 1,993 listings | **`5.09%`** | **`0.8872`** | `segment_12_plus_lakh.cbm` |
 
-### 4. Variant 4 — S5 Quality Shop Specialist Metrics
-
-> **Activation Condition**: `vehicle_age ≤ 7` AND vehicle brand/model exists in S5 catalog.
-> Falls back to Variant 1 + 8% premium for vehicles not in S5 catalog.
-
-| Metric | Result | Notes |
-| :--- | :---: | :--- |
-| **Model Type** | `CatBoost + LightGBM` | No XGBoost (too few rows) |
-| **MAPE** | **`16.38%`** | Expected — small dataset (173 rows) |
-| **R² Score** | **`0.3429`** | Narrow specialty scope, not general market |
-| **MAE** | **`₹2,72,324`** | Premium segment vehicles |
-| **RMSE** | **`₹5,04,875`** | High-value vehicle spread |
-| **Training Rows** | `138 train / 35 val` | 80/20 split from 173 total rows |
-| **Ensemble Weights** | CatBoost 80.61% / LightGBM 19.39% | Optimizer favors CatBoost on small data |
-| **Training Dataset** | `processed_s5.csv` | S5 quality shop listings, age 0–7 years |
-
-### 5. Registered Variant Benchmark Comparison
+### 4. Registered Variant Summary
 
 | Rank | Model Variant | Training Dataset | MAPE (%) | R² Score | MAE (₹) | RMSE (₹) | System Status |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
 | 🥇 **1** | **`variant_1` (Default)** | `processed_overall.csv` | **`6.16%`** | **`0.9777`** | **₹38,273** | **₹98,254** | **Active Default** |
-| 🥈 **2** | **`variant_3`** | `processed_s1_s4_owner_1.csv` | **`6.50%`** | **`0.9755`** | **₹39,829** | **₹79,227** | Archived Variant |
-| 🥉 **3** | **`variant_2`** | `processed_s1_s4_owner.csv` | **`6.67%`** | **`0.9741`** | **₹40,661** | **₹83,619** | Archived Variant |
 | 🏅 **4** | **`variant_4` (S5 Specialist)** | `processed_s5.csv` | **`16.38%`** | **`0.3429`** | **₹2,72,324** | **₹5,04,875** | **S5 Quality Active** |
+
+
 
 ---
 
@@ -433,7 +417,7 @@ python ml_training/clean-s5.py    # Clean S5 shop data → processed_s5.csv
 python ml_training/train-s5.py    # Train CatBoost + LightGBM specialist model
 ```
 
-> **Note:** Variant 2 and Variant 3 training scripts (`clean-2.py`, `train-2.py`, `clean-3.py`, `train-3.py`) are excluded from the public repository. They are archived benchmarks superseded by Variant 1.
+> **Note:** Variant 1 (`variant_1`) is the active default model used for valuation. Variant 4 (`variant_4`) is a specialist model for S5 quality shop listings only.
 
 *Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`. Variant 4 never auto-promotes to default — it is a specialist S5 model only. The active default is always `Variant 1` (`ACTIVE_VARIANT_ID=variant_1`).*
 

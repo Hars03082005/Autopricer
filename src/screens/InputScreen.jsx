@@ -5,7 +5,7 @@ import { fetchBrands, fetchCatalog, fetchOptions, runMLValuation } from '../util
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
 
-/* ─── Static Constants ──────────────────────────────────────────── */
+
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS        = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
 const CITIES       = Object.keys(CITY_DEMAND).sort();
@@ -32,7 +32,7 @@ const COLORS = [
 const LUXURY_BRANDS  = new Set(['BMW','Mercedes-Benz','Audi','Lexus','Volvo','Land Rover','Jaguar','Porsche','Tesla']);
 const PREMIUM_BRANDS = new Set(['Toyota','Honda','Volkswagen','Skoda','Kia','MG','Jeep','Ford','Renault','Nissan']);
 
-/* ─── Helpers ───────────────────────────────────────────────────── */
+
 function getSegment(brand) {
   if (!brand) return null;
   if (LUXURY_BRANDS.has(brand))  return 'luxury';
@@ -77,7 +77,7 @@ function getValidFuels(brand, model) {
   return FUELS;
 }
 
-/* ─── Sub-components ────────────────────────────────────────────── */
+
 function SectionHeader({ n, title, sub }) {
   return (
     <div className="vws-head">
@@ -139,7 +139,7 @@ function normalizeVariant(raw, modelName = '') {
   return res;
 }
 
-/* ─── Main Component ────────────────────────────────────────────── */
+
 export default function InputScreen() {
   const {
     inputs, updateInput,
@@ -307,7 +307,7 @@ export default function InputScreen() {
     }
   };
 
-  /* ── Render ─────────────────────────────────────────────────── */
+  
   return (
     <div className="vws-root">
 

@@ -2,55 +2,16 @@
   "default": "variant_1",
   "variants": {
     "variant_1": {
-      "dataset": "processed_overall.csv",
-      "trained_at": "2026-07-30T12:25:56.608689",
+      "dataset": "overall_only",
+      "trained_at": "2026-08-06T16:08:32.389068",
       "metrics": {
-        "mae": 38273.11,
-        "rmse": 98254.22,
+        "mae": 35811.9,
+        "rmse": 77118.67,
         "r2": 0.9777,
-        "mape": 6.16
+        "mape": 6.01
       },
       "artifact_path": "model_registry/variant_1",
       "status": "active"
-    },
-    "variant_2": {
-      "dataset": "processed_s1_s4_owner.csv",
-      "trained_at": "2026-07-30T12:42:49.873730",
-      "metrics": {
-        "mae": 40661.26,
-        "rmse": 83618.21,
-        "r2": 0.9741,
-        "mape": 6.67
-      },
-      "artifact_path": "model_registry/variant_2",
-      "status": "archived"
-    },
-    "variant_3": {
-      "dataset": "processed_s1_s4_owner_1.csv",
-      "trained_at": "2026-07-30T12:52:21.339449",
-      "metrics": {
-        "mae": 39828.72,
-        "rmse": 79226.64,
-        "r2": 0.9755,
-        "mape": 6.5
-      },
-      "artifact_path": "model_registry/variant_3",
-      "status": "archived"
-    },
-    "variant_4": {
-      "dataset": "processed_s5.csv",
-      "trained_at": "2026-07-30T13:01:47.541043",
-      "metrics": {
-        "mae": 272323.82,
-        "rmse": 504874.65,
-        "r2": 0.3429,
-        "mape": 16.38
-      },
-      "artifact_path": "model_registry/variant_4",
-      "status": "s5_quality",
-      "s5_max_age": 7,
-      "description": "S5 Quality Shop \u2014 specialized model for 0-7 year premium vehicles (variant_4)",
-      "activation_condition": "vehicle_age <= 7 AND model known in S5 catalog"
     }
   }
-}
+}
