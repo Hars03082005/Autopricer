@@ -2,7 +2,6 @@ export function formatINR(amount) {
   if (!amount && amount !== 0) return '—';
   return '₹' + Number(amount).toLocaleString('en-IN');
 }
-
 export function getSeasonalContext(month) {
   const map = {
     1: { label: 'January', note: 'Post-festive slowdown', mult: 0.97 },

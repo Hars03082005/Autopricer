@@ -1,24 +1,4 @@
-"""
-ml_training/train-1.py
-AutoPricer ML Training Pipeline â€” Variant (overall.csv)
-
-Outputs (local artifacts only):
-  vehicle_price_catboost.cbm
-  vehicle_price_lightgbm.txt
-  vehicle_price_xgboost.json
-  ensemble_bundle.pkl
-  routing_table.json
-  model_metadata.json        â† single compact metadata file
-  model_comparison.csv       â† primary local performance report
-  feature_importance_*.csv   â† one per model (CSV only)
-  dataset_catalog.json
-  training.log               â† full debug log
-
-All experiment history, comparisons, visualisations, artifact versioning
-and hyperparameter tracking are delegated to Weights & Biases.
-"""
 from __future__ import annotations
-
 import importlib
 import json
 import logging
@@ -33,7 +13,6 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -44,38 +23,30 @@ from scipy.optimize import minimize
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-
 warnings.filterwarnings("ignore")
-
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
-
 import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1]))
 from ml_training import registry_helper
-
 # â”€â”€ CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ROOT         = Path(__file__).resolve().parents[1]
 DATASET      = Path(__file__).resolve().parent / "data" / "processed_s1_s4_owner.csv"
 IS_OFFICIAL  = False
 SCRIPT_NAME  = "train-2"
-
 VARIANT_ID   = registry_helper.next_variant_id()
 ARTIFACT_DIR = registry_helper.get_variant_dir(VARIANT_ID)
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
-
 RANDOM_STATE     = 42
 TARGET           = "selling_price"
 MIN_SEGMENT_ROWS = 200
-
 SEGMENTS: dict[str, tuple[int, int]] = {
     "0_6_lakh":     (0,           600_000),
     "6_12_lakh":    (600_000,   1_200_000),
     "12_plus_lakh": (1_200_000, 20_000_000),
 }
-
 CAT_FEATURES: list[str] = [
     "brand", "model", "variant",
     "locality", "rto",
@@ -86,7 +57,6 @@ NUMERIC_FEATURES: list[str] = [
     "certified", "pincode",
 ]
 FEATURES: list[str] = CAT_FEATURES + NUMERIC_FEATURES
-
 CB_PARAMS: dict[str, Any] = {
     "iterations": 3000, "learning_rate": 0.03, "depth": 6,
     "loss_function": "RMSE", "eval_metric": "RMSE",
@@ -114,51 +84,40 @@ SEG_CB_PARAMS: dict[str, Any] = {
     "random_seed": RANDOM_STATE, "l2_leaf_reg": 5,
     "min_data_in_leaf": 10, "early_stopping_rounds": 100,
 }
-
 # â”€â”€ LOGGER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Console â†’ INFO-only, concise.
-# File (training.log) â†’ DEBUG, full detail.
 def _setup_logger(artifact_dir: Path) -> logging.Logger:
     log_path = artifact_dir / "training.log"
     fmt_file    = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     fmt_console = logging.Formatter("%(message)s")
-
     file_handler    = logging.FileHandler(log_path, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(fmt_file)
-
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(fmt_console)
-
     logger = logging.getLogger(f"autopricer.{SCRIPT_NAME}")
     logger.setLevel(logging.DEBUG)
     if not logger.handlers:
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
     return logger
-
 log = _setup_logger(ARTIFACT_DIR)
-
 # â”€â”€ RANDOM SEEDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _set_seeds(seed: int = RANDOM_STATE) -> None:
     random.seed(seed)
     np.random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     log.debug(f"Random seed set to {seed}")
-
 _set_seeds()
-
 # â”€â”€ WEIGHTS & BIASES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _wandb_mod = None
 try:
     _wandb_mod = importlib.import_module("wandb")
 except Exception:
     _wandb_mod = None
-
 _WANDB_ENABLED = False
 _wandb_run     = None
-
 def _init_wandb(config: dict) -> None:
     global _WANDB_ENABLED, _wandb_run
     if _wandb_mod is None:
@@ -174,14 +133,12 @@ def _init_wandb(config: dict) -> None:
         log.debug("W&B run initialised")
     except Exception as exc:
         log.debug(f"W&B unavailable: {exc}")
-
 def _wandb_log(data: dict) -> None:
     if _WANDB_ENABLED and _wandb_run:
         try:
             _wandb_run.log(data)
         except Exception:
             pass
-
 def _wandb_log_artifact(path: Path, artifact_type: str = "dataset") -> None:
     if _WANDB_ENABLED and _wandb_run and _wandb_mod:
         try:
@@ -190,14 +147,12 @@ def _wandb_log_artifact(path: Path, artifact_type: str = "dataset") -> None:
             _wandb_run.log_artifact(art)
         except Exception:
             pass
-
 def _finish_wandb() -> None:
     if _WANDB_ENABLED and _wandb_run:
         try:
             _wandb_run.finish()
         except Exception:
             pass
-
 # â”€â”€ METRICS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     y_true_price = np.expm1(y_true)
@@ -207,7 +162,6 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     r2   = r2_score(np.log1p(y_true_price), np.log1p(y_pred_price))
     mape = np.mean(np.abs((y_true_price - y_pred_price) / (y_true_price + 1e-8))) * 100
     return {"MAE": round(mae, 2), "RMSE": round(rmse, 2), "R2": round(r2, 4), "MAPE": round(mape, 2)}
-
 # â”€â”€ DATASET â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def load_dataset() -> pd.DataFrame:
     if not DATASET.exists():
@@ -215,7 +169,6 @@ def load_dataset() -> pd.DataFrame:
     df = pd.read_csv(DATASET, low_memory=False)
     log.debug(f"Loaded {len(df):,} rows from {DATASET.name}")
     return df
-
 def clean_training_data(df: pd.DataFrame) -> pd.DataFrame:
     before = len(df)
     df[TARGET] = pd.to_numeric(df[TARGET], errors="coerce")
@@ -232,13 +185,11 @@ def clean_training_data(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = df[col].fillna("unknown").astype(str).str.strip().str.lower()
     log.debug(f"Clean: {before:,} â†’ {len(df):,} rows (dropped {before - len(df):,})")
     return df
-
 # â”€â”€ SPLIT & FRAMES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def split_dataset(df: pd.DataFrame):
     X = df[[f for f in FEATURES if f in df.columns]]
     y = np.log1p(df[TARGET])
     return train_test_split(X, y, test_size=0.30, random_state=RANDOM_STATE, shuffle=True)
-
 def build_category_levels(df: pd.DataFrame) -> dict:
     levels = {}
     for col in CAT_FEATURES:
@@ -250,7 +201,6 @@ def build_category_levels(df: pd.DataFrame) -> dict:
             vals.append("unknown")
         levels[col] = sorted(vals)
     return levels
-
 def prepare_frames(df: pd.DataFrame, category_levels: dict, encoders: dict | None = None):
     available = [f for f in FEATURES if f in df.columns]
     frame = df[available].copy()
@@ -277,7 +227,6 @@ def prepare_frames(df: pd.DataFrame, category_levels: dict, encoders: dict | Non
         lgb_frame[col] = active_encoders[col].transform(lgb_frame[col])
     xgb_frame = lgb_frame.copy()
     return cb_frame, lgb_frame, xgb_frame, active_encoders
-
 def prepare_training_frames(X_train: pd.DataFrame, X_val: pd.DataFrame) -> dict:
     cat_levels = build_category_levels(X_train)
     cb_tr, lgb_tr, xgb_tr, encoders = prepare_frames(X_train, cat_levels)
@@ -288,7 +237,6 @@ def prepare_training_frames(X_train: pd.DataFrame, X_val: pd.DataFrame) -> dict:
         "lightgbm": {"train": lgb_tr, "val": lgb_v},
         "xgboost":  {"train": xgb_tr, "val": xgb_v},
     }
-
 # â”€â”€ MODEL TRAINING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def train_catboost(X_tr, y_tr, X_v, y_v) -> CatBoostRegressor:
     log.debug(f"CatBoost params: {CB_PARAMS}")
@@ -297,34 +245,29 @@ def train_catboost(X_tr, y_tr, X_v, y_v) -> CatBoostRegressor:
     model.fit(Pool(X_tr, y_tr, cat_features=cat_cols),
               eval_set=Pool(X_v, y_v, cat_features=cat_cols), use_best_model=True)
     return model
-
 def train_lightgbm(X_tr, y_tr, X_v, y_v) -> lgb.Booster:
     log.debug(f"LightGBM params: {LGB_PARAMS}")
     model = lgb.train(LGB_PARAMS, lgb.Dataset(X_tr, label=y_tr),
                       valid_sets=[lgb.Dataset(X_v, label=y_v)], num_boost_round=LGB_ROUNDS,
                       callbacks=[lgb.early_stopping(150), lgb.log_evaluation(200)])
     return model
-
 def train_xgboost(X_tr, y_tr, X_v, y_v) -> xgb.Booster:
     log.debug(f"XGBoost params: {XGB_PARAMS}")
     model = xgb.train(XGB_PARAMS, xgb.DMatrix(X_tr, label=y_tr), num_boost_round=XGB_ROUNDS,
                       evals=[(xgb.DMatrix(X_v, label=y_v), "val")],
                       early_stopping_rounds=150, verbose_eval=200)
     return model
-
 # â”€â”€ EVALUATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def predict(model, model_name: str, X: pd.DataFrame) -> np.ndarray:
     if model_name == "CatBoost": return model.predict(X)
     if model_name == "LightGBM": return model.predict(X)
     if model_name == "XGBoost":  return model.predict(xgb.DMatrix(X))
     raise ValueError(f"Unknown model: {model_name}")
-
 def evaluate_model(model, model_name: str, X, y) -> tuple[dict, np.ndarray]:
     preds  = predict(model, model_name, X)
     scores = calculate_metrics(y, preds)
     log.debug(f"{model_name} MAE=â‚¹{scores['MAE']:,.0f} MAPE={scores['MAPE']:.2f}% R2={scores['R2']:.4f}")
     return scores, preds
-
 def optimise_weights(cb_p, lgb_p, xgb_p, y_true) -> np.ndarray:
     def neg_r2(w):
         w = np.array(w) / np.sum(w)
@@ -333,22 +276,17 @@ def optimise_weights(cb_p, lgb_p, xgb_p, y_true) -> np.ndarray:
     res = minimize(neg_r2, x0=[1/3, 1/3, 1/3], method="SLSQP",
                    bounds=[(0, 1)]*3, constraints={"type": "eq", "fun": lambda w: sum(w)-1})
     return res.x / res.x.sum()
-
 def evaluate_ensemble(w, cb, lgb_p, xgb_p, y) -> dict:
     ens = w[0]*cb + w[1]*lgb_p + w[2]*xgb_p
     return calculate_metrics(y, ens)
-
 # â”€â”€ FEATURE IMPORTANCE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _save_feature_importance(importance: dict[str, float], model_name: str) -> None:
-    """Save feature importance as CSV only (no JSON)."""
     sorted_imp = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True))
     csv_path   = ARTIFACT_DIR / f"feature_importance_{model_name.lower()}.csv"
     pd.DataFrame(sorted_imp.items(), columns=["feature", "importance"]).to_csv(csv_path, index=False)
     log.debug(f"Saved feature importance: {csv_path.name}")
     _wandb_log_artifact(csv_path, artifact_type="importance")
-
 def generate_feature_importances(cb_model, lgb_model, xgb_model, features: list[str]) -> dict:
-    """Generate and save per-model importances; return top-10 per model for summary."""
     importances: dict = {}
     try:
         cb_imp = dict(zip(features, cb_model.get_feature_importance()))
@@ -369,20 +307,12 @@ def generate_feature_importances(cb_model, lgb_model, xgb_model, features: list[
     except Exception as e:
         log.warning(f"XGBoost feature importance failed: {e}")
     return importances
-
 # â”€â”€ ARTIFACTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoders,
                    rows_used: int, val_metrics: dict, seg_active: list[str]) -> None:
-    """
-    Save production-ready artifacts only:
-      - 3 model files + ensemble bundle
-      - model_metadata.json  (compact, deployment-relevant)
-      - model_comparison.csv (primary local performance report)
-    """
     cat_model.save_model(str(ARTIFACT_DIR / "vehicle_price_catboost.cbm"))
     lgb_model.save_model(str(ARTIFACT_DIR / "vehicle_price_lightgbm.txt"))
     xgb_model.save_model(str(ARTIFACT_DIR / "vehicle_price_xgboost.json"))
-
     bundle = {
         "weights": {"catboost": float(weights[0]), "lightgbm": float(weights[1]), "xgboost": float(weights[2])},
         "category_levels": cat_levels,
@@ -391,8 +321,6 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
         "numeric_features": NUMERIC_FEATURES, "segments": SEGMENTS,
     }
     joblib.dump(bundle, ARTIFACT_DIR / "ensemble_bundle.pkl")
-
-    # Single compact metadata file â€” no OS/env/hash/timing noise
     model_metadata = {
         "variant_id":       VARIANT_ID,
         "script":           SCRIPT_NAME,
@@ -416,9 +344,7 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
     }
     with open(ARTIFACT_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
         json.dump(model_metadata, f, indent=2)
-
     log.debug("Artifacts saved")
-
 # â”€â”€ SEGMENTED TRAINING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def train_segment_model(seg_name, seg_df, global_model, global_cat_levels) -> tuple:
     log.debug(f"Segment: {seg_name} ({len(seg_df):,} rows)")
@@ -443,7 +369,6 @@ def train_segment_model(seg_name, seg_df, global_model, global_cat_levels) -> tu
         return seg_model, seg_levels, seg_scores
     log.debug(f"Segment {seg_name} inactive (global MAPE {global_scores['MAPE']:.2f}% â‰¤ {seg_scores['MAPE']:.2f}%)")
     return None, None, global_scores
-
 def train_segmented_models(df, global_model, global_cat_levels) -> dict:
     results = {}
     for seg_name, (pmin, pmax) in SEGMENTS.items():
@@ -455,7 +380,6 @@ def train_segmented_models(df, global_model, global_cat_levels) -> dict:
             "active": m is not None, "price_range": (pmin, pmax), "row_count": int(mask.sum()),
         }
     return results
-
 def save_segment_artifacts(segment_results) -> tuple[dict, list[str]]:
     routing: dict   = {}
     active: list[str] = []
@@ -484,22 +408,18 @@ def save_segment_artifacts(segment_results) -> tuple[dict, list[str]]:
     with open(ARTIFACT_DIR / "routing_table.json", "w") as f:
         json.dump(routing, f, indent=2)
     return routing, active
-
 # â”€â”€ CONSOLE SUMMARY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
                    weights, comparison, active_segs, top_features, total_sec) -> None:
     W = 72
     line = "â”€" * W
     header = f"  AutoPricer  Â·  {SCRIPT_NAME}  Â·  Variant {VARIANT_ID}"
-
     print(f"\n{'â”' * W}")
     print(header)
     print(f"{'â”' * W}")
-
     # Dataset
     print(f"\n  Dataset  : {DATASET.name}  ({len(df_train) + len(df_val):,} rows  â†’  train {len(df_train):,} / val {len(df_val):,})")
     print(f"  Features : {len(FEATURES)} total  ({len(CAT_FEATURES)} categorical, {len(NUMERIC_FEATURES)} numeric)\n")
-
     # Model metrics table
     print(f"  {line}")
     print(f"  {'Model':<14}  {'MAE (â‚¹)':>12}  {'RMSE (â‚¹)':>12}  {'MAPE (%)':>9}  {'RÂ²':>7}")
@@ -514,16 +434,13 @@ def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
         marker = "â˜…" if "â˜…" in name else " "
         print(f"  {name:<14}  {sc['MAE']:>12,.0f}  {sc['RMSE']:>12,.0f}  {sc['MAPE']:>8.2f}%  {sc['R2']:>7.4f}")
     print(f"  {line}")
-
     # Ensemble weights
     print(f"\n  Ensemble Weights")
     print(f"    CatBoost  {weights[0]*100:5.1f}%")
     print(f"    LightGBM  {weights[1]*100:5.1f}%")
     print(f"    XGBoost   {weights[2]*100:5.1f}%")
-
     # Segments
     print(f"\n  Segment Models  â†’  {'  '.join(active_segs) if active_segs else 'None (global only)'}")
-
     # Top features (CatBoost by default)
     cb_top = top_features.get("catboost", {})
     if cb_top:
@@ -533,7 +450,6 @@ def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
         for feat, score in top5:
             bar_len = int(score / max_score * 20)
             print(f"    {feat:<25}  {'â–ˆ' * bar_len}  {score:,.0f}")
-
     # Artifacts
     artifacts = [
         "vehicle_price_catboost.cbm",
@@ -552,23 +468,18 @@ def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
         p = ARTIFACT_DIR / a
         exists = "âœ“" if p.exists() else "Â·"
         print(f"    {exists}  {a}")
-
     print(f"\n  Total training time  :  {total_sec:.1f}s")
     print(f"{'â”' * W}\n")
-
 # â”€â”€ MAIN PIPELINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def train_all_models() -> dict:
     t0 = time.perf_counter()
     log.info(f"AutoPricer ML Training [{SCRIPT_NAME}]  Variant {VARIANT_ID}")
     print(f"\nLoading {DATASET.name} ...")
-
     df = load_dataset()
     df = clean_training_data(df)
-
     X_train, X_val, y_train, y_val = split_dataset(df)
     frames     = prepare_training_frames(X_train, X_val)
     cat_levels = frames["category_levels"]
-
     _init_wandb({
         "script": SCRIPT_NAME, "dataset": DATASET.name, "variant_id": VARIANT_ID,
         "rows": len(df), "features": len(FEATURES), "random_seed": RANDOM_STATE,
@@ -576,7 +487,6 @@ def train_all_models() -> dict:
         "lightgbm": {**LGB_PARAMS, "num_boost_round": LGB_ROUNDS},
         "xgboost":  {**XGB_PARAMS, "num_boost_round": XGB_ROUNDS},
     })
-
     # Train
     print("Training CatBoost ...")
     try:
@@ -584,30 +494,25 @@ def train_all_models() -> dict:
     except Exception:
         log.error("CatBoost training failed\n" + traceback.format_exc())
         raise
-
     print("Training LightGBM ...")
     try:
         lgb_model = train_lightgbm(frames["lightgbm"]["train"], y_train, frames["lightgbm"]["val"], y_val)
     except Exception:
         log.error("LightGBM training failed\n" + traceback.format_exc())
         raise
-
     print("Training XGBoost ...")
     try:
         xgb_model = train_xgboost(frames["xgboost"]["train"], y_train, frames["xgboost"]["val"], y_val)
     except Exception:
         log.error("XGBoost training failed\n" + traceback.format_exc())
         raise
-
     # Evaluate
     print("Evaluating ...")
     cat_sc, cat_p = evaluate_model(cat_model, "CatBoost", frames["catboost"]["val"], y_val)
     lgb_sc, lgb_p = evaluate_model(lgb_model, "LightGBM", frames["lightgbm"]["val"], y_val)
     xgb_sc, xgb_p = evaluate_model(xgb_model, "XGBoost",  frames["xgboost"]["val"],  y_val)
-
     weights    = optimise_weights(cat_p, lgb_p, xgb_p, y_val)
     val_scores = evaluate_ensemble(weights, cat_p, lgb_p, xgb_p, y_val)
-
     _wandb_log({
         "catboost_mae": cat_sc["MAE"],  "catboost_mape": cat_sc["MAPE"],  "catboost_r2": cat_sc["R2"],
         "lightgbm_mae": lgb_sc["MAE"],  "lightgbm_mape": lgb_sc["MAPE"],  "lightgbm_r2": lgb_sc["R2"],
@@ -617,7 +522,6 @@ def train_all_models() -> dict:
         "weights_lightgbm": float(weights[1]),
         "weights_xgboost":  float(weights[2]),
     })
-
     # Comparison CSV
     comparison = pd.DataFrame([
         {"Model": "CatBoost",  **cat_sc},
@@ -628,24 +532,19 @@ def train_all_models() -> dict:
     comparison.to_csv(ARTIFACT_DIR / "model_comparison.csv", index=False)
     log.debug("Saved model_comparison.csv")
     _wandb_log_artifact(ARTIFACT_DIR / "model_comparison.csv", artifact_type="report")
-
     # Feature importance (CSV only)
     print("Generating feature importances ...")
     top_features = generate_feature_importances(cat_model, lgb_model, xgb_model, FEATURES)
-
     # Segmented models
     print("Training segment models ...")
     seg_results   = train_segmented_models(df, cat_model, cat_levels)
     routing_table, active_segs = save_segment_artifacts(seg_results)
-
-    # Save core artifacts + compact metadata
     val_metrics_full = {
         "CatBoost": cat_sc, "LightGBM": lgb_sc, "XGBoost": xgb_sc, "Ensemble": val_scores
     }
     save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels,
                    frames["encoders"], len(df), val_metrics_full, active_segs)
     _wandb_log_artifact(ARTIFACT_DIR / "model_metadata.json", artifact_type="metadata")
-
     # Dataset catalog
     try:
         _cdf = pd.read_csv(DATASET, usecols=["brand", "model", "variant"])
@@ -662,7 +561,6 @@ def train_all_models() -> dict:
         log.debug(f"Saved dataset_catalog.json ({len(catalog)} brands)")
     except Exception as exc:
         log.warning(f"dataset_catalog.json failed: {exc}")
-
     # Registry
     registry_helper.register_variant(
         variant_id=VARIANT_ID, artifact_dir=ARTIFACT_DIR,
@@ -671,20 +569,14 @@ def train_all_models() -> dict:
                  "r2": val_scores["R2"],   "mape": val_scores["MAPE"]},
     )
     _finish_wandb()
-
     total_sec = time.perf_counter() - t0
     log.info(f"COMPLETE â€” Ensemble MAPE {val_scores['MAPE']:.2f}%  R2 {val_scores['R2']:.4f}  ({total_sec:.1f}s)")
-
     _print_summary(X_train, X_val, cat_sc, lgb_sc, xgb_sc, val_scores,
                    weights, comparison, active_segs, top_features, total_sec)
-
     return {"comparison": comparison, "segments": seg_results}
-
-
 if __name__ == "__main__":
     try:
         train_all_models()
     except Exception:
         log.critical("Training pipeline crashed", exc_info=True)
         sys.exit(1)
-

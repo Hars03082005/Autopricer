@@ -13,7 +13,6 @@ import EnhancedValuationScreen from './screens/EnhancedValuationScreen.jsx';
 import EnhancedResultScreen from './screens/EnhancedResultScreen.jsx';
 import ReverseCalculatorScreen from './screens/ReverseCalculatorScreen.jsx';
 import './App.css';
-
 const NAV_SECTIONS = [
   {
     title: 'Workspace',
@@ -39,8 +38,6 @@ const NAV_SECTIONS = [
     ],
   },
 ];
-
-// Mobile bottom nav — 5 key items only
 const MOBILE_NAV = [
   { id: 'home',      label: 'Home',     icon: 'home'   },
   { id: 'input',     label: 'Valuate',  icon: 'car'    },
@@ -48,13 +45,11 @@ const MOBILE_NAV = [
   { id: 'pricing',   label: 'Pricing',  icon: 'coins'  },
   { id: 'dashboard', label: 'Analytics',icon: 'chart'  },
 ];
-
 // User Avatar Button + Dropdown
 function UserMenu() {
   const { currentUser, logout } = useAuth();
   const [open, setOpen] = useState(false);
   if (!currentUser) return null;
-
   return (
     <div className="user-menu-wrap">
       <button
@@ -66,7 +61,6 @@ function UserMenu() {
           {currentUser.avatar}
         </span>
       </button>
-
       {open && (
         <>
           <div className="user-menu-backdrop" onClick={() => setOpen(false)} />
@@ -98,11 +92,9 @@ function UserMenu() {
     </div>
   );
 }
-
 // Main App Shell
 function AppShell() {
   const { activeScreen, setActiveScreen } = useApp();
-
   const SCREENS = {
     home:             <HomeScreen />,
     input:            <InputScreen />,
@@ -114,12 +106,9 @@ function AppShell() {
     dashboard:        <DashboardScreen />,
     assistant:        <AssistantScreen />,
   };
-
   return (
     <div className="app-root">
-      {/* Desktop Sidebar */}
       <aside className="app-sidebar">
-        {/* Brand */}
         <div className="sidebar-brand">
           <div className="sidebar-logo">
             <Icon name="car" size={18} color="white" strokeWidth={2} />
@@ -129,8 +118,6 @@ function AppShell() {
             <div className="sidebar-brand-sub">Dealer OS</div>
           </div>
         </div>
-
-        {/* Nav sections */}
         <nav className="sidebar-nav">
           {NAV_SECTIONS.map(section => (
             <div key={section.title} className="sidebar-section">
@@ -153,16 +140,11 @@ function AppShell() {
             </div>
           ))}
         </nav>
-
-        {/* User at bottom */}
         <div className="sidebar-footer">
           <UserMenu />
         </div>
       </aside>
-
-      {/* Body */}
       <div className="app-body">
-        {/* Header */}
         <header className="app-header">
           <div className="header-brand">
             <div className="header-logo-wrap">
@@ -173,7 +155,6 @@ function AppShell() {
               <div className="header-tagline">Dealer Decision Engine</div>
             </div>
           </div>
-
           <div className="header-search">
             <Icon name="search" size={15} color="#94a3b8" strokeWidth={2} />
             <input
@@ -183,13 +164,10 @@ function AppShell() {
               aria-label="Search"
             />
           </div>
-
           <div className="header-right">
             <UserMenu />
           </div>
         </header>
-
-        {/* Mobile bottom nav */}
         <nav className="top-nav">
           {MOBILE_NAV.map(tab => (
             <button
@@ -207,8 +185,6 @@ function AppShell() {
             </button>
           ))}
         </nav>
-
-        {/* Main content */}
         <main className="app-main">
           <div className="screen-wrapper" key={activeScreen}>
             {SCREENS[activeScreen] || <HomeScreen />}
@@ -218,11 +194,9 @@ function AppShell() {
     </div>
   );
 }
-
 // Root: Auth gate
 function Root() {
   const { currentUser, loading } = useAuth();
-
   if (loading) {
     return (
       <div className="splash-screen">
@@ -236,7 +210,6 @@ function Root() {
       </div>
     );
   }
-
   if (!currentUser) {
     return (
       <div className="app-root">
@@ -244,14 +217,12 @@ function Root() {
       </div>
     );
   }
-
   return (
     <AppProvider>
       <AppShell />
     </AppProvider>
   );
 }
-
 export default function App() {
   return (
     <AuthProvider>

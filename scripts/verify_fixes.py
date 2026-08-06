@@ -1,9 +1,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from backend.main import VehicleInput, predict_market_value, _normalize_brand, normalize_model_name
-
 print('=== Brand Normalization Test ===')
 brands = [
     ('Maruti',          'maruti suzuki'),
@@ -18,7 +16,6 @@ for inp, expected in brands:
     got = _normalize_brand(inp)
     status = 'OK' if got == expected else 'FAIL'
     print(f'  [{status}] {inp!r:<22} -> {got!r}  (expected {expected!r})')
-
 print()
 print('=== Model Normalization Test (variant stripping) ===')
 cases = [
@@ -33,7 +30,6 @@ for brand, model, year, expected in cases:
     got = normalize_model_name(brand, model, year)
     status = 'OK' if got == expected else 'INFO'
     print(f'  [{status}] {brand} {model!r} ({year}) -> {got!r}  (expected {expected!r})')
-
 print()
 print('=== Prediction Test ===')
 v = VehicleInput(brand='Maruti', model='Swift', variant='VXI', year=2017,
@@ -44,7 +40,6 @@ print('  Market value:        Rs.', r['market_value'])
 print('  Similar anchor note:', r['similar_anchor_note'] or '(none)')
 print('  IRDAI note:         ', r['irdai_note'] or '(n/a - variant known)')
 print('  Variant is known:   ', r['variant_is_known'])
-
 print()
 print('=== Unknown Variant -> IRDAI Note Test ===')
 v2 = VehicleInput(brand='Maruti', model='Swift', variant='unknown', year=2017,

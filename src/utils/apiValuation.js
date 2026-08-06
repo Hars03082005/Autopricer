@@ -1,23 +1,15 @@
-// Lazy getter — evaluated at call time so the Flutter WebView shell's
-// window.PriceRef_API_URL injection (fired after onPageFinished) is
-// always picked up, even though it arrives after module initialisation.
 function getApiBase() {
   if (typeof window !== 'undefined') {
     if (window.PriceRef_API_URL) return window.PriceRef_API_URL;
-
     const host = window.location.hostname;
     const isLocalHost = host === 'localhost' || host === '127.0.0.1';
     const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_ML_API_URL || '').trim();
-
-    // If VITE_API_URL is set to a valid non-localhost URL (or we are on localhost), use it
     if (envUrl) {
       const envIsLocal = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
       if (isLocalHost || !envIsLocal) {
         return envUrl.replace(/\/+$/, '');
       }
     }
-
-    // Smart fallback for Render live deployments
     if (host.endsWith('.onrender.com')) {
       const name = host.replace('.onrender.com', '');
       if (name === 'priceref' || name.startsWith('priceref')) {
@@ -26,14 +18,12 @@ function getApiBase() {
       return 'https://price-prediction-backend.onrender.com';
     }
   }
-
   return (
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_ML_API_URL ||
     'http://localhost:8000'
   ).replace(/\/+$/, '');
 }
-
 function toNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === '') return fallback;
   if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
@@ -41,7 +31,6 @@ function toNumber(value, fallback = 0) {
   const n = match ? Number(match[0]) : Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
-
 function parseOwnerCount(value, fallback = 1) {
   const text = String(value ?? '').trim().toLowerCase();
   if (!text) return fallback;
@@ -52,7 +41,6 @@ function parseOwnerCount(value, fallback = 1) {
   if (/more|fifth|5/.test(text)) return 5;
   return toNumber(value, fallback);
 }
-
 function titleCase(value) {
   return String(value || '')
     .trim()
@@ -60,7 +48,6 @@ function titleCase(value) {
     .map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '')
     .join(' ');
 }
-
 function normalizeFuel(value) {
   const text = String(value || '').toLowerCase();
   if (text.includes('diesel')) return 'Diesel';
@@ -69,13 +56,11 @@ function normalizeFuel(value) {
   if (text.includes('hybrid')) return 'Hybrid';
   return 'Petrol';
 }
-
 function normalizeTransmission(value) {
   const text = String(value || '').toLowerCase();
   if (text.includes('auto') || text.includes('cvt') || text.includes('dct')) return 'Automatic';
   return 'Manual';
 }
-
 function normalizeCondition(value) {
   const text = String(value || '').toLowerCase();
   if (text.includes('excellent')) return 'Excellent';
@@ -83,10 +68,8 @@ function normalizeCondition(value) {
   if (text.includes('average') || text.includes('fair')) return 'Average';
   return 'Good';
 }
-
 function normalizeColor(value) {
   const text = String(value || '').trim().toLowerCase();
-  // Map common variants to canonical lowercase color names the model knows
   const colorMap = {
     'white': 'white', 'pearl white': 'white', 'solid white': 'white',
     'silver': 'silver', 'silver metallic': 'silver', 'grey': 'grey', 'gray': 'grey',
@@ -104,7 +87,6 @@ function normalizeColor(value) {
   };
   return colorMap[text] || text || 'unknown';
 }
-
 export function payloadFromInputs(inputs) {
   return {
     brand: titleCase(inputs.brand || 'Unknown'),
@@ -126,8 +108,6 @@ export function payloadFromInputs(inputs) {
     ...(inputs.modelVariant && inputs.modelVariant !== 'auto' ? { model_variant: inputs.modelVariant } : {}),
   };
 }
-
-
 function buildCounterfactuals(inputs) {
   const km = toNumber(inputs.mileage ?? inputs.odometer_reading, 0);
   const age = new Date().getFullYear() - toNumber(inputs.year, new Date().getFullYear());
@@ -150,7 +130,6 @@ function buildCounterfactuals(inputs) {
   }
   return items.slice(0, 4);
 }
-
 function normalizeApiResult(data, inputs) {
   const predictedPrice = data.market_value ?? 0;
   const baseMarketValue = data.base_market_value ?? predictedPrice;
@@ -161,7 +140,6 @@ function normalizeApiResult(data, inputs) {
   const priceMin = data.price_min ?? Math.round(predictedPrice * 0.9372);
   const priceMax = data.price_max ?? Math.round(predictedPrice * 1.0628);
   const priceMedian = data.price_median ?? predictedPrice;
-
   return {
     predictedPrice,
     baseMarketValue,
@@ -231,7 +209,6 @@ function normalizeApiResult(data, inputs) {
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     routingNote: data.routing_note ?? '',
-    // ── Adaptive Valuation Engine enrichment ──
     valuationConfidence:     data.confidence ?? 'Low',
     valuationConfidenceScore: data.confidence_score ?? 0,
     marketSupport:           data.market_support ?? 'Weak',
@@ -242,7 +219,6 @@ function normalizeApiResult(data, inputs) {
     confidenceCase:          data.confidence_case ?? 'low',
   };
 }
-
 async function postJson(path, payload) {
   const response = await fetch(`${getApiBase()}${path}`, {
     method: 'POST',
@@ -255,7 +231,6 @@ async function postJson(path, payload) {
   }
   return response.json();
 }
-
 export async function fetchBrands() {
   const response = await fetch(`${getApiBase()}/api/brands`);
   if (!response.ok) {
@@ -265,8 +240,6 @@ export async function fetchBrands() {
   const data = await response.json();
   return data.brands || {};
 }
-
-/** Fetch the full dataset catalog: brand → { model → [variants] } */
 export async function fetchCatalog(variantId) {
   const url = variantId
     ? `${getApiBase()}/api/catalog?model_variant=${encodeURIComponent(variantId)}`
@@ -279,8 +252,6 @@ export async function fetchCatalog(variantId) {
   const data = await response.json();
   return data.catalog || {};
 }
-
-/** Fetch models+variants for a single brand from the dataset catalog */
 export async function fetchBrandModels(brand) {
   const response = await fetch(`${getApiBase()}/api/catalog/${encodeURIComponent(brand)}`);
   if (!response.ok) {
@@ -289,18 +260,11 @@ export async function fetchBrandModels(brand) {
   const data = await response.json();
   return data || { brand, models: {} };
 }
-
-/**
- * Fetch the available fuel types, transmissions, and manufacture years
- * that actually exist in the dataset for the given brand/model/variant.
- * Returns { fuel_types, transmissions, years } with safe fallbacks.
- */
 export async function fetchOptions({ brand, model, variant } = {}) {
   const params = new URLSearchParams();
   if (brand)   params.set('brand',   brand);
   if (model)   params.set('model',   model);
   if (variant) params.set('variant', variant);
-
   try {
     const response = await fetch(`${getApiBase()}/api/options?${params.toString()}`);
     if (!response.ok) throw new Error('options api failed');
@@ -313,17 +277,10 @@ export async function fetchOptions({ brand, model, variant } = {}) {
     };
   }
 }
-
-
 export async function runMLValuation(inputs) {
   const data = await postJson('/evaluate', payloadFromInputs(inputs));
   return normalizeApiResult(data, inputs);
 }
-
-/**
- * Run valuation with a specific model variant.
- * Used by the Result page variant switcher to switch between variant_1/2/3.
- */
 export async function runMLValuationWithVariant(inputs, variantId) {
   const payload = {
     ...payloadFromInputs(inputs),
@@ -332,12 +289,6 @@ export async function runMLValuationWithVariant(inputs, variantId) {
   const data = await postJson('/evaluate', payload);
   return normalizeApiResult(data, inputs);
 }
-
-/**
- * Run valuation using the S5 quality shop model (variant_4).
- * Only call this when the vehicle qualifies: vehicle age <= 7 years.
- * Falls back to variant_1 (+8% premium) when model is not in the S5 catalog.
- */
 export async function runS5Valuation(inputs) {
   const payload = {
     ...payloadFromInputs(inputs),
@@ -346,7 +297,6 @@ export async function runS5Valuation(inputs) {
   const data = await postJson('/evaluate', payload);
   return normalizeApiResult(data, inputs);
 }
-
 function normalizeEnhancedResult(data, inputs) {
   const base = normalizeApiResult(data, inputs);
   return {
@@ -362,7 +312,6 @@ function normalizeEnhancedResult(data, inputs) {
     idvAnalysis: data.idv_analysis || null,
   };
 }
-
 export function enhancedPayloadFromInputs(inputs, inspection) {
   return {
     ...payloadFromInputs(inputs),
@@ -387,12 +336,10 @@ export function enhancedPayloadFromInputs(inputs, inspection) {
     idv_value: Math.max(0, Number(inspection.idvValue) || 0),
   };
 }
-
 export async function runEnhancedEvaluation(inputs, inspection) {
   const data = await postJson('/evaluate-enhanced', enhancedPayloadFromInputs(inputs, inspection));
   return normalizeEnhancedResult(data, inputs);
 }
-
 export async function runReverseCalculate(payload) {
   const data = await postJson('/reverse-calculate', payload);
   return {
@@ -408,7 +355,6 @@ export async function runReverseCalculate(payload) {
     priceBreakdown: data.price_breakdown,
   };
 }
-
 export async function fetchRegistry() {
   const response = await fetch(`${getApiBase()}/api/registry`);
   if (!response.ok) {
@@ -416,7 +362,6 @@ export async function fetchRegistry() {
   }
   return response.json();
 }
-
 export async function activateVariant(variantId) {
   const response = await fetch(`${getApiBase()}/api/registry/${encodeURIComponent(variantId)}/activate`, {
     method: 'POST',
@@ -426,4 +371,3 @@ export async function activateVariant(variantId) {
   }
   return response.json();
 }
-

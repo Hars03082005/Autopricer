@@ -9,7 +9,6 @@ export const INDIAN_STATES = [
   'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
   'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ];
-
 export const DEFAULT_VENDOR_TYPE = {
   engine: 'vendor',
   tyre: 'vendor',
@@ -17,41 +16,34 @@ export const DEFAULT_VENDOR_TYPE = {
   interior: 'vendor',
   electrical: 'vendor',
 };
-
 const ENGINE_COSTS = {
   good: { inhouse: 0, vendor: 0 },
   average: { inhouse: 4000, vendor: 8000 },
   poor: { inhouse: 18000, vendor: 35000 },
   critical: { inhouse: 45000, vendor: 80000 },
 };
-
 const TYRE_COSTS = {
   good: { inhouse: 0, vendor: 0 },
   two_bad: { inhouse: 4000, vendor: 6000 },
   all_bad: { inhouse: 8000, vendor: 12000 },
 };
-
 const BODY_COSTS = {
   clean: { inhouse: 0, vendor: 0 },
   minor: { inhouse: 3000, vendor: 5000 },
   major: { inhouse: 10000, vendor: 18000 },
   accident: { inhouse: 22000, vendor: 40000 },
 };
-
 const INTERIOR_COSTS = {
   clean: { inhouse: 0, vendor: 0 },
   needs_cleaning: { inhouse: 1500, vendor: 3000 },
   full_refurb: { inhouse: 6000, vendor: 10000 },
 };
-
 const ELECTRICAL_COSTS = {
   all_good: { inhouse: 0, vendor: 0 },
   ac_fault: { inhouse: 4500, vendor: 8000 },
   multi_fault: { inhouse: 8000, vendor: 15000 },
 };
-
-const FIXED_COST = 8000; // default fallback (rc 3500 + detailing 2500 + ops 2000)
-
+const FIXED_COST = 8000;
 export const GRADE_OPTIONS = {
   engine: [
     { value: 'good', label: 'Good', inhouse: 0, vendor: 0 },
@@ -81,12 +73,10 @@ export const GRADE_OPTIONS = {
     { value: 'multi_fault', label: 'Multiple faults', inhouse: 8000, vendor: 15000 },
   ],
 };
-
 function categoryCost(table, grade, vendorKey) {
   const row = table[grade] || table[Object.keys(table)[0]];
   return row[vendorKey === 'inhouse' ? 'inhouse' : 'vendor'];
 }
-
 export function getReconCost(grades, vendorType = DEFAULT_VENDOR_TYPE, rcCost = 3500) {
   const engineCost = categoryCost(ENGINE_COSTS, grades.engine, vendorType.engine);
   const tyreCost = categoryCost(TYRE_COSTS, grades.tyre, vendorType.tyre);
@@ -94,9 +84,8 @@ export function getReconCost(grades, vendorType = DEFAULT_VENDOR_TYPE, rcCost = 
   const interiorCost = categoryCost(INTERIOR_COSTS, grades.interior, vendorType.interior);
   const electricalCost = categoryCost(ELECTRICAL_COSTS, grades.electrical, vendorType.electrical);
   const rcTransferCost = Math.max(0, Number(rcCost) || 3500);
-  const fixedCost = rcTransferCost + 2500 + 2000; // rc + detailing + ops
+  const fixedCost = rcTransferCost + 2500 + 2000;
   const total = engineCost + tyreCost + bodyCost + interiorCost + electricalCost + fixedCost;
-
   return {
     engine_cost: engineCost,
     tyre_cost: tyreCost,
@@ -116,7 +105,6 @@ export function getReconCost(grades, vendorType = DEFAULT_VENDOR_TYPE, rcCost = 
     },
   };
 }
-
 export function checkDisqualifier(vehicleAge, odometer, ownerCount, accidentHistory) {
   const accident = (accidentHistory || 'none').toLowerCase();
   if (vehicleAge > 12) {
@@ -130,13 +118,11 @@ export function checkDisqualifier(vehicleAge, odometer, ownerCount, accidentHist
   }
   return { disqualified: false, reason: 'Passes pre-screening' };
 }
-
 export function getGradePreview(category, grade) {
   const opt = GRADE_OPTIONS[category]?.find(o => o.value === grade);
   if (!opt) return { inhouse: 0, vendor: 0 };
   return { inhouse: opt.inhouse, vendor: opt.vendor };
 }
-
 export const SELLER_REASONS = [
   { value: 'upgrading', label: 'Upgrading' },
   { value: 'relocating', label: 'Relocating' },
@@ -144,7 +130,6 @@ export const SELLER_REASONS = [
   { value: 'unused', label: 'Car unused' },
   { value: 'problem', label: 'Problem car' },
 ];
-
 export const DEAL_HEALTH_META = {
   green: {
     title: 'Strong Deal — Proceed with confidence',

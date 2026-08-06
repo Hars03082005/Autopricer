@@ -10,21 +10,17 @@ import {
 import { runEnhancedEvaluation, fetchCatalog } from '../utils/apiValuation.js';
 import { ConditionGradesSection } from '../components/ConditionGradeField.jsx';
 import Icon from '../components/Icon.jsx';
-
 const FUELS         = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
 const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT'];
 const YEARS         = Array.from({ length: 15 }, (_, i) => String(2025 - i));
 const OWNER_COUNTS  = ['1', '2', '3', '4'];
 const CONDITIONS    = ['Excellent', 'Good', 'Average', 'Poor'];
-
-/** Format a lowercase dataset key for display: "maruti suzuki swift" → "Maruti Suzuki Swift" */
 function titleCase(str) {
   return String(str || '')
     .split(' ')
     .map(w => w ? w[0].toUpperCase() + w.slice(1) : '')
     .join(' ');
 }
-
 function inspectionGrades(inspection) {
   return {
     engine:     inspection.engineGrade,
@@ -34,20 +30,17 @@ function inspectionGrades(inspection) {
     electrical: inspection.electricalGrade,
   };
 }
-
 export default function EnhancedValuationScreen() {
   const {
     inputs, updateInput,
     enhancedInspection, updateEnhancedInspection, updateVendorType,
     setEnhancedResult, setActiveScreen, setIsLoading, addEvaluation,
   } = useApp();
-
   const [error,   setError]   = useState('');
   // Dataset catalog state
-  const [catalog,       setCatalog]       = useState({});  // brand(lower) → { model(lower): [variants] }
+  const [catalog,       setCatalog]       = useState({});
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [catalogError,  setCatalogError]  = useState(false);
-
   // Load catalog on mount
   useEffect(() => {
     fetchCatalog()
@@ -60,57 +53,42 @@ export default function EnhancedValuationScreen() {
         setCatalogError(true);
       });
   }, []);
-
-  // Derived dropdown options (all from dataset)
   const brandOptions = useMemo(() =>
     Object.keys(catalog).sort(), [catalog]);
-
   const selectedBrandKey = (inputs.brand || '').toLowerCase();
-
-  // For display we store the lowercase key in inputs.brand and show titleCased
   const modelOptions = useMemo(() => {
     const modelsMap = catalog[selectedBrandKey] || {};
     return Object.keys(modelsMap).sort();
   }, [catalog, selectedBrandKey]);
-
   const selectedModelKey = (inputs.model || '').toLowerCase();
-
   const variantOptions = useMemo(() => {
     const modelsMap = catalog[selectedBrandKey] || {};
     const variants  = modelsMap[selectedModelKey] || [];
     return variants.sort();
   }, [catalog, selectedBrandKey, selectedModelKey]);
-
   // Handlers for cascading resets
   function handleBrandChange(brandKey) {
     updateInput('brand',   brandKey);
     updateInput('model',   '');
     updateInput('variant', '');
   }
-
   function handleModelChange(modelKey) {
     updateInput('model',   modelKey);
     updateInput('variant', '');
   }
-
-  // Misc derived values for side panel
   const vehicleAge  = new Date().getFullYear() - Number(inputs.year || 2021);
   const odometer    = Number(inputs.mileage || 0);
   const ownerCount  = Number(inputs.ownerCount || 1);
   const grades      = inspectionGrades(enhancedInspection);
-
   const recon = useMemo(
     () => getReconCost(grades, enhancedInspection.vendorType, enhancedInspection.rcTransferCost),
     [grades, enhancedInspection.vendorType, enhancedInspection.rcTransferCost],
   );
-
   const disqualifier = useMemo(
     () => checkDisqualifier(vehicleAge, odometer, ownerCount, enhancedInspection.accidentHistory),
     [vehicleAge, odometer, ownerCount, enhancedInspection.accidentHistory],
   );
-
   const seasonal = getSeasonalContext(new Date().getMonth() + 1);
-
   const handleGradeChange = (category, value) => {
     const map = {
       engine:     'engineGrade',
@@ -121,14 +99,12 @@ export default function EnhancedValuationScreen() {
     };
     updateEnhancedInspection(map[category], value);
   };
-
   const handleSubmit = async () => {
     setError('');
     setIsLoading(true);
     setEnhancedResult(null);
     setActiveScreen('enhanced-result');
     try {
-      // Always send Bangalore as city — dataset is Bangalore-only
       const inputsWithCity = { ...inputs, city: 'Bangalore' };
       const result = await runEnhancedEvaluation(inputsWithCity, enhancedInspection);
       setEnhancedResult({ ...result, inspection: { ...enhancedInspection } });
@@ -141,9 +117,7 @@ export default function EnhancedValuationScreen() {
       setIsLoading(false);
     }
   };
-
   const isFormValid = inputs.brand && inputs.model && inputs.year && inputs.mileage;
-
   return (
     <div className="screen screen-wide enhanced-screen">
       <div className="page-header">
@@ -152,15 +126,12 @@ export default function EnhancedValuationScreen() {
           <div className="page-subtitle">Configure detailed multi-point inspection variables &amp; cost parameters</div>
         </div>
       </div>
-
       {error && (
         <div className="error-banner" style={{ marginBottom: 16 }}>
           <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
           {error}
         </div>
       )}
-
-      {/* Catalog loading status */}
       {!catalogLoaded && (
         <div className="error-banner" style={{ marginBottom: 12, background: 'var(--info-light)', borderColor: 'var(--info)', color: 'var(--info)' }}>
           <Icon name="spinner" size={14} color="var(--info)" strokeWidth={2} />
@@ -173,15 +144,9 @@ export default function EnhancedValuationScreen() {
           Could not load dataset catalog — start the FastAPI backend first.
         </div>
       )}
-
-      {/* 3-Column layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
-
-        {/* Column 1: Vehicle Details */}
         <div className="card">
           <div className="label-xs" style={{ marginBottom: 16 }}>Vehicle Details</div>
-
-          {/* Brand */}
           <div className="field-group">
             <label className="field-label">
               Brand
@@ -203,8 +168,6 @@ export default function EnhancedValuationScreen() {
               ))}
             </select>
           </div>
-
-          {/* Model */}
           <div className="field-group">
             <label className="field-label">
               Model
@@ -226,8 +189,6 @@ export default function EnhancedValuationScreen() {
               ))}
             </select>
           </div>
-
-          {/* Variant */}
           <div className="field-group">
             <label className="field-label">
               Variant
@@ -249,7 +210,6 @@ export default function EnhancedValuationScreen() {
               ))}
             </select>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div className="field-group">
               <label className="field-label">Year</label>
@@ -264,7 +224,6 @@ export default function EnhancedValuationScreen() {
               </select>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div className="field-group">
               <label className="field-label">Transmission</label>
@@ -277,7 +236,6 @@ export default function EnhancedValuationScreen() {
               <input type="number" className="field-input" value={inputs.mileage} onChange={e => updateInput('mileage', e.target.value)} />
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div className="field-group">
               <label className="field-label">Fuel eff. (km/l)</label>
@@ -290,13 +248,11 @@ export default function EnhancedValuationScreen() {
               </select>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div className="field-group">
               <label className="field-label">Engine CC</label>
               <input type="number" className="field-input" value={inputs.engineCc} onChange={e => updateInput('engineCc', e.target.value)} />
             </div>
-            {/* City removed — dataset is Bangalore-only */}
             <div className="field-group">
               <label className="field-label">City</label>
               <input
@@ -311,7 +267,6 @@ export default function EnhancedValuationScreen() {
               </div>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div className="field-group" style={{ marginBottom: 0 }}>
               <label className="field-label">Condition</label>
@@ -325,11 +280,8 @@ export default function EnhancedValuationScreen() {
             </div>
           </div>
         </div>
-
-        {/* Column 2: Inspection & Grading Details */}
         <div className="card">
           <div className="label-xs" style={{ marginBottom: 16 }}>Inspection Details</div>
-
           <div className="field-group">
             <label className="field-label">Accident History</label>
             <div className="seg-control" style={{ display: 'flex', gap: 4 }}>
@@ -345,7 +297,6 @@ export default function EnhancedValuationScreen() {
               ))}
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div className="field-group">
               <label className="field-label">Loan Outstanding</label>
@@ -366,7 +317,6 @@ export default function EnhancedValuationScreen() {
                 </button>
               </div>
             </div>
-
             <div className="field-group">
               <label className="field-label">Registration State</label>
               <select className="field-input field-select" value={enhancedInspection.registrationState} onChange={e => updateEnhancedInspection('registrationState', e.target.value)}>
@@ -374,24 +324,20 @@ export default function EnhancedValuationScreen() {
               </select>
             </div>
           </div>
-
           <div className="field-group">
             <label className="field-label">Seller Reason</label>
             <select className="field-input field-select" value={enhancedInspection.sellerReason} onChange={e => updateEnhancedInspection('sellerReason', e.target.value)}>
               {SELLER_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
-
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
           <div className="label-xs" style={{ marginBottom: 12 }}>Condition Grades</div>
-
           <ConditionGradesSection
             grades={grades}
             vendorType={enhancedInspection.vendorType}
             onGradeChange={handleGradeChange}
             onVendorChange={updateVendorType}
           />
-
           <button
             className="btn btn-primary btn-full btn-lg"
             style={{ marginTop: 20 }}
@@ -402,11 +348,7 @@ export default function EnhancedValuationScreen() {
             Enhanced Evaluate
           </button>
         </div>
-
-        {/* Column 3: Live Cost Prescreening & Diagnostics */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Pre-screening status */}
           <div className={`card ${disqualifier.disqualified ? 'card-danger' : 'card-success'}`} style={{ borderLeft: '3px solid' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon
@@ -427,8 +369,6 @@ export default function EnhancedValuationScreen() {
               </div>
             </div>
           </div>
-
-          {/* Seasonal marker */}
           <div className="card" style={{ background: 'var(--info-light)', borderLeft: '3px solid var(--info)' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon name="calendar" size={16} color="var(--info)" strokeWidth={2} />
@@ -442,14 +382,11 @@ export default function EnhancedValuationScreen() {
               </div>
             </div>
           </div>
-
-          {/* Live recon total card */}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Live Recon Estimate</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', marginBottom: 14 }}>
               {formatINR(recon.total)}
             </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
                 { label: 'Category Repairs',     val: recon.total - recon.fixed_cost },
@@ -463,11 +400,8 @@ export default function EnhancedValuationScreen() {
               ))}
             </div>
           </div>
-
-          {/* RC & IDV overrides */}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Overrides &amp; Insurance</div>
-
             <div className="field-group">
               <label className="field-label">RC Transfer Cost (₹)</label>
               <input
@@ -483,7 +417,6 @@ export default function EnhancedValuationScreen() {
                 Detailing (₹2,500) + Ops (₹2,000) added automatically
               </div>
             </div>
-
             <div className="field-group" style={{ marginBottom: 0 }}>
               <label className="field-label">IDV from Policy (₹, optional)</label>
               <input
@@ -500,7 +433,6 @@ export default function EnhancedValuationScreen() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>

@@ -1,38 +1,21 @@
-"""
-ml_training/registry_helper.py
-Shared utility used by all train-*.py scripts.
-Saves artifacts to model_registry/variant_N/ and updates registry.json.
-"""
 from __future__ import annotations
-
 import json
 import shutil
 from datetime import datetime
 from pathlib import Path
-
 ROOT         = Path(__file__).resolve().parents[1]
 REGISTRY_DIR = ROOT / "model_registry"
-
-
 def _read_registry() -> dict:
     f = REGISTRY_DIR / "registry.json"
     if f.exists():
         with open(f, "r", encoding="utf-8") as fh:
             return json.load(fh)
     return {"default": None, "variants": {}}
-
-
 def _write_registry(data: dict) -> None:
     REGISTRY_DIR.mkdir(parents=True, exist_ok=True)
     with open(REGISTRY_DIR / "registry.json", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-
-
 def _next_free_variant_id() -> str:
-    """
-    Compute the next unused variant_N id — purely by inspecting the registry
-    and filesystem. Does NOT write anything.
-    """
     reg = _read_registry()
     reg.setdefault("variants", {})
     n = 1
@@ -43,24 +26,12 @@ def _next_free_variant_id() -> str:
         if not dir_exists and not reg_exists:
             return vid
         n += 1
-
-
 def next_variant_id(dataset_name: str = "unknown") -> str:
-    """
-    Return the next available variant_N id WITHOUT creating any directory or
-    writing to registry.json.  The actual reservation happens inside
-    register_variant() at the end of a successful training run.
-    """
     return _next_free_variant_id()
-
-
 def get_variant_dir(variant_id: str) -> Path:
-    """Create and return the artifact directory for this variant."""
     path = REGISTRY_DIR / variant_id
     path.mkdir(parents=True, exist_ok=True)
     return path
-
-
 def _best_variant_id(reg: dict) -> str | None:
     best_id, best_mape, best_rmse, best_r2 = None, float("inf"), float("inf"), -float("inf")
     for vid, info in reg.get("variants", {}).items():
@@ -73,19 +44,12 @@ def _best_variant_id(reg: dict) -> str | None:
                 or (mape == best_mape and rmse == best_rmse and r2 > best_r2)):
             best_id, best_mape, best_rmse, best_r2 = vid, mape, rmse, r2
     return best_id
-
-
 def register_variant(
     variant_id: str,
     artifact_dir: Path,
     dataset_name: str,
     metrics: dict,
 ) -> None:
-    """
-    Register a newly trained variant in registry.json.
-    Automatically promotes to default if it beats all existing variants by MAPE.
-    This is the ONLY place that writes to registry.json during training.
-    """
     reg = _read_registry()
     rel = str(artifact_dir.relative_to(ROOT)).replace("\\", "/")
     reg.setdefault("variants", {})[variant_id] = {
@@ -95,7 +59,6 @@ def register_variant(
         "artifact_path": rel,
         "status":        "candidate",
     }
-
     # Auto-promote: find overall best variant
     best = _best_variant_id(reg)
     if best:
@@ -103,16 +66,9 @@ def register_variant(
             reg["variants"][vid]["status"] = "archived"
         reg["variants"][best]["status"] = "active"
         reg["default"] = best
-
     _write_registry(reg)
     print(f"\nRegistry updated — variant: {variant_id}  default: {reg['default']}")
-
-
 def copy_to_model_artifacts(variant_dir: Path) -> None:
-    """
-    Copy the active variant back to model_artifacts/ so the backend
-    continues to work without a restart (backward compat).
-    """
     dst = ROOT / "model_artifacts"
     dst.mkdir(exist_ok=True)
     for src_file in variant_dir.iterdir():

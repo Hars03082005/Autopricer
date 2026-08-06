@@ -8,12 +8,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, Tooltip, Cell,
 } from 'recharts';
-
 const BRAND_COLORS = [
   '#f75d34','#2563eb','#16a34a','#d97706','#7c3aed',
   '#0891b2','#be185d','#059669','#9333ea','#c2410c',
 ];
-
 function ChartTip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
@@ -25,7 +23,6 @@ function ChartTip({ active, payload, label }) {
     </div>
   );
 }
-
 function EmptyHome({ setActiveScreen }) {
   return (
     <div className="home-empty">
@@ -44,30 +41,25 @@ function EmptyHome({ setActiveScreen }) {
     </div>
   );
 }
-
 export default function HomeScreen() {
   const { setActiveScreen, evaluations } = useApp();
   const { currentUser } = useAuth();
-
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
   }, []);
-
   const data = useMemo(() => {
     const records = [...evaluations];
     const projectedProfit = records.reduce((s, v) => s + Number(v.expectedProfit || 0), 0);
     const pipeline       = records.reduce((s, v) => s + Number(v.marketValue || 0), 0);
     const buyCount       = records.filter(v => v.action === 'BUY').length;
     const avgProfit      = records.length ? Math.round(projectedProfit / records.length) : 0;
-
     const topOpportunities = [...records]
       .filter(v => v.marketValue > 0)
       .sort((a, b) => (b.dealQualityScore || 0) - (a.dealQualityScore || 0))
       .slice(0, 6);
-
     const brandAgg = {};
     records.forEach(v => {
       if (!v.brand || !v.marketValue) return;
@@ -79,10 +71,8 @@ export default function HomeScreen() {
       .map(b => ({ brand: b.brand, avgResaleL: +(b.total / b.count / 100000).toFixed(1) }))
       .sort((a, b) => b.avgResaleL - a.avgResaleL)
       .slice(0, 8);
-
     const riskCount = records.filter(v => Number(v.riskScore || 0) >= 65).length;
     const recent = records.slice(0, 8);
-
     return {
       kpis: {
         evaluations: records.length,
@@ -96,7 +86,6 @@ export default function HomeScreen() {
       recent,
     };
   }, [evaluations]);
-
   const getActionClass = (action = '') => {
     const a = String(action).toUpperCase();
     if (a === 'BUY') return 'buy';
@@ -104,16 +93,13 @@ export default function HomeScreen() {
     if (a === 'REJECT') return 'reject';
     return 'review';
   };
-
   const fmtL = (n) => {
     if (!n) return '₹0';
     if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
     return formatINR(n);
   };
-
   return (
     <div className="screen screen-wide home-screen">
-      {/* Greeting */}
       <div className="home-greeting page-header">
         <div>
           <div className="home-greeting-name">
@@ -146,8 +132,6 @@ export default function HomeScreen() {
           )}
         </div>
       </div>
-
-      {/* KPI tiles */}
       <div className="kpi-grid">
         <div className="kpi-tile">
           <div className="kpi-tile-header">
@@ -159,7 +143,6 @@ export default function HomeScreen() {
           <div className="kpi-tile-value">{data.kpis.evaluations}</div>
           <div className="kpi-tile-sub">Vehicles valued so far</div>
         </div>
-
         <div className="kpi-tile">
           <div className="kpi-tile-header">
             <div className="kpi-tile-label">BUY Signals</div>
@@ -170,7 +153,6 @@ export default function HomeScreen() {
           <div className="kpi-tile-value" style={{ color: '#16a34a' }}>{data.kpis.buy}</div>
           <div className="kpi-tile-sub">Deals worth pursuing</div>
         </div>
-
         <div className="kpi-tile">
           <div className="kpi-tile-header">
             <div className="kpi-tile-label">Avg. Net Profit</div>
@@ -183,7 +165,6 @@ export default function HomeScreen() {
           </div>
           <div className="kpi-tile-sub">Per vehicle evaluated</div>
         </div>
-
         <div className="kpi-tile">
           <div className="kpi-tile-header">
             <div className="kpi-tile-label">Pipeline Value</div>
@@ -195,14 +176,12 @@ export default function HomeScreen() {
           <div className="kpi-tile-sub">Combined market values</div>
         </div>
       </div>
-
       {evaluations.length === 0 ? (
         <div className="card">
           <EmptyHome setActiveScreen={setActiveScreen} />
         </div>
       ) : (
         <div className="home-main-grid">
-          {/* Left column: Recent evaluations table */}
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -247,10 +226,7 @@ export default function HomeScreen() {
               </table>
             </div>
           </div>
-
-          {/* Right column: Top opportunities + chart */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Top opportunities */}
             <div className="card">
               <div className="card-header">
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Top Opportunities</div>
@@ -275,8 +251,6 @@ export default function HomeScreen() {
                 ))}
               </div>
             </div>
-
-            {/* Market pulse chart */}
             {data.marketPulse.length > 0 && (
               <div className="card">
                 <div className="card-header">

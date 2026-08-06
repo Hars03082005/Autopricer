@@ -1,13 +1,9 @@
-/**
- * Export evaluations array or single evaluation object as a formatted CSV file download.
- */
 export function exportEvaluationsToCSV(evaluations = [], filename = 'vehicle_evaluations.csv') {
   const records = Array.isArray(evaluations) ? evaluations : [evaluations];
   if (records.length === 0) {
     alert('No evaluation data available to export.');
     return;
   }
-
   const headers = [
     'ID',
     'Date Created',
@@ -35,13 +31,11 @@ export function exportEvaluationsToCSV(evaluations = [], filename = 'vehicle_eva
     'Action / Recommendation',
     'Model Used',
   ];
-
   const escapeCSV = (val) => {
     if (val === null || val === undefined) return '""';
     const str = String(val).replace(/"/g, '""');
     return `"${str}"`;
   };
-
   const rows = records.map(rec => [
     rec.id || '',
     rec.createdAt || new Date().toISOString(),
@@ -69,11 +63,9 @@ export function exportEvaluationsToCSV(evaluations = [], filename = 'vehicle_eva
     rec.action || '',
     rec.modelName || 'CatBoost',
   ].map(escapeCSV).join(','));
-
   const csvContent = [headers.map(escapeCSV).join(','), ...rows].join('\r\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', filename);

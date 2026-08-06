@@ -1,14 +1,9 @@
 from __future__ import annotations
-
 from pathlib import Path
 from typing import Dict, List
-
 import pandas as pd
-
 ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT / "ml_training" / "data" / "processed_widoutown-2.csv"
-
-# Comprehensive Indian used-car catalog (minimum required set + common variants).
 INDIAN_BRAND_CATALOG: Dict[str, List[str]] = {
     "Maruti": [
         "Swift", "Dzire", "Baleno", "Alto", "WagonR", "Vitara Brezza",
@@ -86,7 +81,6 @@ INDIAN_BRAND_CATALOG: Dict[str, List[str]] = {
     "McLaren": ["720S", "570S", "GT", "Artura", "Senna"],
     "Aston Martin": ["DB11", "Vantage", "DBS", "DBX"],
 }
-
 BRAND_ALIASES = {
     "maruti suzuki": "Maruti",
     "maruti": "Maruti",
@@ -97,13 +91,9 @@ BRAND_ALIASES = {
     "rolls royce": "Rolls-Royce",
     "aston martin": "Aston Martin",
 }
-
-
 def _title_words(value: str) -> str:
     parts = str(value or "").strip().split()
     return " ".join(p[:1].upper() + p[1:] if p else "" for p in parts)
-
-
 def normalize_brand_name(raw: str) -> str:
     key = str(raw or "").strip().lower()
     if not key:
@@ -114,8 +104,6 @@ def normalize_brand_name(raw: str) -> str:
         if brand.lower() == key:
             return brand
     return _title_words(raw)
-
-
 def _merge_models(catalog: Dict[str, List[str]], brand: str, models: List[str]) -> None:
     existing = {m.lower(): m for m in catalog.get(brand, [])}
     for model in models:
@@ -126,19 +114,15 @@ def _merge_models(catalog: Dict[str, List[str]], brand: str, models: List[str]) 
         if key not in existing:
             existing[key] = _title_words(cleaned)
     catalog[brand] = sorted(existing.values(), key=str.casefold)
-
-
 def _load_dataset_brands() -> Dict[str, List[str]]:
     if not DATASET_PATH.exists():
         return {}
-
     try:
         frame = pd.read_csv(DATASET_PATH, usecols=["brand_name", "model_name"], low_memory=False)
     except ValueError:
         frame = pd.read_csv(DATASET_PATH, low_memory=False)
         if "brand_name" not in frame.columns or "model_name" not in frame.columns:
             return {}
-
     grouped: Dict[str, List[str]] = {}
     for brand_raw, model_raw in frame[["brand_name", "model_name"]].dropna().itertuples(index=False):
         brand = normalize_brand_name(brand_raw)
@@ -147,16 +131,8 @@ def _load_dataset_brands() -> Dict[str, List[str]]:
             continue
         grouped.setdefault(brand, []).append(_title_words(model))
     return grouped
-
-
 def build_brand_catalog() -> Dict[str, List[str]]:
-    """
-    Build the brand → [models] catalog.
-    PRIMARY source: model_artifacts/dataset_catalog.json (only real dataset models).
-    FALLBACK: hardcoded INDIAN_BRAND_CATALOG if the JSON doesn't exist yet.
-    """
     import json as _json
-
     catalog_json = ROOT / "model_artifacts" / "dataset_catalog.json"
     if catalog_json.exists():
         with open(catalog_json, "r", encoding="utf-8") as f:
@@ -166,7 +142,6 @@ def build_brand_catalog() -> Dict[str, List[str]]:
             brand = normalize_brand_name(brand_lower)
             if not brand:
                 continue
-            # models_dict values are lists of variant strings; keys are model names
             model_names = sorted(
                 {_title_words(m) for m in models_dict.keys() if str(m).strip()},
                 key=str.casefold,
@@ -174,8 +149,6 @@ def build_brand_catalog() -> Dict[str, List[str]]:
             if model_names:
                 catalog[brand] = model_names
         return dict(sorted(catalog.items(), key=lambda item: item[0].casefold()))
-
-    # Fallback: dataset CSV or hardcoded catalog
     catalog = {brand: list(models) for brand, models in INDIAN_BRAND_CATALOG.items()}
     for brand, models in _load_dataset_brands().items():
         if brand in catalog:
@@ -185,4 +158,3 @@ def build_brand_catalog() -> Dict[str, List[str]]:
             if unique:
                 catalog[brand] = unique
     return dict(sorted(catalog.items(), key=lambda item: item[0].casefold()))
-

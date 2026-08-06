@@ -3,8 +3,6 @@ import { useApp } from '../context/AppContext.jsx';
 import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
 import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
-
-/* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = (n) => {
   const v = Number(n || 0);
   if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
@@ -12,36 +10,26 @@ const fmt = (n) => {
   if (v >= 1000)     return `₹${(v / 1000).toFixed(1)}K`;
   return `₹${Math.round(v).toLocaleString('en-IN')}`;
 };
-
 const fmtFull = (n) => {
   const v = Number(n || 0);
   return `₹${Math.round(v).toLocaleString('en-IN')}`;
 };
-
 const pct = (n) => `${Number(n || 0).toFixed(1)}%`;
-
 const ACTION_CFG = {
   BUY:       { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'BUY', sub: 'Good Deal' },
   NEGOTIATE: { color: '#ea580c', bg: '#fff7ed', border: '#ffedd5', label: 'NEGOTIATE', sub: 'Review Terms' },
   REJECT:    { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'REJECT', sub: 'High Risk' },
   PASS:      { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'PASS', sub: 'High Risk' },
 };
-
 const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
   { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
-
-/* ─── S5_MAX_AGE — must match train-s5.py ───────────────────── */
 const S5_MAX_AGE = 7;
-
-/* ─── Variant config ────────────────────────────────────────── */
 const MAIN_VARIANTS = [
   { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
   { id: 'variant_2', label: 'Variant 2', mape: '6.67%', emoji: '🥈' },
   { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
 ];
-
-/* ─── Variant Switcher Bar ──────────────────────────────────── */
 function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Active, onS5Toggle, s5Switching }) {
   return (
     <div style={{
@@ -51,7 +39,6 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
       padding: '14px 18px',
       marginBottom: 12,
     }}>
-      {/* Main model switcher */}
       <div style={{ marginBottom: s5Eligible ? 12 : 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
           ML MODEL ENGINE
@@ -99,8 +86,6 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
           )}
         </div>
       </div>
-
-      {/* S5 Quality Toggle — only shown when vehicle qualifies */}
       {s5Eligible && (
         <div style={{
           paddingTop: 12,
@@ -149,8 +134,6 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
     </div>
   );
 }
-
-/* ─── Loading State ────────────────────────────────────────── */
 function LoadingState() {
   return (
     <div className="rs2-loading">
@@ -166,8 +149,6 @@ function LoadingState() {
     </div>
   );
 }
-
-/* ─── Empty State ──────────────────────────────────────────── */
 function EmptyState({ setActiveScreen }) {
   return (
     <div className="rs2-empty">
@@ -182,8 +163,6 @@ function EmptyState({ setActiveScreen }) {
     </div>
   );
 }
-
-/* ─── Car Placeholder SVG ──────────────────────────────────── */
 function CarImage() {
   return (
     <div className="rs2-car-img-placeholder">
@@ -204,8 +183,6 @@ function CarImage() {
     </div>
   );
 }
-
-/* ─── Pricing Confidence Band card ───────────────────────────── */
 function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
   return (
     <div className="rs2-card rs2-range-card" style={{ padding: '18px 24px' }}>
@@ -231,8 +208,6 @@ function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
     </div>
   );
 }
-
-/* ─── Negotiation Strategy ──────────────────────────────────── */
 function NegotiationSection({ opening, ideal, walkAway }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -282,15 +257,9 @@ function NegotiationSection({ opening, ideal, walkAway }) {
     </div>
   );
 }
-
-/* ─── Similar Cars Section ──────────────────────────────────── */
 function SimilarCarsSection({ cars, predictedPrice }) {
-  // Only display cars that came from the real dataset (source === 'dataset').
-  // Never fall back to the local evaluations history or fabricate entries.
   const rows = (cars || []).filter(c => c && (c.source === 'dataset' || c.market_value > 0));
-
   if (rows.length === 0) return null;
-
   const displayRows = rows.map(c => ({
     brand:        c.brand        || '',
     model:        c.model        || '',
@@ -306,7 +275,6 @@ function SimilarCarsSection({ cars, predictedPrice }) {
     ownerCount:   c.owner_count  || '',
     similarity:   Number(c.similarity || 0),
   }));
-
   return (
     <div className="rs2-card" style={{ padding: '22px 24px' }}>
       <div className="rs2-similar-header">
@@ -316,8 +284,6 @@ function SimilarCarsSection({ cars, predictedPrice }) {
           </div>
         </div>
       </div>
-
-      {/* Table header */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
@@ -332,7 +298,6 @@ function SimilarCarsSection({ cars, predictedPrice }) {
           <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px' }}>{h}</div>
         ))}
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {displayRows.map((car, idx) => {
           const diff    = car.marketValue - predictedPrice;
@@ -347,7 +312,6 @@ function SimilarCarsSection({ cars, predictedPrice }) {
               borderBottom: '1px solid var(--border)',
               alignItems: 'center',
             }}>
-              {/* Vehicle */}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
                   {car.brand} {car.model}{car.variant && car.variant !== 'Unknown' && car.variant !== 'unknown' ? ` · ${car.variant}` : ''}
@@ -356,19 +320,15 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   {car.year}{car.condition ? ` · ${car.condition}` : ''}{car.segment ? ` · ${car.segment.toUpperCase()}` : ''}
                 </div>
               </div>
-              {/* Fuel / Trans */}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.fuel || '—'}{car.transmission ? ` / ${car.transmission}` : ''}
               </div>
-              {/* Odometer */}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.odometer > 0 ? `${(car.odometer / 1000).toFixed(0)}k km` : '—'}
               </div>
-              {/* Owners */}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.ownerCount ? `${car.ownerCount} owner${car.ownerCount > 1 ? 's' : ''}` : '—'}
               </div>
-              {/* Price + diff */}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{fmtFull(car.marketValue)}</div>
                 <span style={{
@@ -376,7 +336,6 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   color: isPos ? '#16a34a' : '#dc2626',
                 }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
               </div>
-              {/* Similarity badge */}
               {car.similarity > 0 ? (
                 <div style={{
                   textAlign: 'center',
@@ -397,12 +356,8 @@ function SimilarCarsSection({ cars, predictedPrice }) {
     </div>
   );
 }
-
-
-/* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
   const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
-
   // Variant switcher state
   const [activeVariant, setActiveVariant] = useState('variant_1');
   const [displayResult, setDisplayResult] = useState(null);
@@ -410,8 +365,6 @@ export default function ResultScreen() {
   const [s5Active, setS5Active] = useState(false);
   const [s5Switching, setS5Switching] = useState(false);
   const [s5Catalog, setS5Catalog] = useState(null);
-
-  // Fetch S5 dataset catalog on mount (variant_4 = S5 specialist model, vehicle_age <= 7)
   useEffect(() => {
     let alive = true;
     fetchCatalog('variant_4')
@@ -419,20 +372,14 @@ export default function ResultScreen() {
       .catch(() => {});
     return () => { alive = false; };
   }, []);
-
-  // Use displayResult if set (from switcher), otherwise use valuationResult from context
   const result = displayResult || valuationResult;
-
-  // Determine vehicle age & dataset model match for S5 eligibility
   const s5Eligible = useMemo(() => {
     const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
     if (vehicleAge > S5_MAX_AGE) return false;
-    if (!s5Catalog) return true; // fallback to age-only while catalog is loading
-
+    if (!s5Catalog) return true;
     const bKey = String(inputs?.brand || '').trim().toLowerCase();
     const mKey = String(inputs?.model || '').trim().toLowerCase();
     if (!bKey || !mKey) return false;
-
     let brandModels = s5Catalog[bKey];
     if (!brandModels) {
       const foundB = Object.keys(s5Catalog).find(k => k.includes(bKey) || bKey.includes(k));
@@ -442,7 +389,6 @@ export default function ResultScreen() {
     if (brandModels[mKey]) return true;
     return Object.keys(brandModels).some(m => m.includes(mKey) || mKey.includes(m));
   }, [inputs?.brand, inputs?.model, inputs?.year, s5Catalog]);
-
   const handleVariantSwitch = useCallback(async (variantId) => {
     if (variantId === activeVariant && !s5Active) return;
     setSwitching(true);
@@ -457,12 +403,10 @@ export default function ResultScreen() {
       setSwitching(false);
     }
   }, [activeVariant, s5Active, inputs]);
-
   const handleS5Toggle = useCallback(async () => {
     if (s5Active) {
-      // Switch back to main active variant
       setS5Active(false);
-      setDisplayResult(null); // Revert to original result
+      setDisplayResult(null);
       return;
     }
     setS5Switching(true);
@@ -476,10 +420,8 @@ export default function ResultScreen() {
       setS5Switching(false);
     }
   }, [s5Active, inputs]);
-
   if (isLoading) return <LoadingState />;
   if (!result) return <EmptyState setActiveScreen={setActiveScreen} />;
-
   const {
     predictedPrice = 0,
     priceMin,
@@ -505,8 +447,6 @@ export default function ResultScreen() {
     expectedModelError = 6.3,
     confidenceCase = 'low',
   } = result;
-
-  // Confidence badge colour for the adaptive valuation confidence
   const confColor = {
     'Very High': { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
     'High':      { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
@@ -514,37 +454,26 @@ export default function ResultScreen() {
     'Low':       { bg: '#ffedd5', color: '#c2410c', border: '#fdba74' },
     'Very Low':  { bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' },
   }[valuationConfidence] || { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
-
   const ac = getAction(action);
   const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
-  // Sell price: use backend recommendedSellPrice (which is above market_value + recon uplift).
-  // Fallback: predictedPrice * 1.08 only when backend value is missing or illogical.
   const rawSellPrice = Number(recommendedSellPrice || 0);
   const sellPrice = rawSellPrice > buyPrice ? rawSellPrice : Math.round(buyPrice * 1.10 / 500) * 500;
   const profit    = Number(expectedProfit || sellPrice - buyPrice);
   const roi       = buyPrice ? (profit / buyPrice) * 100 : 0;
-
   const opening  = Number(openingOffer || targetOffer || buyPrice * 0.95);
   const ideal    = Number(targetOffer  || buyPrice);
   const walkAway = Number(maxOffer     || buyPrice * 1.05);
-
   const minP = Number(priceMin || predictedPrice * 0.9372);
   const maxP = Number(priceMax || predictedPrice * 1.0628);
-
   const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
   const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
-
   // Dynamic market range sub-label
   const rangeSub = comparablesUsed > 0
     ? `${comparablesUsed} comps · ${averageSimilarity.toFixed(1)}% avg match · ${marketSupport} support`
     : `ML model uncertainty band · ±${expectedModelError.toFixed(1)}% MAPE`;
-
   const km = Number(inputs.mileage || 0);
-
   return (
     <div className="rs2-root">
-
-      {/* ── VARIANT SWITCHER BAR ─────────────────────────── */}
       <VariantSwitcher
         activeVariant={activeVariant}
         onSwitch={handleVariantSwitch}
@@ -554,8 +483,6 @@ export default function ResultScreen() {
         onS5Toggle={handleS5Toggle}
         s5Switching={s5Switching}
       />
-
-      {/* S5 active banner */}
       {s5Active && (
         <div style={{
           background: '#f5f3ff',
@@ -577,10 +504,7 @@ export default function ResultScreen() {
           </span>
         </div>
       )}
-
-      {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
       <div className="rs2-card rs2-hero-card">
-        {/* Top Row: Info and Decision */}
         <div className="rs2-hero-top">
           <div className="rs2-hero-top-left">
             <CarImage />
@@ -645,8 +569,6 @@ export default function ResultScreen() {
             </span>
           </div>
         </div>
-
-        {/* Bottom Row: Stats grid */}
         <div className="rs2-hero-stats-new">
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Market Selling Range</div>
@@ -689,8 +611,6 @@ export default function ResultScreen() {
           </div>
         </div>
       </div>
-
-      {/* ── MARKET SELLING RANGE ─────────────────────────── */}
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
@@ -699,8 +619,6 @@ export default function ResultScreen() {
         max={maxP}
         confidenceScore={confidenceScore}
       />
-
-      {/* ── RECOMMENDED BUY RANGE ────────────────────────── */}
       <PricingBandCard
         title="Recommended Purchase Range"
         icon="coins"
@@ -709,18 +627,11 @@ export default function ResultScreen() {
         max={maxBuy}
         confidenceScore={confidenceScore}
       />
-
-      {/* ── NEGOTIATION COLLAPSIBLE ──────────────────────── */}
       <NegotiationSection opening={opening} ideal={ideal} walkAway={walkAway} />
-
-      {/* ── SIMILAR CARS ──────────────────────────────────── */}
       <SimilarCarsSection
         cars={similarCars}
         predictedPrice={predictedPrice}
       />
-
-
-      {/* ── BOTTOM ACTIONS ───────────────────────────────── */}
       <div className="rs2-actions" style={{ justifyContent: 'center', marginTop: '16px' }}>
         <button className="rs2-btn-primary" onClick={() => setActiveScreen('pricing')}>
           <Icon name="coins" size={15} color="white" strokeWidth={2} />
@@ -747,9 +658,6 @@ export default function ResultScreen() {
           </button>
         )}
       </div>
-
-
     </div>
   );
 }
-

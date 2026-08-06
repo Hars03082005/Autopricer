@@ -5,7 +5,6 @@ import { formatINR, getSeasonalContext } from '../utils/format.js';
 import { DEAL_HEALTH_META, GRADE_OPTIONS } from '../utils/wheelrCosts.js';
 import { NegotiationPlaybook, ExpandableBreakdownTable } from '../components/WheelrPanels.jsx';
 import Icon from '../components/Icon.jsx';
-
 function actionClass(action) {
   const a = String(action || '').toUpperCase();
   if (a === 'BUY') return 'buy';
@@ -13,21 +12,17 @@ function actionClass(action) {
   if (a === 'REJECT' || a === 'PASS') return 'reject';
   return 'review';
 }
-
 function gradeLabel(category, value) {
   return GRADE_OPTIONS[category]?.find(o => o.value === value)?.label || value;
 }
-
 // IDV Comparison Banner
 function IDVBanner({ idvAnalysis }) {
   if (!idvAnalysis) return null;
   const { idv_value, ml_value, idv_gap_pct, flag, flag_type } = idvAnalysis;
   const sign = idv_gap_pct >= 0 ? '+' : '';
-
   let bannerClass = 'neutral';
   if (flag_type === 'warning') bannerClass = 'warning';
   else if (flag_type === 'positive') bannerClass = 'positive';
-
   return (
     <div className={`idv-banner ${bannerClass}`}>
       <div className="label-xs" style={{ marginBottom: 6 }}>
@@ -56,7 +51,6 @@ function IDVBanner({ idvAnalysis }) {
     </div>
   );
 }
-
 // Connector arrow between pipeline steps
 function PipelineArrow() {
   return (
@@ -65,7 +59,6 @@ function PipelineArrow() {
     </div>
   );
 }
-
 // Single pipeline step
 function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, barPct, barClass, subRows }) {
   return (
@@ -99,7 +92,6 @@ function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, 
     </div>
   );
 }
-
 // Main Pricing Pipeline section
 function RuleBasedPricingPipeline({ result, inputs }) {
   const {
@@ -117,7 +109,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
     repairBuffer,
     dealHealth,
   } = result;
-
   const mlBasePrice = predictedPrice || 0;
   const reconTotal = recon?.total || repairBuffer || 0;
   const wheelrRiskTotal = wheelrRisk?.total || 0;
@@ -125,15 +116,12 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   const rBuf = riskBuffer || Math.round(mlBasePrice * (riskScore / 100) * 0.08);
   const targetProfit = Math.round(mlBasePrice * ((targetMarginPct || 10) / 100));
   const finalBuyPrice = recommendedBuyPrice || 0;
-  // Sell price must always be above buy price — guard against inversion
   const rawSellPrice = recommendedSellPrice || Math.round(mlBasePrice * 1.05);
   const sellPrice = rawSellPrice > finalBuyPrice ? rawSellPrice : Math.round(finalBuyPrice * 1.10 / 500) * 500;
   const marginPct = expectedMarginPct || 0;
   const targetMPct = targetMarginPct || 10;
-
   const healthColor = dealHealth === 'green' ? 'green' : dealHealth === 'yellow' ? 'yellow' : 'red';
   const healthMsg = DEAL_HEALTH_META[dealHealth]?.title || 'Deal health unknown';
-
   const reconBreakdown = recon?.breakdown || {};
   const reconSubRows = [
     reconBreakdown.engine > 0 && { label: '🔧 Engine', value: formatINR(reconBreakdown.engine), color: 'var(--danger)' },
@@ -143,7 +131,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
     reconBreakdown.electricals > 0 && { label: '⚡ Electricals', value: formatINR(reconBreakdown.electricals), color: 'var(--danger)' },
     { label: '📋 RC + detailing + ops', value: formatINR(recon?.rc_transfer_cost != null ? reconBreakdown.fixed : (reconBreakdown.fixed || 8000)), color: 'var(--text-3)' },
   ].filter(Boolean);
-
   const riskBreakdown = wheelrRisk?.breakdown || {};
   const riskSubRows = [
     riskBreakdown.owner_deduction > 0 && { label: `👤 Owner #${inputs.ownerCount}`, value: `−${formatINR(riskBreakdown.owner_deduction)}`, color: 'var(--danger)' },
@@ -153,7 +140,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
     riskBreakdown.loan_deduction > 0 && { label: '🏦 Loan outstanding', value: `−${formatINR(riskBreakdown.loan_deduction)}`, color: 'var(--danger)' },
   ].filter(Boolean);
   if (riskSubRows.length === 0) riskSubRows.push({ label: '✔ No risk deductions', value: '₹0', color: 'var(--success)' });
-
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="pipeline-section-head">
@@ -162,7 +148,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
           <div className="pipeline-section-sub">Detailed breakdown of rule-based adjustments</div>
         </div>
       </div>
-
       <div className={`pipeline-health-row ${healthColor}`} style={{ marginBottom: 14 }}>
         <Icon
           name={dealHealth === 'red' ? 'warning' : 'check'}
@@ -172,7 +157,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
         />
         <span>{healthMsg}</span>
       </div>
-
       <div className="pricing-pipeline">
         <PipelineStep
           icon="🤖" iconClass="start" bodyClass="start-body"
@@ -222,7 +206,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
           ]}
         />
       </div>
-
       <div className="pipeline-final-box">
         <div className="pipeline-final-left">
           <div className="pipeline-final-label">Recommended Buy Price</div>
@@ -238,13 +221,11 @@ function RuleBasedPricingPipeline({ result, inputs }) {
     </div>
   );
 }
-
 // Main Enhanced Result Screen
 export default function EnhancedResultScreen() {
   const { enhancedResult, inputs, setActiveScreen, isLoading } = useApp();
   const [showNegotiation, setShowNegotiation] = useState(true);
   const carImage = CAR_IMAGES[`${inputs.brand} ${inputs.model}`] || '/cars/placeholder.png';
-
   if (isLoading) {
     return (
       <div className="screen loading-screen">
@@ -253,7 +234,6 @@ export default function EnhancedResultScreen() {
       </div>
     );
   }
-
   if (!enhancedResult) {
     return (
       <div className="screen empty-screen">
@@ -267,13 +247,11 @@ export default function EnhancedResultScreen() {
       </div>
     );
   }
-
   const {
     predictedPrice, recommendedBuyPrice, action, confidenceScore,
     enhancedMaxBuyPrice, recon, wheelrRisk, negotiation,
     idvAnalysis, segmentClass, routingNote,
   } = enhancedResult;
-
   const inspection = enhancedResult.inspection || {};
   const reconRows = [
     { Category: 'Engine', Grade: gradeLabel('engine', inspection.engineGrade || 'good'), Type: inspection.vendorType?.engine || 'vendor', Cost: recon?.breakdown?.engine || 0 },
@@ -283,7 +261,6 @@ export default function EnhancedResultScreen() {
     { Category: 'Electricals', Grade: gradeLabel('electrical', inspection.electricalGrade || 'all_good'), Type: inspection.vendorType?.electrical || 'vendor', Cost: recon?.breakdown?.electricals || 0 },
     { Category: 'Fixed costs', Grade: '—', Type: '—', Cost: recon?.breakdown?.fixed || recon?.fixed_cost || 0 },
   ];
-
   const riskRows = [
     { Factor: 'Owner no.', Value: inputs.ownerCount, Deduction: wheelrRisk?.breakdown?.owner_deduction || 0 },
     { Factor: 'Odometer', Value: `${Number(inputs.mileage || 0).toLocaleString('en-IN')} km`, Deduction: wheelrRisk?.breakdown?.km_deduction || 0 },
@@ -291,10 +268,8 @@ export default function EnhancedResultScreen() {
     { Factor: 'State', Value: inspection.registrationState || '—', Deduction: wheelrRisk?.breakdown?.state_deduction || 0 },
     { Factor: 'Loan', Value: inspection.loanOutstanding ? 'Yes' : 'No', Deduction: wheelrRisk?.breakdown?.loan_deduction || 0 },
   ];
-
   const aClass = actionClass(action);
   const actionColor = aClass === 'buy' ? 'var(--success)' : aClass === 'negotiate' ? 'var(--warning)' : aClass === 'reject' ? 'var(--danger)' : 'var(--text-3)';
-
   return (
     <div className="screen enhanced-screen">
       <div className="page-header">
@@ -306,11 +281,7 @@ export default function EnhancedResultScreen() {
           ← Back
         </button>
       </div>
-
-      {/* ── IDV Banner (only when IDV was provided) ── */}
       <IDVBanner idvAnalysis={idvAnalysis} />
-
-      {/* ── Action + Key Numbers ── */}
       <div className="card" style={{
         background: `linear-gradient(135deg, ${actionColor}0a 0%, ${actionColor}03 100%)`,
         border: `2px solid ${actionColor}30`,
@@ -343,16 +314,11 @@ export default function EnhancedResultScreen() {
             )}
           </div>
         </div>
-
-        {/* ML value row */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
           <div className="label-xs" style={{ marginBottom: 4 }}>ML Market Value</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--info)' }}>{formatINR(predictedPrice)}</div>
         </div>
-
-        {/* Buy & Sell Range Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {/* Buy Range */}
           <div style={{
             background: 'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.03) 100%)',
             border: '1.5px solid rgba(34,197,94,0.25)',
@@ -380,8 +346,6 @@ export default function EnhancedResultScreen() {
             </div>
             <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: 'linear-gradient(90deg, var(--success), var(--warning))' }} />
           </div>
-
-          {/* Sell Range */}
           <div style={{
             background: 'linear-gradient(135deg, rgba(14,165,233,0.08) 0%, rgba(14,165,233,0.03) 100%)',
             border: '1.5px solid rgba(14,165,233,0.25)',
@@ -411,8 +375,6 @@ export default function EnhancedResultScreen() {
           </div>
         </div>
       </div>
-
-      {/* ── Inspection Deductions summary cards ── */}
       <div className="enhanced-result-cards" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
         <div className="card" style={{ borderLeft: '3px solid var(--warning)' }}>
           <div className="label-xs" style={{ marginBottom: 8 }}>Reconditioning Cost</div>
@@ -423,8 +385,6 @@ export default function EnhancedResultScreen() {
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>{formatINR(wheelrRisk?.total)}</div>
         </div>
       </div>
-
-      {/* ── Negotiation Playbook (collapsible) ── */}
       <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
         <div
           style={{
@@ -459,18 +419,13 @@ export default function EnhancedResultScreen() {
           </div>
         )}
       </div>
-
-      {/* ── Rule-Based Pricing Pipeline ── */}
       <RuleBasedPricingPipeline result={enhancedResult} inputs={inputs} />
-
-      {/* ── Expandable breakdown tables ── */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="label-xs" style={{ marginBottom: 12 }}>Detailed Breakdowns</div>
         <ExpandableBreakdownTable title="View reconditioning breakdown" rows={reconRows} totalLabel="Total" totalValue={recon?.total} />
         <div style={{ height: 1, background: 'var(--border)', margin: '12px 0' }} />
         <ExpandableBreakdownTable title="View risk breakdown" rows={riskRows} totalLabel="Total" totalValue={wheelrRisk?.total} />
       </div>
-
       <button className="btn btn-secondary btn-full btn-lg" onClick={() => setActiveScreen('enhanced-input')}>
         <Icon name="arrowLeft" size={16} color="var(--text-2)" strokeWidth={2.2} />
         Back to Valuation Setup

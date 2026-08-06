@@ -1,6 +1,3 @@
-// Mock Data – Vehicle Valuation Platform
-
-/** Car images mapped by brand + model key */
 export const CAR_IMAGES = {
   'Honda City':          '/cars/honda_city.png',
   'Honda Amaze':         '/cars/honda_city.png',
@@ -41,8 +38,6 @@ export const CAR_IMAGES = {
   'Kia Carnival':        '/cars/kia_seltos.png',
   'Kia EV6':             '/cars/kia_seltos.png',
 };
-
-/** VIN Database: pre-loaded registrations for auto-fill demo */
 export const VIN_DATABASE = {
   'VIN-HONDA-2021': {
     brand: 'Honda', model: 'City', year: 2021, fuel: 'Petrol',
@@ -65,8 +60,6 @@ export const VIN_DATABASE = {
     transmission: 'Automatic', mileage: 18000, fuelEfficiency: 14.8, city: 'Hyderabad', ownerCount: 1, engineCc: 1998, hoursRun: 700, sellerAskingPrice: 4300000,
   },
 };
-
-/** Available brands and their models */
 export const BRANDS = {
   Honda:   ['City', 'Amaze', 'Jazz', 'WR-V', 'CR-V'],
   Hyundai: ['Creta', 'i20', 'Venue', 'Tucson', 'Alcazar'],
@@ -77,8 +70,6 @@ export const BRANDS = {
   Tata:    ['Nexon', 'Harrier', 'Safari', 'Altroz', 'Punch'],
   Kia:     ['Seltos', 'Sonet', 'Carnival', 'EV6'],
 };
-
-/** City demand scores and multipliers */
 export const CITY_DEMAND = {
   Mumbai:    { score: 92, multiplier: 1.08 },
   Delhi:     { score: 88, multiplier: 1.05 },
@@ -91,8 +82,6 @@ export const CITY_DEMAND = {
   Jaipur:    { score: 60, multiplier: 0.87 },
   Surat:     { score: 58, multiplier: 0.85 },
 };
-
-/** Major localities for Bangalore and regional hubs */
 export const LOCALITIES = [
   'Indiranagar',
   'Koramangala',
@@ -125,9 +114,6 @@ export const LOCALITIES = [
   'Sriranga Nagar',
   'Yeshwanthpur',
 ];
-
-/** Comparable market transactions */
-
 export const MODEL_COMPARISON = [
   { model: 'Linear Regression', mae: 98000, rmse: 142000, mape: 14.8, r2: 0.78, speed: 'Fast', selected: false },
   { model: 'Ridge Regression', mae: 91000, rmse: 133000, mape: 13.6, r2: 0.81, speed: 'Fast', selected: false },
@@ -135,7 +121,6 @@ export const MODEL_COMPARISON = [
   { model: 'XGBoost', mae: 58000, rmse: 84000, mape: 8.7, r2: 0.93, speed: 'Fast', selected: false },
   { model: 'CatBoost', mae: 52000, rmse: 79000, mape: 7.9, r2: 0.94, speed: 'Fast', selected: true },
 ];
-
 export const BRAND_RETENTION = [
   { brand:'Toyota', retention:92, demand:88, margin:18.9 },
   { brand:'Hyundai', retention:84, demand:86, margin:18.1 },
@@ -146,14 +131,12 @@ export const BRAND_RETENTION = [
   { brand:'BMW', retention:69, demand:55, margin:16.9 },
   { brand:'Tesla', retention:67, demand:58, margin:18.9 },
 ];
-
 export const FUEL_ANALYTICS = [
   { fuel:'Petrol', avgPrice:650000, avgRisk:39, avgMargin:18.4, demand:86 },
   { fuel:'Diesel', avgPrice:1500000, avgRisk:45, avgMargin:18.2, demand:78 },
   { fuel:'Electric', avgPrice:2500000, avgRisk:43, avgMargin:18.1, demand:72 },
   { fuel:'CNG', avgPrice:520000, avgRisk:51, avgMargin:16.8, demand:64 },
 ];
-
 export const AGE_PRICE_CURVE = [
   { age:'0–2 yrs', price:1850000, risk:18, margin:13.5 },
   { age:'3–4 yrs', price:1320000, risk:29, margin:16.8 },
@@ -161,7 +144,6 @@ export const AGE_PRICE_CURVE = [
   { age:'7–8 yrs', price:690000, risk:55, margin:19.1 },
   { age:'9+ yrs', price:410000, risk:72, margin:20.3 },
 ];
-
 export function formatINR(value) {
   const n = Number(value || 0);
   if (!Number.isFinite(n)) return '₹0';
@@ -169,7 +151,6 @@ export function formatINR(value) {
   if (Math.abs(n) >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 }
-
 export function getConditionLabel(score) {
   if (score >= 85) return { label: 'Excellent', color: '#00a651' };
   if (score >= 70) return { label: 'Good', color: '#007be5' };
