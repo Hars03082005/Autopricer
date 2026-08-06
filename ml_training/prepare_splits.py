@@ -4,16 +4,22 @@ AutoPricer — Dataset Preparation & Stratified Split Pipeline
 
 Produces three processed + split dataset families:
 
-  Dataset A  →  s1-s4_owner-filled.csv + s5_overall.csv  (merged)
-  Dataset B  →  overall.csv            + s5_overall.csv  (merged)
-  Dataset C  →  overall.csv                              (as-is)
+  Dataset A  ->  s1-s4_owner-filled.csv + s5_overall.csv  (merged)
+  Dataset B  ->  overall.csv            + s5_overall.csv  (merged)
+  Dataset C  ->  overall.csv                              (as-is)
 
 For each dataset:
-  1.  Merge sources (if applicable), deduplicate
+  1.  Merge sources (if applicable)
   2.  Preprocess (same pipeline as clean-1.py)
-  3.  Stratified train / valid / test split  (70 / 15 / 15)
-      Stratification key: segment bucket
-      Guarantees all buckets present in every split.
+  3.  Assign PRICE BUCKET based on selling_price (INR lakhs):
+        0_3L    ->  selling_price <  3,00,000
+        3_5L    ->  3,00,000  <= price <  5,00,000
+        5_10L   ->  5,00,000  <= price < 10,00,000
+        10_15L  -> 10,00,000  <= price < 15,00,000
+        15L_plus -> price    >= 15,00,000
+  4.  Stratified train / valid / test split  (70 / 15 / 15)
+      Stratification key: price_bucket
+      Guarantees all price tiers present in every split.
 
 Outputs per dataset (written to ml_training/data/splits/<name>/):
   train.csv
@@ -52,18 +58,22 @@ VALID_RATIO = 0.15
 TEST_RATIO  = 0.15
 RANDOM_SEED = 42
 
-# ── SEGMENT BUCKET MAP ────────────────────────────────────────────────────────
-SEGMENT_MAP = {
-    "mass market": "mass_market",
-    "massmarket":  "mass_market",
-    "standard":    "standard",
-    "luxury":      "luxury",
-    "assured":     "assured",
-    "budget":      "budget",
-    "luxe":        "luxe",
-    "premium":     "luxury",
-    "s5":          "mass_market",
-}
+# ── PRICE BUCKET DEFINITIONS (INR) ──────────────────────────────────────────
+# Buckets: 0_3L | 3_5L | 5_10L | 10_15L | 15L_plus
+PRICE_BUCKETS = [
+    (0,          300_000,  "0_3L"),
+    (300_000,    500_000,  "3_5L"),
+    (500_000,  1_000_000,  "5_10L"),
+    (1_000_000, 1_500_000, "10_15L"),
+    (1_500_000, float("inf"), "15L_plus"),
+]
+
+def assign_price_bucket(price: float) -> str:
+    """Map a selling_price (INR) to its price band label."""
+    for lo, hi, label in PRICE_BUCKETS:
+        if lo <= price < hi:
+            return label
+    return "15L_plus"   # safety fallback
 
 # ── PREPROCESSING CONSTANTS ───────────────────────────────────────────────────
 PRICE_MIN, PRICE_MAX = 50_000, 20_000_000
@@ -340,34 +350,28 @@ def merge_sources(paths: list[Path], dataset_name: str) -> pd.DataFrame:
     return merged
 
 
-# ── STAGE 2: NORMALISE SEGMENT BUCKET ────────────────────────────────────────
-def normalise_segment(df: pd.DataFrame) -> pd.DataFrame:
-    """Map raw segment labels to canonical bucket names."""
-    print(f"\n{DIV}\nNORMALISE SEGMENT BUCKET\n{DIV}")
-    if "segment" in df.columns:
-        df["segment_bucket"] = (
-            df["segment"]
-            .apply(lambda x: _norm(x, "unknown"))
-            .map(lambda s: SEGMENT_MAP.get(s, s))
-        )
-    else:
-        df["segment_bucket"] = "mass_market"
-
-    print("  Bucket distribution (pre-preprocessing):")
-    print(df["segment_bucket"].value_counts().to_string())
+# ── STAGE 2: ASSIGN PRICE BUCKET ─────────────────────────────────────────────
+def add_price_buckets(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Derive price_bucket from the already-validated selling_price column.
+    Called AFTER price validation so we work on clean numeric values only.
+    Buckets: 0_3L | 3_5L | 5_10L | 10_15L | 15L_plus
+    """
+    print(f"\n{DIV}\nASSIGN PRICE BUCKET\n{DIV}")
+    df["price_bucket"] = df["selling_price"].apply(assign_price_bucket)
+    print("  Price bucket distribution:")
+    print(df["price_bucket"].value_counts().reindex(
+        [b[2] for b in PRICE_BUCKETS], fill_value=0
+    ).to_string())
     return df
 
 
 # ── STAGE 3: PREPROCESS ───────────────────────────────────────────────────────
 def preprocess(df: pd.DataFrame, audit: list) -> pd.DataFrame:
-    # Select & rename
+    # Select & rename (segment/price_bucket cols are not in RAW_KEEP — added separately)
     available = [c for c in RAW_KEEP if c in df.columns]
-    # Always keep segment_bucket through selection
-    df_seg = df["segment_bucket"].copy() if "segment_bucket" in df.columns else None
     df = df[available].copy()
     df = df.rename(columns={k: v for k, v in RENAME_MAP.items() if k in df.columns})
-    if df_seg is not None:
-        df["segment_bucket"] = df_seg.values
 
     audit.append({"step": "raw_after_merge", "rows": len(df)})
 
@@ -376,6 +380,9 @@ def preprocess(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     df["selling_price"] = pd.to_numeric(df["selling_price"], errors="coerce")
     df = df[df["selling_price"].notna() & df["selling_price"].between(PRICE_MIN, PRICE_MAX)]
     audit.append({"step": "price_filter", "dropped": b - len(df), "remaining": len(df)})
+
+    # Assign price bucket now that selling_price is clean
+    df = add_price_buckets(df)
 
     # Age
     b = len(df)
@@ -475,10 +482,14 @@ def preprocess(df: pd.DataFrame, audit: list) -> pd.DataFrame:
     df = df.drop_duplicates(subset=dedup_cols, keep="first").reset_index(drop=True)
     audit.append({"step": "deduplication", "dropped": b - len(df), "remaining": len(df)})
 
+    # Re-apply price bucket after dedup (prices unchanged, but index reset)
+    df["price_bucket"] = df["selling_price"].apply(assign_price_bucket)
+
     print(f"  Final rows after preprocessing: {len(df):,}")
-    print("  Segment bucket distribution (post-preprocessing):")
-    if "segment_bucket" in df.columns:
-        print(df["segment_bucket"].value_counts().to_string())
+    print("  Price bucket distribution (post-preprocessing):")
+    print(df["price_bucket"].value_counts().reindex(
+        [b[2] for b in PRICE_BUCKETS], fill_value=0
+    ).to_string())
     return df
 
 
@@ -487,13 +498,15 @@ def stratified_split(
     df: pd.DataFrame, dataset_name: str
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Stratified train / valid / test split (70/15/15) on segment_bucket.
+    Stratified train / valid / test split (70/15/15) on price_bucket.
+    Price bands: 0_3L | 3_5L | 5_10L | 10_15L | 15L_plus
     Buckets with < 3 rows are handled separately to avoid sklearn ValueError.
     """
     print(f"\n{DIV}\nSTRATIFIED SPLIT — {dataset_name}\n{DIV}")
-    strat_col = "segment_bucket"
-    bucket_counts = df[strat_col].value_counts()
-    print("  Bucket distribution:")
+    strat_col = "price_bucket"
+    ordered_labels = [b[2] for b in PRICE_BUCKETS]
+    bucket_counts = df[strat_col].value_counts().reindex(ordered_labels, fill_value=0)
+    print("  Price bucket distribution:")
     print(bucket_counts.to_string())
     print(f"\n  Total rows  : {len(df):,}")
     print(f"  Split ratio : {TRAIN_RATIO:.0%} train / {VALID_RATIO:.0%} valid / {TEST_RATIO:.0%} test")
@@ -539,13 +552,22 @@ def stratified_split(
     print(f"  Valid : {len(val):>7,} rows")
     print(f"  Test  : {len(test):>7,} rows")
 
-    # Coverage check
-    expected = set(bucket_counts.index)
+    # Coverage check — show count per price bucket in each split
+    expected = set(b[2] for b in PRICE_BUCKETS)
+    print()
+    print(f"  {'Bucket':<12} {'Train':>8} {'Valid':>8} {'Test':>8}")
+    print(f"  {'-'*12} {'-'*8} {'-'*8} {'-'*8}")
+    for label in ordered_labels:
+        tr = int((train[strat_col] == label).sum())
+        va = int((val[strat_col]   == label).sum())
+        te = int((test[strat_col]  == label).sum())
+        print(f"  {label:<12} {tr:>8,} {va:>8,} {te:>8,}")
+
     for split_name, split_df in [("train", train), ("valid", val), ("test", test)]:
         present = set(split_df[strat_col].unique())
         missing = expected - present
-        status  = "OK  all buckets present" if not missing else f"WARN missing: {missing}"
-        print(f"  [{split_name:5s}] {status}")
+        if missing:
+            print(f"  WARN [{split_name}]: missing price buckets {missing}")
 
     return train, val, test
 
@@ -571,15 +593,16 @@ def save_splits(
         "duration_sec":    round(duration, 2),
         "split_ratios":    {"train": TRAIN_RATIO, "valid": VALID_RATIO, "test": TEST_RATIO},
         "random_seed":     RANDOM_SEED,
+        "price_buckets":   [b[2] for b in PRICE_BUCKETS],
         "output_features": out_cols,
         "row_counts": {
             "train": len(train), "valid": len(val), "test": len(test),
             "total": len(train) + len(val) + len(test),
         },
         "bucket_distribution": {
-            "train": train["segment_bucket"].value_counts().to_dict() if "segment_bucket" in train.columns else {},
-            "valid": val["segment_bucket"].value_counts().to_dict()   if "segment_bucket" in val.columns   else {},
-            "test":  test["segment_bucket"].value_counts().to_dict()  if "segment_bucket" in test.columns  else {},
+            "train": train["price_bucket"].value_counts().reindex([b[2] for b in PRICE_BUCKETS], fill_value=0).to_dict() if "price_bucket" in train.columns else {},
+            "valid": val["price_bucket"].value_counts().reindex([b[2] for b in PRICE_BUCKETS],   fill_value=0).to_dict() if "price_bucket" in val.columns   else {},
+            "test":  test["price_bucket"].value_counts().reindex([b[2] for b in PRICE_BUCKETS],   fill_value=0).to_dict() if "price_bucket" in test.columns  else {},
         },
         "pipeline_audit": audit,
     }
@@ -606,10 +629,9 @@ def run_pipeline(dataset_name: str, source_paths: list[Path], out_dir: Path) -> 
     print(f"{'#' * 80}")
 
     df = merge_sources(source_paths, dataset_name)
-    df = normalise_segment(df)
 
     print(f"\n{DIV}\nPREPROCESS — {dataset_name}\n{DIV}")
-    df = preprocess(df, audit)
+    df = preprocess(df, audit)   # price_bucket is assigned inside preprocess after price validation
 
     train, val, test = stratified_split(df, dataset_name)
 
