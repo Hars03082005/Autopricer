@@ -160,6 +160,43 @@ BRAND_SEGMENT_MAP: dict = {
 
 log = logging.getLogger("priceref")
 
+
+def _validate_variant_features(variant_id: str, metadata: dict) -> None:
+    """
+    Priority 5: Warn loudly at startup when a loaded variant's expected feature set
+    doesn't match what build_features() currently produces.  Silent mismatches cause
+    NaN/0 padding for features the model was trained with real signal on.
+    Never blocks startup.
+    """
+    try:
+        dummy = VehicleInput(
+            brand="Honda", model="City", year=2021,
+            fuel_type="Petrol", transmission="Manual", odometer_reading=30000,
+        )
+        frame    = build_features(dummy)
+        expected = set(metadata.get("features", []))
+        actual   = set(frame.columns)
+        missing  = expected - actual   # model expects but build_features() doesn't supply
+        extra    = actual   - expected  # build_features() supplies but model ignores
+        if missing:
+            log.warning(
+                "[FEATURE DRIFT] Variant '%s': %d feature(s) expected by model "
+                "but NOT produced by build_features(): %s",
+                variant_id, len(missing), sorted(missing),
+            )
+        if extra:
+            log.info(
+                "[FEATURE DRIFT] Variant '%s': %d extra feature(s) in build_features() "
+                "output that this model ignores: %s",
+                variant_id, len(extra), sorted(extra),
+            )
+        if not missing and not extra:
+            log.info("[FEATURE DRIFT] Variant '%s': feature schema OK (%d features).",
+                     variant_id, len(expected))
+    except Exception as exc:
+        log.warning("[FEATURE DRIFT] Could not validate features for variant '%s': %s",
+                    variant_id, exc)
+
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):
     """Load ML models AFTER the port is bound (avoids OOM crash before port open)."""
@@ -174,6 +211,7 @@ async def lifespan(app_instance: FastAPI):
     CURRENT_YEAR = METADATA.get("current_year_used_for_age", datetime.now().year)
     BRAND_CATALOG = build_brand_catalog()
     BRAND_SEGMENT_MAP = METADATA.get("brand_segment_map", BRAND_SEGMENT_MAP)
+    _validate_variant_features(ACTIVE_VARIANT_ID, METADATA)   # Priority 5: schema drift check
     log.info("==> ML models loaded. Active variant: %s", ACTIVE_VARIANT_ID)
     yield  # Server is running
     log.info("==> Shutting down.")
@@ -208,6 +246,14 @@ class VehicleInput(BaseModel):
     seller_asking_price: float = 0
     target_margin_pct: float = 10
     repair_buffer: float = 0
+    # Priority 1c: seller_type wired through to build_features() — matches training data values.
+    # Valid values: "dealer" | "individual" | "unknown".
+    # Defaults to "dealer" (majority class) when not supplied by the frontend.
+    seller_type: str = "dealer"
+    # Priority 1b: pincode passed through to build_features().
+    # NaN when absent — tree models handle NaN natively.
+    # Frontend should populate this when available for improved locality signal.
+    pincode: Optional[str] = None
     model_variant: Optional[str] = None
 
 
@@ -477,13 +523,21 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     brand_clean = _normalize_brand(vehicle.brand)
     brand_tier  = _BRAND_TIER_MAP.get(brand_clean, 1)
 
-    # ── Location: derive locality + rto from city lookup ─────────────────────
-    city_clean = clean_text(vehicle.city)
-    city_info  = _CITY_FEATURE_MAP.get(city_clean)
+    # ── Location: resolve locality + rto ─────────────────────────────────────
+    # Priority 1a fix: use vehicle.locality directly when provided and non-empty/non-"unknown".
+    # Fall back to _CITY_FEATURE_MAP[city] only when vehicle.locality is missing.
+    # IMPORTANT: both build_features() (ML feature) and get_locality_demand() (business
+    # adjustment in predict_market_value) must resolve locality the same way.
+    # get_locality_demand() already reads vehicle.locality directly, so this fix aligns them.
+    city_clean  = clean_text(vehicle.city)
+    city_info   = _CITY_FEATURE_MAP.get(city_clean)
     if city_info:
-        locality_tier_val, density_norm, rto_val, locality_val = city_info
+        locality_tier_val, density_norm, rto_val, _city_locality = city_info
     else:
-        locality_tier_val, density_norm, rto_val, locality_val = 2, 0.20, "unknown", city_clean
+        locality_tier_val, density_norm, rto_val, _city_locality = 2, 0.20, "unknown", city_clean
+
+    _user_locality = clean_text(getattr(vehicle, "locality", None) or "")
+    locality_val   = _user_locality if _user_locality and _user_locality != "unknown" else _city_locality
 
     # ── Core identifiers ─────────────────────────────────────────────────────
     variant_clean = clean_text(vehicle.variant or "unknown")
@@ -516,7 +570,8 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "rto":          rto_val,
         "fuel_type":    clean_text(vehicle.fuel_type),
         "transmission": clean_text(vehicle.transmission),
-        "seller_type":  "dealer",   # majority class in training data
+        # Priority 1c: seller_type wired from vehicle input (was hardcoded "dealer").
+        "seller_type":  clean_text(getattr(vehicle, "seller_type", "dealer") or "dealer"),
         "color":        color,
         # ── Numeric — matches NUMERIC_FEATURES in new training scripts ──────────
         "vehicle_age":      float(vehicle_age),
@@ -543,7 +598,11 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "inspected":             float(inspected),
         "high_mileage":          float(high_mileage),
         "luxury_brand":          float(luxury_brand),
-        "has_list_price":        0.0,
+        # Priority 1c: has_list_price removed from row dict — it cannot be populated
+        # at inference time (no list price source exists at prediction time).
+        # Models trained with this feature receive 0.0 via _prepare_frame() fill-missing
+        # path, which is semantically correct (no list price = 0).
+        # "has_list_price": 0.0   <- intentionally omitted
     }
     df = pd.DataFrame([row])
     for col in CAT_FEATURES:
@@ -729,14 +788,10 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
 
     price_band = _pick_band(rough_price)
 
-    # Override band selection with dataset P50 when available (more reliable than global model)
-    from backend.decision_engine import _MARKET_BANDS_CFG as _MB_ROUTING
-    _resolved_for_routing = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
-    _band_data_routing    = (_MB_ROUTING.get(_resolved_for_routing)
-                             or _MB_ROUTING.get(_resolved_for_routing.split()[0]))
-    if _band_data_routing:
-        _dataset_p50_routing = (float(_band_data_routing[0]) + float(_band_data_routing[1])) / 2.0
-        price_band = _pick_band(_dataset_p50_routing)
+    # Priority 3a fix: band selection is driven solely by the global model's rough_price.
+    # The _MARKET_BANDS_CFG dataset-P50 routing override has been removed — it allowed
+    # a static lookup table to override the ML model's own price estimate, defeating
+    # the ML-first design goal.
 
     artifact   = seg_models.get(price_band)
 
@@ -762,84 +817,12 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
                     cb_f[col] = cb_f[col].astype(str)
             band_log_price = float(seg_m.predict(cb_f[seg_m.feature_names_])[0])
 
-            # ── Three-way reconciliation ──────────────────────────────────────
-            # When global and band models disagree significantly, use the
-            # dataset P50 market band from engine_config.json as neutral anchor.
-            band_price   = float(np.expm1(band_log_price))
-            global_price = rough_price
-
-            if global_price > 0:
-                deviation = abs(band_price - global_price) / max(global_price, 1)
-                if deviation > 0.35:
-                    # Both models disagree — find dataset anchor
-                    from backend.decision_engine import _MARKET_BANDS_CFG as _MB
-                    model_key = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
-                    band_data  = _MB.get(model_key) or _MB.get(model_key.split()[0])
-                    if band_data:
-                        dataset_p50 = (float(band_data[0]) + float(band_data[1])) / 2.0
-                        # Pick whichever of global/band is closer to dataset P50
-                        err_global = abs(global_price - dataset_p50)
-                        err_band   = abs(band_price   - dataset_p50)
-                        if err_band <= err_global:
-                            log_price    = band_log_price
-                            routing_note = (
-                                f"segment model '{price_band}' wins vs global "
-                                f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
-                            )
-                        else:
-                            # Global is closer — but re-pick band by global price
-                            corrected_band = _pick_band(global_price)
-                            if corrected_band != price_band and seg_models.get(corrected_band):
-                                # Try re-routing with the corrected band
-                                price_band = corrected_band
-                                artifact2  = seg_models[corrected_band]
-                                seg_m2     = artifact2["model"]
-                                cat_levels2 = artifact2.get("cat_levels", {})
-                                cb_f2 = features.copy()
-                                for col2 in [c for c in CAT_FEATURES if c in cb_f2.columns]:
-                                    known2 = set(cat_levels2.get(col2, ["unknown"]))
-                                    cb_f2[col2] = cb_f2[col2].astype(str).apply(
-                                        lambda x: x if x in known2 else "unknown"
-                                    )
-                                for col2 in seg_m2.feature_names_:
-                                    if col2 not in cb_f2.columns:
-                                        cb_f2[col2] = "unknown" if col2 in CAT_FEATURES else 0.0
-                                    elif col2 in CAT_FEATURES:
-                                        cb_f2[col2] = cb_f2[col2].astype(str)
-                                corrected_log = float(seg_m2.predict(cb_f2[seg_m2.feature_names_])[0])
-                                corrected_price = float(np.expm1(corrected_log))
-                                if abs(corrected_price - dataset_p50) < err_global:
-                                    log_price    = corrected_log
-                                    routing_note = (
-                                        f"re-routed to '{price_band}' "
-                                        f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
-                                    )
-                                else:
-                                    log_price    = global_log
-                                    routing_note = (
-                                        f"global wins over '{price_band}' "
-                                        f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
-                                    )
-                            else:
-                                log_price    = global_log
-                                routing_note = (
-                                    f"global wins over '{price_band}' "
-                                    f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
-                                )
-                    else:
-                        # No dataset anchor — trust band model (it's specialised for this price range)
-                        log_price    = band_log_price
-                        routing_note = (
-                            f"segment model '{price_band}' used "
-                            f"(no dataset anchor, dev={deviation*100:.0f}%) [{active_id}]"
-                        )
-                else:
-                    # Models broadly agree — use band model (lower MAPE)
-                    log_price    = band_log_price
-                    routing_note = f"segment model '{price_band}' used [{active_id}]"
-            else:
-                log_price    = band_log_price
-                routing_note = f"segment model '{price_band}' used [{active_id}]"
+            # Priority 3a fix: trust the band model unconditionally — it was trained
+            # specifically for this price range and has lower in-band MAPE than the global
+            # model by design.  Removed: _MARKET_BANDS_CFG static-table three-way
+            # reconciliation that could silently override a better ML prediction.
+            log_price    = band_log_price
+            routing_note = f"segment model '{price_band}' used [{active_id}]"
 
         except Exception as e:
             log.warning("Segment model failed (%s), falling back to global: %s", price_band, e)
@@ -1112,7 +1095,13 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
     mrange_src   = prediction.get("market_range_source", "mape_fallback")
     comp_count   = prediction.get("market_range_comp_count", 0)
 
-    if mrange_src == "dataset" and comp_count >= 3 and price_median > 0:
+    # Priority 3b fix: smooth the comp_count threshold via proportional blending.
+    # Previously: hard cliff at comp_count >= 3 switched to a completely different pricing system.
+    # Now: blend_weight ramps linearly from 0.0 (0 comps) to 1.0 (>=3 comps).
+    # At comp_count=1: 33% comp-anchor, 67% waterfall
+    # At comp_count=2: 67% comp-anchor, 33% waterfall
+    # At comp_count>=3: 100% comp-anchor (same as before)
+    if mrange_src == "dataset" and comp_count >= 1 and price_median > 0:
         recon_cost   = decision.get("recon_cost",   18_000)
         holding_cost = decision.get("holding_cost",  5_000)
         doc_cost     = decision.get("doc_cost",      4_500)
@@ -1169,10 +1158,25 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         walk_away    = int(round((anchored_buy * 1.01) / 500) * 500)
         walk_away    = min(walk_away, int(round(anchored_sell * 0.97 / 500) * 500))
 
-    
+        # ── Priority 3b: proportional blend when fewer than 3 comps ─────────
+        blend_weight = min(comp_count / 3.0, 1.0)
+        if blend_weight < 1.0:
+            # Save pre-anchor (waterfall) values before blending
+            wf_buy  = decision.get("recommended_buy_price",  anchored_buy)
+            wf_sell = decision.get("recommended_sell_price", anchored_sell)
+            anchored_buy  = int(round(
+                (blend_weight * anchored_buy  + (1 - blend_weight) * wf_buy)  / 500) * 500)
+            anchored_sell = int(round(
+                (blend_weight * anchored_sell + (1 - blend_weight) * wf_sell) / 500) * 500)
+            # Recompute all derived values from blended buy/sell
+            anchored_profit = max(0, anchored_sell - anchored_buy - recon_cost - holding_cost - doc_cost)
+            anchored_margin = round((anchored_profit / max(anchored_buy, 1)) * 100, 1)
+            nego_room    = int(anchored_buy * 0.04)
+            opening_off  = int(round(max(0, anchored_buy - nego_room) / 500) * 500)
+            target_off   = int(round(max(0, anchored_buy - nego_room * 0.35) / 500) * 500)
+            walk_away    = int(round((anchored_buy * 1.01) / 500) * 500)
+            walk_away    = min(walk_away, int(round(anchored_sell * 0.97 / 500) * 500))
 
-
-        # Patch decision dict with corrected values
         decision.update({
             "recommended_buy_price":  anchored_buy,
             "recommended_sell_price": anchored_sell,

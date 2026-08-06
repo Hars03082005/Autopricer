@@ -90,7 +90,7 @@ graph TD
 
 ## 📊 Complete Model Results & Benchmarks
 
-PriceRef ships with **all 4 trained model variants** in `model_registry/`.
+PriceRef ships with **all 4 trained model variants** in `model_registry/` — Variants 1–3 are archived benchmarks, Variant 4 is the active S5 specialist.
 
 ### 1. Variant 1 — Global Ensemble Metrics (Active Default)
 
@@ -229,6 +229,8 @@ The adaptive decision engine allows zero-code adjustment of similarity weights a
 | `generate_engine_config.py` | `python scripts/generate_engine_config.py` | Regenerates statistical market percentiles and locality demand tables into `engine_config.json`. |
 | `show_buy_price.py` | `python scripts/show_buy_price.py` | CLI tool to calculate dealer buy prices, margins, and risk buffers interactively. |
 | `feature_sensitivity_test.py` | `python scripts/feature_sensitivity_test.py` | Tests model sensitivity to individual feature changes (mileage, age, condition). |
+| `query_exact_car.py` | `python scripts/query_exact_car.py` | Queries the training dataset for a specific vehicle and returns matching comparable listings. |
+| `verify_fixes.py` | `python scripts/verify_fixes.py` | Sanity-checks recent model or engine fixes by running before/after valuation comparisons. |
 
 ---
 
@@ -271,9 +273,10 @@ cp .env.example .env
 Or create `.env` manually:
 
 ```env
+VITE_API_URL=http://localhost:8000
+ACTIVE_VARIANT_ID=variant_1
 VITE_SUPABASE_URL=https://placeholder-project.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0MDAwMDAsImV4cCI6MTkwMDA0MDAwMH0.placeholder
-ACTIVE_VARIANT_ID=variant_1
 ```
 
 ### 3. Run FastAPI Backend
@@ -422,21 +425,15 @@ If you wish to clean a raw dataset and retrain model variants from scratch in th
 
 ```bash
 # ── Variant 1: Full General Market Model (33,979 rows) ──────────────────────
-python ml_training/clean-1.py      # Clean raw dataset → processed_overall.csv
+python ml_training/clean-1.py     # Clean raw dataset → processed_overall.csv
 python ml_training/train-1.py     # Train CatBoost + LightGBM + XGBoost ensemble
 
-# ── Variant 2: Owner-Filtered Model (S1–S4 sellers only) ────────────────────
-python ml_training/clean-2.py      # Clean → processed_s1_s4_owner.csv
-python ml_training/train-2.py     # Train ensemble on filtered seller dataset
-
-# ── Variant 3: Owner-Filtered + Extended Features ────────────────────────────
-python ml_training/clean-3.py      # Clean → processed_s1_s4_owner_1.csv
-python ml_training/train-3.py     # Train with extended feature set
-
 # ── Variant 4: S5 Quality Shop Specialist (173 rows, age 0–7 years) ─────────
-python ml_training/clean-s5.py     # Clean S5 shop data → processed_s5.csv
+python ml_training/clean-s5.py    # Clean S5 shop data → processed_s5.csv
 python ml_training/train-s5.py    # Train CatBoost + LightGBM specialist model
 ```
 
-*Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`. Variant 4 never auto-promotes to default — it is a specialist S5 model only.*
+> **Note:** Variant 2 and Variant 3 training scripts (`clean-2.py`, `train-2.py`, `clean-3.py`, `train-3.py`) are excluded from the public repository. They are archived benchmarks superseded by Variant 1.
+
+*Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`. Variant 4 never auto-promotes to default — it is a specialist S5 model only. The active default is always `Variant 1` (`ACTIVE_VARIANT_ID=variant_1`).*
 
