@@ -1,21 +1,31 @@
-import pytest
-import os
+from __future__ import annotations
+
+import asyncio
 import io
 import json
-import asyncio
+import os
 import uuid
-from datetime import datetime, UTC
-from unittest.mock import patch, AsyncMock, MagicMock
-from fastapi.testclient import TestClient
-from backend import model_registry, brand_catalog, db, healthcheck, auth, config
-from backend.config import Settings
-from backend.auth import AuthenticatedUser, get_current_user
-from backend.main import app
-from backend.routers import history
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
-client = TestClient(app)
+import pytest
+from fastapi.testclient import TestClient
+
+from tests.conftest import requires_models
+
+pytestmark = [pytest.mark.models, requires_models]
+
+
+@pytest.fixture(scope="module")
+def client():
+    """TestClient as a context manager so the lifespan (model load) actually runs."""
+    from backend.main import app
+    with TestClient(app) as test_client:
+        yield test_client
+
 
 def test_brand_catalog_functions():
+    from backend import brand_catalog
     catalog = brand_catalog.build_brand_catalog()
     assert isinstance(catalog, dict)
     assert len(catalog) > 0
@@ -27,7 +37,9 @@ def test_brand_catalog_functions():
     assert "Honda" in merged
     assert "City" in merged["Honda"]
 
+
 def test_model_registry_functions():
+    from backend import model_registry
     variants = model_registry.list_variants()
     assert isinstance(variants, list)
     default_id = model_registry.get_default_variant_id()
@@ -40,14 +52,21 @@ def test_model_registry_functions():
     assert model_registry.activate_variant(default_id) is True
     assert model_registry.activate_variant("non_existent_variant_123") is False
 
+
 def test_db_offline_fallback():
+    from backend import db
+    from backend.config import Settings
     settings = Settings(supabase_url="", supabase_anon_key="")
     assert not settings.database_enabled
     with pytest.raises(Exception) as exc_info:
         db._require_client(settings)
     assert getattr(exc_info.value, "status_code", None) == 503
 
+
 def test_db_async_functions_mocked():
+    from backend import db
+    from backend.config import Settings
+
     async def run_test():
         mock_resp = MagicMock()
         mock_resp.is_success = True
@@ -80,7 +99,9 @@ def test_db_async_functions_mocked():
 
     asyncio.run(run_test())
 
+
 def test_history_helpers():
+    from backend.routers import history
     eval_in = history.EvaluationIn(brand="Honda", model="City", year=2020)
     db_row = history._to_db_row(eval_in, "usr_999")
     assert db_row["user_id"] == "usr_999"
@@ -92,7 +113,10 @@ def test_history_helpers():
     assert eval_out.brand == "Honda"
     assert eval_out.id == db_row["id"]
 
-def test_history_router_authenticated():
+
+def test_history_router_authenticated(client):
+    from backend.auth import AuthenticatedUser, get_current_user
+    from backend.main import app
     fake_user = AuthenticatedUser(id="12345678-1234-1234-1234-123456789012", email="test@example.com", role="authenticated", claims={}, access_token="mock_tok")
     app.dependency_overrides[get_current_user] = lambda: fake_user
     
@@ -119,8 +143,10 @@ def test_history_router_authenticated():
         
     app.dependency_overrides.clear()
 
+
 def test_ensemble_predictor_edge_cases():
     import pandas as pd  # only available in the full ML environment
+    from backend import model_registry
     default_id = model_registry.get_default_variant_id()
     v_data = model_registry.get_variant(default_id)
     pred = v_data["predictor"]
@@ -134,7 +160,9 @@ def test_ensemble_predictor_edge_cases():
     assert "log_price" in res
     assert "variance" in res
 
+
 def test_healthcheck_module(monkeypatch):
+    from backend import healthcheck
     monkeypatch.delenv("ACTIVE_VARIANT_ID", raising=False)
     with patch("urllib.request.urlopen") as mock_urlopen:
         mock_resp = MagicMock()
@@ -143,17 +171,22 @@ def test_healthcheck_module(monkeypatch):
         mock_urlopen.return_value.__enter__.return_value = mock_resp
         assert healthcheck.main() == 0
 
+
 def test_healthcheck_failures(monkeypatch):
+    from backend import healthcheck
     monkeypatch.setenv("PORT", "not_a_number")
     assert healthcheck.main() == 1
 
+
 def test_auth_module_helpers():
+    from backend import config
     settings = config.Settings(supabase_url="https://example.supabase.co", supabase_anon_key="anon")
     assert settings.auth_enabled is True
     assert settings.database_enabled is True
     assert "auth/v1" in settings.jwks_url
 
-def test_additional_main_endpoints():
+
+def test_additional_main_endpoints(client):
     res1 = client.get("/metadata")
     assert res1.status_code == 200
     
@@ -169,11 +202,13 @@ def test_additional_main_endpoints():
     res5 = client.get("/api/options?brand=Honda&model=City")
     assert res5.status_code == 200
 
-def test_history_router_unauthorized():
+
+def test_history_router_unauthorized(client):
     res = client.get("/api/history")
     assert res.status_code in (401, 503)
 
-def test_enhanced_evaluate_endpoint():
+
+def test_enhanced_evaluate_endpoint(client):
     payload = {
         "brand": "Honda",
         "model": "City",

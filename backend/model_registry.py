@@ -6,9 +6,15 @@ import logging
 import os
 from pathlib import Path
 
-import joblib
+try:
+    import joblib
+except ImportError:
+    joblib = None
 
-from backend.ensemble_predictor import EnsemblePredictor
+try:
+    from backend.ensemble_predictor import EnsemblePredictor
+except ImportError:
+    EnsemblePredictor = None
 
 log = logging.getLogger(__name__)
 
