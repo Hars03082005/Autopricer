@@ -5,8 +5,6 @@ import json
 import asyncio
 import uuid
 from datetime import datetime, UTC
-import pandas as pd
-import numpy as np
 from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from backend import model_registry, brand_catalog, db, healthcheck, auth, config
@@ -122,6 +120,7 @@ def test_history_router_authenticated():
     app.dependency_overrides.clear()
 
 def test_ensemble_predictor_edge_cases():
+    import pandas as pd  # only available in the full ML environment
     default_id = model_registry.get_default_variant_id()
     v_data = model_registry.get_variant(default_id)
     pred = v_data["predictor"]
