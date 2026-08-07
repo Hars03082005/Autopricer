@@ -27,6 +27,7 @@ from pydantic.alias_generators import to_camel
 
 from backend import db
 from backend.auth import AuthenticatedUser, get_current_user
+from backend.config import get_settings
 
 log = logging.getLogger("priceref.history")
 
@@ -137,6 +138,10 @@ async def list_history(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> HistoryResponse:
     """Return the caller's valuation history, newest first."""
+    if not get_settings().database_enabled:
+        log.debug("history | database not configured — returning empty history")
+        return HistoryResponse(evaluations=[], count=0)
+
     rows = await db.list_evaluations(
         user_id=user.id, access_token=user.access_token, limit=limit
     )
@@ -158,6 +163,11 @@ async def create_history_entry(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> EvaluationOut:
     """Persist one valuation for the caller."""
+    if not get_settings().database_enabled:
+        log.debug("history | database not configured — skipping persist")
+        # Return a synthetic record so the frontend still works locally.
+        row = _to_db_row(payload, user.id)
+        return _from_db_row(row)
     inserted = await db.insert_evaluation(
         row=_to_db_row(payload, user.id), access_token=user.access_token
     )
@@ -169,6 +179,8 @@ async def clear_history(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> DeleteResponse:
     """Delete all of the caller's valuation history."""
+    if not get_settings().database_enabled:
+        return DeleteResponse(deleted=0)
     deleted = await db.delete_evaluations(user_id=user.id, access_token=user.access_token)
     log.info("history | cleared %d rows for user=%s", deleted, user.id)
     return DeleteResponse(deleted=deleted)
@@ -187,6 +199,9 @@ async def delete_history_entry(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Evaluation id must be a UUID.",
         ) from None
+
+    if not get_settings().database_enabled:
+        return DeleteResponse(deleted=0)
 
     deleted = await db.delete_evaluation(
         user_id=user.id, evaluation_id=evaluation_id, access_token=user.access_token
@@ -208,18 +223,24 @@ async def read_profile(
     created — so this derives a sensible default from the token's email rather
     than returning 404 and making the client handle it.
     """
-    row = await db.get_profile(user_id=user.id, access_token=user.access_token)
-    if row is not None:
-        return ProfileOut.model_validate(row)
-
     fallback_name = (user.email or "dealer").split("@")[0]
-    return ProfileOut(
+    fallback = ProfileOut(
         id=user.id,
         name=fallback_name,
         avatar=fallback_name[:2].upper() or "U",
         role="Dealer",
         created_at=None,
     )
+
+    if not get_settings().database_enabled:
+        log.debug("profile | database not configured — returning derived profile")
+        return fallback
+
+    row = await db.get_profile(user_id=user.id, access_token=user.access_token)
+    if row is not None:
+        return ProfileOut.model_validate(row)
+
+    return fallback
 
 
 @router.put("/profile", response_model=ProfileOut)
@@ -228,6 +249,15 @@ async def write_profile(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> ProfileOut:
     """Create or update the caller's dealer profile."""
+    if not get_settings().database_enabled:
+        log.debug("profile | database not configured — returning payload as-is")
+        return ProfileOut(
+            id=user.id,
+            name=payload.name,
+            avatar=payload.avatar,
+            role=payload.role,
+            created_at=None,
+        )
     row = await db.upsert_profile(
         user_id=user.id,
         access_token=user.access_token,
