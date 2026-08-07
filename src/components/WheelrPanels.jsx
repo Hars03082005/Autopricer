@@ -2,7 +2,6 @@ import { formatINR } from '../utils/format.js';
 
 export function NegotiationPlaybook({ negotiation, variant = 'enhanced', confidenceScore }) {
   const opening  = variant === 'reverse' ? negotiation?.opening  : negotiation?.opening_offer;
-  const target   = variant === 'reverse' ? negotiation?.target   : negotiation?.target_offer;
   const walkAway = variant === 'reverse' ? negotiation?.walk_away : negotiation?.walk_away_price;
 
   const confScore = confidenceScore ?? null;

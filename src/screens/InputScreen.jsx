@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { CITY_DEMAND, LOCALITIES } from '../utils/mockData.js';
+import { LOCALITIES } from '../utils/mockData.js';
 import { fetchBrands, fetchCatalog, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS        = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
-const CITIES       = Object.keys(CITY_DEMAND).sort();
 const FUELS        = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
 const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT', 'AMT', 'IMT'];
-const CONDITIONS   = ['Excellent', 'Good', 'Average', 'Poor'];
 const OWNERS       = ['1', '2', '3', '4+'];
 
 const COLORS = [
@@ -68,24 +66,6 @@ function formatLakh(n) {
   return v >= 100000 ? `₹${(v / 100000).toFixed(2)}L` : v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '';
 }
 
-function getValidFuels(brand, model) {
-  const m = (model || '').toLowerCase();
-  if (m.includes('ev') || (brand || '').toLowerCase() === 'tesla') return ['Electric'];
-  return FUELS;
-}
-
-function SectionHeader({ n, title, sub }) {
-  return (
-    <div className="vws-head">
-      <div className="vws-num">{n}</div>
-      <div>
-        <div className="vws-title">{title}</div>
-        {sub && <div className="vws-sub">{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
 function FieldLabel({ children, required }) {
   return (
     <label className="vws-label">
@@ -116,7 +96,7 @@ function normalizeVariant(raw, modelName = '') {
   }
 
   text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, '');
-  text = text.replace(/[\(\)\[\]\/\-\,\_\.\+]/g, ' ');
+  text = text.replace(/[(\)[\]/\-,_.+]/g, ' ');
 
   const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
   if (tokens.length === 0) return '';

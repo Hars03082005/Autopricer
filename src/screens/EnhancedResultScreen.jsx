@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { CAR_IMAGES } from '../utils/mockData.js';
-import { formatINR, getSeasonalContext } from '../utils/format.js';
+import { formatINR } from '../utils/format.js';
 import { DEAL_HEALTH_META, GRADE_OPTIONS } from '../utils/wheelrCosts.js';
 import { NegotiationPlaybook, ExpandableBreakdownTable } from '../components/WheelrPanels.jsx';
 import Icon from '../components/Icon.jsx';
