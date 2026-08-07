@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # AutoQuant — Production-Grade .gitignore
 # Python (FastAPI) + React/Vite + Flutter + ML (CatBoost/LightGBM/XGBoost)
 # ==============================================================================
@@ -143,6 +143,7 @@ analyze_raw.py
 split_dataset.py
 test_*.py
 !test_adaptive.py          # keep the canonical integration test
+!tests/test_coverage_boost.py  # permanent CI coverage tests
 scratch/
 tmp/
 temp/
