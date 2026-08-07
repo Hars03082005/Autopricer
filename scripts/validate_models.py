@@ -17,7 +17,6 @@ import time
 import warnings
 from pathlib import Path
 
-# Force UTF-8 output on Windows so ANSI sequences don't crash
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -29,7 +28,6 @@ from catboost import CatBoostRegressor
 
 warnings.filterwarnings("ignore")
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
 DATA_DIR     = ROOT / "ml_training" / "data"
@@ -42,7 +40,6 @@ if not DATASET_PATH.exists():
 SAMPLE_SIZE = 5_000
 RANDOM_SEED = 42
 
-# ── ANSI colours ──────────────────────────────────────────────────────────────
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
 RED    = "\033[91m"
@@ -55,7 +52,6 @@ def warn(t): return f"{YELLOW}{t}{RESET}"
 def bad(t):  return f"{RED}{t}{RESET}"
 def hdr(t):  return f"{BOLD}{CYAN}{t}{RESET}"
 
-# ── Metrics ───────────────────────────────────────────────────────────────────
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     mask = np.isfinite(y_pred) & np.isfinite(y_true) & (y_true > 0)
     yt, yp = y_true[mask], y_pred[mask]
@@ -84,7 +80,6 @@ def print_result(name: str, m: dict, elapsed: float):
     print(f"  MAPE: {fmt(m['mape'], 8.0,  20.0, higher=False, pct=True)}")
     print(f"  n   : {m['n']:,}  |  time: {elapsed:.2f}s")
 
-# ── Load dataset ──────────────────────────────────────────────────────────────
 print(f"\n{'='*60}")
 print("  PricerPoint -- Model Validation")
 print(f"{'='*60}")
@@ -102,7 +97,6 @@ else:
 
 y_true = df["selling_price"].values
 
-# ── Feature engineering to match model expectations ───────────────────────────
 LUXURY_BRANDS = {"bmw","mercedes-benz","audi","jaguar","land rover","porsche",
                  "maserati","aston martin","bentley","rolls-royce","ferrari","lamborghini","hummer"}
 
@@ -124,28 +118,20 @@ BRAND_SEGMENT_MAP = {
 
 def enrich(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-    # rto_state: map 'rto' column if rto_state missing
     if "rto_state" not in d.columns:
         d["rto_state"] = d["rto"].astype(str) if "rto" in d.columns else "unknown"
-    # color: not in dataset → use 'unknown'
     if "color" not in d.columns:
         d["color"] = "unknown"
-    # luxury_brand
     if "luxury_brand" not in d.columns:
         d["luxury_brand"] = d["brand"].str.lower().map(lambda b: 1 if b in LUXURY_BRANDS else 0).astype(float)
-    # high_mileage (75th pct ≈ 93143 km)
     if "high_mileage" not in d.columns:
         d["high_mileage"] = (d["odometer_reading"] > 93_143).astype(float)
-    # inspected: not in dataset → assume 0
     if "inspected" not in d.columns:
         d["inspected"] = 0.0
-    # has_list_price: not in dataset → assume 0
     if "has_list_price" not in d.columns:
         d["has_list_price"] = 0.0
-    # segment_class: derive from brand if missing or fill 'unknown'
     if "segment_class" not in d.columns:
         d["segment_class"] = d["brand"].str.lower().map(lambda b: BRAND_SEGMENT_MAP.get(b, "economy"))
-    # Ensure all cat columns are strings
     for col in ["brand","model","variant","city","rto_state","color","segment_class","fuel_type","transmission","seller_type"]:
         if col in d.columns:
             d[col] = d[col].fillna("unknown").astype(str)
@@ -153,7 +139,6 @@ def enrich(df: pd.DataFrame) -> pd.DataFrame:
 
 df = enrich(df)
 
-# ── Load metadata ─────────────────────────────────────────────────────────────
 with open(ARTIFACT_DIR / "model_metadata.json") as f:
     META = json.load(f)
 MODEL_FEATURES = META.get("features", [])
@@ -180,10 +165,8 @@ def align_frame(df: pd.DataFrame, feature_names: list, cat_features: list, categ
 
 results: list[dict] = []
 
-# ══════════════════════════════════════════════════════════════════════════════
 print(f"\n{hdr('Loading and evaluating models...')}")
 
-# ── 1. Global CatBoost ────────────────────────────────────────────────────────
 p = ARTIFACT_DIR / "vehicle_price_catboost.cbm"
 if p.exists():
     print(f"  + {p.name}")
@@ -201,7 +184,6 @@ if p.exists():
 else:
     print(f"  - vehicle_price_catboost.cbm  NOT FOUND")
 
-# ── 2. Segment PKL ensembles ──────────────────────────────────────────────────
 for seg in ["economy", "premium", "luxury"]:
     p = ARTIFACT_DIR / f"ensemble_{seg}.pkl"
     if not p.exists():
@@ -223,7 +205,6 @@ for seg in ["economy", "premium", "luxury"]:
     except Exception as e:
         print(f"    FAILED: {e}")
 
-# ── 3. Standalone .cbm files ──────────────────────────────────────────────────
 standalone = [
     ("segment_economy.cbm",      "segment_economy_levels.pkl"),
     ("segment_budget.cbm",       "segment_budget_levels.pkl"),
@@ -254,7 +235,6 @@ for cbm_name, lvl_name in standalone:
         raw = cb.predict(frame)
         elapsed = time.perf_counter() - t0
 
-        # Auto-detect log scale vs raw price
         y_pred = np.expm1(raw) if float(np.median(raw)) < 20 else raw
         m = compute_metrics(y_true, y_pred)
         print_result(f"Standalone CatBoost  ({cbm_name})", m, elapsed)
@@ -262,9 +242,6 @@ for cbm_name, lvl_name in standalone:
     except Exception as e:
         print(f"    FAILED: {e}")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Summary table
-# ══════════════════════════════════════════════════════════════════════════════
 print(f"\n{'='*70}")
 print(hdr("  SUMMARY  (sorted by R2 desc)"))
 print(f"{'='*70}")

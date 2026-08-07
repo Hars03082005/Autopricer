@@ -1,8 +1,10 @@
 {
   "variant_id": "variant_1",
   "script": "train-1",
-  "dataset_name": "processed_overall.csv",
-  "rows_used": 33979,
+  "data_folder": "overall_only",
+  "split_source": "pre_split",
+  "train_rows": 17632,
+  "valid_rows": 3778,
   "features": [
     "brand",
     "model",
@@ -41,34 +43,34 @@
   ],
   "val_metrics": {
     "CatBoost": {
-      "MAE": 57755.02,
-      "RMSE": 116665.6,
-      "R2": 0.9597,
-      "MAPE": 9.13
+      "MAE": 57857.8,
+      "RMSE": 140399.93,
+      "R2": 0.9541,
+      "MAPE": 9.15
     },
     "LightGBM": {
-      "MAE": 37804.6,
-      "RMSE": 98863.35,
-      "R2": 0.9775,
-      "MAPE": 6.08
+      "MAE": 44415.82,
+      "RMSE": 119325.26,
+      "R2": 0.958,
+      "MAPE": 7.58
     },
     "XGBoost": {
-      "MAE": 41626.39,
-      "RMSE": 100968.69,
-      "R2": 0.9741,
-      "MAPE": 6.78
+      "MAE": 47166.05,
+      "RMSE": 127511.8,
+      "R2": 0.9582,
+      "MAPE": 7.92
     },
     "Ensemble": {
-      "MAE": 38273.11,
-      "RMSE": 98254.22,
-      "R2": 0.9777,
-      "MAPE": 6.16
+      "MAE": 44383.37,
+      "RMSE": 120201.14,
+      "R2": 0.9607,
+      "MAPE": 7.48
     }
   },
   "ensemble_weights": {
-    "catboost": 0.10815020371503858,
-    "lightgbm": 0.8918497962849614,
-    "xgboost": 0.0
+    "catboost": 0.17105294647832248,
+    "lightgbm": 0.8289470535216776,
+    "xgboost": 1.730826334919465e-18
   },
   "active_segment_models": [
     "0_6_lakh",
@@ -113,5 +115,6 @@
       "seed": 42,
       "num_boost_round": 3000
     }
-  }
+  },
+  "artifact_path": "model_registry/variant_1"
 }

@@ -42,7 +42,21 @@
   "ml_weight_high": 0.30,
   "comp_weight_medium": 0.50,
   "ml_weight_medium": 0.50,
-  "max_allowed_range_pct": 0.25,
+  "max_allowed_range_pct": 0.08,
+  "range_percentiles": {
+    "_comment": "Percentile bounds used as fallback when sigma cannot be computed (< 4 comps).",
+    "high_lo": 40,
+    "high_hi": 60,
+    "medium_lo": 42,
+    "medium_hi": 58
+  },
+  "range_sigma": {
+    "_comment": "Robust sigma multiplier k: range = [anchor - k*sigma, anchor + k*sigma].",
+    "_method": "sigma = IQR / 1.35 (robust std estimate, outlier-resistant). Anchored on blended center.",
+    "_technique": "Standard symmetric confidence interval for realistic, tight negotiation range.",
+    "high": 0.25,
+    "medium": 0.30
+  },
   "confidence_weights": {
     "comp_score": 0.30,
     "similarity_score": 0.25,

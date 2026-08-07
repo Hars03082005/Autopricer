@@ -1,9 +1,5 @@
 ﻿import { useState, useRef, useEffect } from 'react';
 
-/**
- * PriceRef — Premium Searchable Dropdown
- * Linear × Stripe × Vercel style — no emojis, keyboard nav, smooth animations
- */
 export default function SearchableDropdown({
   options = [],
   value,
@@ -23,7 +19,6 @@ export default function SearchableDropdown({
     ? options.filter(o => String(o).toLowerCase().includes(query.toLowerCase().trim()))
     : options;
 
-  /* ── Close on outside click ───────────────────── */
   useEffect(() => {
     const handler = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -34,13 +29,11 @@ export default function SearchableDropdown({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  /* ── Reset state on close ─────────────────────── */
   useEffect(() => {
     if (!open) { setQuery(''); setHovered(-1); }
     else setTimeout(() => searchRef.current?.focus(), 40);
   }, [open]);
 
-  /* ── Keyboard navigation ──────────────────────── */
   const handleKeyDown = (e) => {
     if (e.key === 'Escape')    { setOpen(false); return; }
     if (e.key === 'ArrowDown') { e.preventDefault(); setHovered(h => Math.min(h + 1, filtered.length - 1)); }
@@ -55,7 +48,7 @@ export default function SearchableDropdown({
 
   return (
     <div className="sdd" ref={containerRef}>
-      {/* Trigger */}
+      {}
       <button
         type="button"
         id={id}
@@ -66,7 +59,7 @@ export default function SearchableDropdown({
         aria-expanded={open}
       >
         <span className="sdd-val">{value || placeholder}</span>
-        {/* Chevron */}
+        {}
         <svg
           className={`sdd-chevron${open ? ' sdd-chevron-open' : ''}`}
           width="14" height="14" viewBox="0 0 24 24"
@@ -76,10 +69,10 @@ export default function SearchableDropdown({
         </svg>
       </button>
 
-      {/* Panel */}
+      {}
       {open && (
         <div className="sdd-panel" role="listbox">
-          {/* Search row */}
+          {}
           <div className="sdd-search-row">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -103,7 +96,7 @@ export default function SearchableDropdown({
             )}
           </div>
 
-          {/* Options list */}
+          {}
           <div className="sdd-list">
             {filtered.length === 0 ? (
               <p className="sdd-empty">No results for "{query}"</p>

@@ -20,7 +20,6 @@ print("==================================================================")
 print("       PRICEREF SYSTEM COMPREHENSIVE END-TO-END HEALTH AUDIT       ")
 print("==================================================================")
 
-# 1. Health Check
 try:
     health = get("/health")
     print(f"\n[1] GET /health")
@@ -31,7 +30,6 @@ try:
 except Exception as e:
     print(f"[FAIL] GET /health error: {e}")
 
-# 2. Registry Check
 try:
     reg = get("/api/registry")
     print(f"\n[2] GET /api/registry")
@@ -40,7 +38,6 @@ try:
 except Exception as e:
     print(f"[FAIL] GET /api/registry error: {e}")
 
-# 3. Brands Catalog
 try:
     brands = get("/api/brands")
     print(f"\n[3] GET /api/brands")
@@ -48,7 +45,6 @@ try:
 except Exception as e:
     print(f"[FAIL] GET /api/brands error: {e}")
 
-# 4. Standard /predict Endpoint Test (Swift 2017)
 try:
     payload = {
         "brand": "Maruti",
@@ -72,7 +68,6 @@ try:
 except Exception as e:
     print(f"[FAIL] POST /predict error: {e}")
 
-# 5. Standard /evaluate Endpoint Test (Hyundai i20 2021)
 try:
     payload2 = {
         "brand": "Hyundai",
@@ -96,7 +91,6 @@ try:
 except Exception as e:
     print(f"[FAIL] POST /evaluate error: {e}")
 
-# 6. Enhanced Evaluation /evaluate-enhanced Test (Mercedes C-Class 2019)
 try:
     payload3 = {
         "brand": "Mercedes-Benz",

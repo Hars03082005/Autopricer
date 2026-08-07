@@ -1,10 +1,9 @@
-/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient.js';
 
 const AuthContext = createContext(null);
 
-// Local demo account bypass (no Supabase needed for demo)
 const DEMO_ACCOUNTS = {
   'dealer@priceref.ai': { password: 'dealer123', name: 'Ramesh Sharma', role: 'Dealer', avatar: 'RS' },
 };
@@ -20,7 +19,6 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading]         = useState(true);
 
-  // On mount: restore session from Supabase and listen for changes
   useEffect(() => {
     let alive = true;
     supabase.auth.getSession().then(async ({ data } = {}) => {
@@ -68,7 +66,6 @@ export function AuthProvider({ children }) {
   const login = useCallback(async ({ email, password }) => {
     const em = email.trim().toLowerCase();
 
-    // Demo account bypass
     const demo = DEMO_ACCOUNTS[em];
     if (demo && demo.password === password) {
       setCurrentUser({ id: 'demo', email: em, name: demo.name, role: demo.role, avatar: demo.avatar });
@@ -90,7 +87,6 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({ email: em, password });
     if (error) return { ok: false, error: error.message };
 
-    // Insert profile row
     if (data.user) {
       await supabase.from('profiles').insert({
         id:   data.user.id,
@@ -104,7 +100,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    // Demo user: just clear state
+    
     if (currentUser?.id === 'demo') {
       setCurrentUser(null);
       return;

@@ -8,8 +8,8 @@ export default function SearchableSelect({
   placeholder = 'Search…',
   disabled = false,
   onChange,
-  icon,          // optional: emoji or letter shown beside the label
-  sublabel,      // optional: small grey hint under the label
+  icon,          
+  sublabel,      
 }) {
   const wrapRef    = useRef(null);
   const inputRef   = useRef(null);
@@ -18,19 +18,17 @@ export default function SearchableSelect({
   const [query,  setQuery]  = useState('');
   const [cursor, setCursor] = useState(-1);
 
-  // filtered list
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter(opt => opt.toLowerCase().includes(q));
   }, [options, query]);
 
-  // close on outside click
   useEffect(() => {
     const handleOutside = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
     };
-    // mousedown for desktop, touchstart for Android WebView
+    
     document.addEventListener('mousedown', handleOutside);
     document.addEventListener('touchstart', handleOutside, { passive: true });
     return () => {
@@ -39,7 +37,6 @@ export default function SearchableSelect({
     };
   }, []);
 
-  // reset query / cursor when closed
   useEffect(() => {
     if (!open) {
       setTimeout(() => {
@@ -47,8 +44,7 @@ export default function SearchableSelect({
         setCursor(-1);
       }, 0);
     } else {
-      // Skip auto-focus on touch devices: it triggers the keyboard which
-      // shifts layout and pushes the dropdown options off-screen.
+      
       const isTouch = window.matchMedia('(pointer: coarse)').matches;
       if (!isTouch) {
         setTimeout(() => inputRef.current?.focus(), 0);
@@ -56,7 +52,6 @@ export default function SearchableSelect({
     }
   }, [open]);
 
-  // scroll active item into view
   useEffect(() => {
     if (cursor >= 0 && listRef.current) {
       const el = listRef.current.children[cursor];
@@ -64,7 +59,6 @@ export default function SearchableSelect({
     }
   }, [cursor]);
 
-  // keyboard handler
   const handleKeyDown = (e) => {
     if (!open) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } return; }
     if (e.key === 'Escape') { setOpen(false); return; }
@@ -81,7 +75,6 @@ export default function SearchableSelect({
     setOpen(false);
   };
 
-  // highlight matched chars
   const highlight = (text) => {
     const q = query.trim().toLowerCase();
     if (!q) return text;
@@ -106,7 +99,7 @@ export default function SearchableSelect({
         </label>
       )}
 
-      {/* Trigger */}
+      {}
       <button
         type="button"
         className={`searchable-select-trigger cd-input ${disabled ? 'disabled' : ''} ${open ? 'open' : ''}`}
@@ -123,10 +116,10 @@ export default function SearchableSelect({
         </span>
       </button>
 
-      {/* Dropdown */}
+      {}
       {open && (
         <div className="searchable-select-menu" role="listbox">
-          {/* Search bar */}
+          {}
           <div className="searchable-select-search">
             <Icon name="search" size={14} color="#aaa" strokeWidth={2} />
             <input
@@ -148,7 +141,7 @@ export default function SearchableSelect({
             )}
           </div>
 
-          {/* Options */}
+          {}
           <div className="searchable-select-options" ref={listRef}>
             {filtered.length === 0 && (
               <div className="searchable-select-empty">
@@ -163,7 +156,7 @@ export default function SearchableSelect({
                   key={option}
                   type="button"
                   className={`searchable-select-option ${isActive ? 'active' : ''} ${isCursor ? 'cursor' : ''}`}
-                  onPointerDown={(e) => e.preventDefault()} // prevent blur-before-click on mobile
+                  onPointerDown={(e) => e.preventDefault()} 
                   onClick={() => handleSelect(option)}
                   onMouseEnter={() => setCursor(i)}
                   role="option"

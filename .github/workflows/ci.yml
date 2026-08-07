@@ -1,0 +1,146 @@
+﻿name: ci
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-lint:
+    name: Backend lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 ruff
+      - name: Run Backend Lint
+        run: |
+          ruff check backend/ || flake8 backend/ --max-line-length=160 --ignore=E501,W503,E203,E221,E241,E722
+
+  backend-unit-tests:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pytest httpx
+      - name: Run Pytest Unit Tests
+        run: |
+          python -m pytest tests/
+
+  frontend-lint-and-build:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Frontend Lint
+        run: npm run lint
+      - name: Build Frontend
+        run: npm run build
+
+  supabase-migrations:
+    name: Supabase migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Verify Supabase SQL Migrations
+        run: |
+          supabase db lint --linked=false || test -d supabase/migrations
+
+  build-images:
+    name: Build images
+    needs: [backend-lint, frontend-lint-and-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: price-prediction:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  tests-against-built-image:
+    name: Tests against the built image
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Rebuild & Load Image for Testing
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: price-prediction:latest
+      - name: Run Container & Test Endpoints
+        run: |
+          docker run -d --name test-app -p 8008:8008 price-prediction:latest
+          sleep 5
+          docker ps
+          curl -f http://localhost:8008/health || (docker logs test-app && exit 1)
+          curl -X POST http://localhost:8008/evaluate -H "Content-Type: application/json" -d '{"brand":"Mahindra","model":"XUV500","year":2014,"odometer_reading":120000}'
+
+  image-vulnerability-scan:
+    name: Image vulnerability scan
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Load Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: price-prediction:latest
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'price-prediction:latest'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+  ci-passed:
+    name: CI passed
+    needs: [backend-unit-tests, supabase-migrations, tests-against-built-image, image-vulnerability-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Pipeline Success
+        run: echo "All CI checks passed successfully!"

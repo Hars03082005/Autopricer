@@ -1,6 +1,4 @@
-// Lazy getter — evaluated at call time so the Flutter WebView shell's
-// window.PriceRef_API_URL injection (fired after onPageFinished) is
-// always picked up, even though it arrives after module initialisation.
+
 function getApiBase() {
   if (typeof window !== 'undefined') {
     if (window.PriceRef_API_URL) return window.PriceRef_API_URL;
@@ -9,7 +7,6 @@ function getApiBase() {
     const isLocalHost = host === 'localhost' || host === '127.0.0.1';
     const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_ML_API_URL || '').trim();
 
-    // If VITE_API_URL is set to a valid non-localhost URL (or we are on localhost), use it
     if (envUrl) {
       const envIsLocal = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
       if (isLocalHost || !envIsLocal) {
@@ -17,7 +14,6 @@ function getApiBase() {
       }
     }
 
-    // Smart fallback for Render live deployments
     if (host.endsWith('.onrender.com')) {
       const name = host.replace('.onrender.com', '');
       if (name === 'priceref' || name.startsWith('priceref')) {
@@ -30,7 +26,7 @@ function getApiBase() {
   return (
     import.meta.env.VITE_API_URL ||
     import.meta.env.VITE_ML_API_URL ||
-    'http://localhost:8000'
+    'http://localhost:8008'
   ).replace(/\/+$/, '');
 }
 
@@ -86,7 +82,7 @@ function normalizeCondition(value) {
 
 function normalizeColor(value) {
   const text = String(value || '').trim().toLowerCase();
-  // Map common variants to canonical lowercase color names the model knows
+  
   const colorMap = {
     'white': 'white', 'pearl white': 'white', 'solid white': 'white',
     'silver': 'silver', 'silver metallic': 'silver', 'grey': 'grey', 'gray': 'grey',
@@ -126,7 +122,6 @@ export function payloadFromInputs(inputs) {
     ...(inputs.modelVariant && inputs.modelVariant !== 'auto' ? { model_variant: inputs.modelVariant } : {}),
   };
 }
-
 
 function buildCounterfactuals(inputs) {
   const km = toNumber(inputs.mileage ?? inputs.odometer_reading, 0);
@@ -231,7 +226,7 @@ function normalizeApiResult(data, inputs) {
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     routingNote: data.routing_note ?? '',
-    // ── Adaptive Valuation Engine enrichment ──
+    
     valuationConfidence:     data.confidence ?? 'Low',
     valuationConfidenceScore: data.confidence_score ?? 0,
     marketSupport:           data.market_support ?? 'Weak',
@@ -266,21 +261,26 @@ export async function fetchBrands() {
   return data.brands || {};
 }
 
-/** Fetch the full dataset catalog: brand → { model → [variants] } */
 export async function fetchCatalog(variantId) {
   const url = variantId
     ? `${getApiBase()}/api/catalog?model_variant=${encodeURIComponent(variantId)}`
     : `${getApiBase()}/api/catalog`;
   const response = await fetch(url);
   if (!response.ok) {
-    const message = await response.text().catch(() => '');
-    throw new Error(`Catalog API error ${response.status}${message ? `: ${message}` : ''}`);
+    // If variant-specific catalog fails, silently fall back to default
+    if (variantId) {
+      const fallback = await fetch(`${getApiBase()}/api/catalog`).catch(() => null);
+      if (fallback && fallback.ok) {
+        const data = await fallback.json();
+        return data.catalog || {};
+      }
+    }
+    return {};
   }
   const data = await response.json();
   return data.catalog || {};
 }
 
-/** Fetch models+variants for a single brand from the dataset catalog */
 export async function fetchBrandModels(brand) {
   const response = await fetch(`${getApiBase()}/api/catalog/${encodeURIComponent(brand)}`);
   if (!response.ok) {
@@ -290,11 +290,6 @@ export async function fetchBrandModels(brand) {
   return data || { brand, models: {} };
 }
 
-/**
- * Fetch the available fuel types, transmissions, and manufacture years
- * that actually exist in the dataset for the given brand/model/variant.
- * Returns { fuel_types, transmissions, years } with safe fallbacks.
- */
 export async function fetchOptions({ brand, model, variant } = {}) {
   const params = new URLSearchParams();
   if (brand)   params.set('brand',   brand);
@@ -314,16 +309,11 @@ export async function fetchOptions({ brand, model, variant } = {}) {
   }
 }
 
-
 export async function runMLValuation(inputs) {
   const data = await postJson('/evaluate', payloadFromInputs(inputs));
   return normalizeApiResult(data, inputs);
 }
 
-/**
- * Run valuation with a specific model variant.
- * Used by the Result page variant switcher to switch between variant_1/2/3.
- */
 export async function runMLValuationWithVariant(inputs, variantId) {
   const payload = {
     ...payloadFromInputs(inputs),
@@ -333,16 +323,8 @@ export async function runMLValuationWithVariant(inputs, variantId) {
   return normalizeApiResult(data, inputs);
 }
 
-/**
- * Run valuation using the S5 quality shop model (variant_4).
- * Only call this when the vehicle qualifies: vehicle age <= 7 years.
- * Falls back to variant_1 (+8% premium) when model is not in the S5 catalog.
- */
 export async function runS5Valuation(inputs) {
-  const payload = {
-    ...payloadFromInputs(inputs),
-    model_variant: 'variant_4',
-  };
+  const payload = payloadFromInputs(inputs);
   const data = await postJson('/evaluate', payload);
   return normalizeApiResult(data, inputs);
 }

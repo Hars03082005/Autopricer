@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
@@ -34,7 +34,7 @@ const DEFAULT_INSPECTION = {
   },
 };
 
-const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1'; // kept for demo-user fallback
+const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1'; 
 const AppContext = createContext(null);
 
 function toNumber(value, fallback = 0) {
@@ -104,7 +104,6 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
   };
 }
 
-/** Convert camelCase record → snake_case DB row for Supabase insert */
 function recordToDbRow(rec, userId) {
   return {
     id:                   rec.id,
@@ -141,7 +140,6 @@ function recordToDbRow(rec, userId) {
   };
 }
 
-/** Convert snake_case DB row → camelCase record for the UI */
 function dbRowToRecord(row) {
   return {
     id:                   row.id,
@@ -201,7 +199,6 @@ export function AppProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [dashFilters, setDashFilters] = useState({ brand: 'All', city: 'All', priceRange: 'All' });
 
-  // Load evaluations from Supabase (or localStorage fallback)
   useEffect(() => {
     const userId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
 
@@ -228,7 +225,6 @@ export function AppProvider({ children }) {
       });
   }, [currentUser]);
 
-  // Persist local evaluations backup
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
   }, [evaluations]);
@@ -263,7 +259,6 @@ export function AppProvider({ children }) {
     const record = recordFromResult(vehicleInputs, result, source);
     setEvaluations(prev => [record, ...prev].slice(0, 500));
 
-    // ALWAYS persist evaluation inputs & predictions to Supabase database!
     const targetUserId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
     try {
       const dbRow = recordToDbRow(record, targetUserId);

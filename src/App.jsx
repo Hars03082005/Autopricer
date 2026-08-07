@@ -40,7 +40,6 @@ const NAV_SECTIONS = [
   },
 ];
 
-// Mobile bottom nav — 5 key items only
 const MOBILE_NAV = [
   { id: 'home',      label: 'Home',     icon: 'home'   },
   { id: 'input',     label: 'Valuate',  icon: 'car'    },
@@ -49,7 +48,6 @@ const MOBILE_NAV = [
   { id: 'dashboard', label: 'Analytics',icon: 'chart'  },
 ];
 
-// User Avatar Button + Dropdown
 function UserMenu() {
   const { currentUser, logout } = useAuth();
   const [open, setOpen] = useState(false);
@@ -99,7 +97,6 @@ function UserMenu() {
   );
 }
 
-// Main App Shell
 function AppShell() {
   const { activeScreen, setActiveScreen } = useApp();
 
@@ -117,9 +114,9 @@ function AppShell() {
 
   return (
     <div className="app-root">
-      {/* Desktop Sidebar */}
+      {}
       <aside className="app-sidebar">
-        {/* Brand */}
+        {}
         <div className="sidebar-brand">
           <div className="sidebar-logo">
             <Icon name="car" size={18} color="white" strokeWidth={2} />
@@ -130,7 +127,7 @@ function AppShell() {
           </div>
         </div>
 
-        {/* Nav sections */}
+        {}
         <nav className="sidebar-nav">
           {NAV_SECTIONS.map(section => (
             <div key={section.title} className="sidebar-section">
@@ -154,15 +151,15 @@ function AppShell() {
           ))}
         </nav>
 
-        {/* User at bottom */}
+        {}
         <div className="sidebar-footer">
           <UserMenu />
         </div>
       </aside>
 
-      {/* Body */}
+      {}
       <div className="app-body">
-        {/* Header */}
+        {}
         <header className="app-header">
           <div className="header-brand">
             <div className="header-logo-wrap">
@@ -189,7 +186,7 @@ function AppShell() {
           </div>
         </header>
 
-        {/* Mobile bottom nav */}
+        {}
         <nav className="top-nav">
           {MOBILE_NAV.map(tab => (
             <button
@@ -208,7 +205,7 @@ function AppShell() {
           ))}
         </nav>
 
-        {/* Main content */}
+        {}
         <main className="app-main">
           <div className="screen-wrapper" key={activeScreen}>
             {SCREENS[activeScreen] || <HomeScreen />}
@@ -219,7 +216,6 @@ function AppShell() {
   );
 }
 
-// Root: Auth gate
 function Root() {
   const { currentUser, loading } = useAuth();
 
