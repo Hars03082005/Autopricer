@@ -3,15 +3,39 @@
   "variants": {
     "variant_1": {
       "dataset": "overall_only",
-      "trained_at": "2026-08-06T16:08:32.389068",
+      "trained_at": "2026-08-07T10:36:16.077119",
       "metrics": {
-        "mae": 35811.9,
-        "rmse": 77118.67,
-        "r2": 0.9777,
-        "mape": 6.01
+        "mae": 44383.37,
+        "rmse": 120201.14,
+        "r2": 0.9607,
+        "mape": 7.48
       },
       "artifact_path": "model_registry/variant_1",
       "status": "active"
+    },
+    "variant_2": {
+      "dataset": "overall_plus_s5",
+      "trained_at": "2026-08-07T10:48:57.878379",
+      "metrics": {
+        "mae": 47112.55,
+        "rmse": 132822.35,
+        "r2": 0.9564,
+        "mape": 7.54
+      },
+      "artifact_path": "model_registry/variant_2",
+      "status": "archived"
+    },
+    "variant_3": {
+      "dataset": "s1s4_plus_s5",
+      "trained_at": "2026-08-07T11:01:54.284413",
+      "metrics": {
+        "mae": 46363.38,
+        "rmse": 125445.54,
+        "r2": 0.9581,
+        "mape": 7.58
+      },
+      "artifact_path": "model_registry/variant_3",
+      "status": "archived"
     }
   }
 }

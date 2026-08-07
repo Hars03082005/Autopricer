@@ -5,14 +5,11 @@ import Icon from '../components/Icon.jsx';
 export default function AuthScreen() {
   const { login, signup } = useAuth();
   
-  // Tab control: 'signin' or 'signup'
   const [activeTab, setActiveTab] = useState('signin');
   
-  // Sign In inputs
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   
-  // Sign Up inputs
   const [signUpName, setSignUpName] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
@@ -21,7 +18,6 @@ export default function AuthScreen() {
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
 
-  // Quick fill demo account credentials
   const fillDemo = () => {
     setSignInEmail('dealer@PriceRef.ai');
     setSignInPassword('dealer123');
@@ -56,7 +52,7 @@ export default function AuthScreen() {
     if (!result.ok) {
       setError(result.error || 'Registration failed');
     } else {
-      // Clear sign-up inputs on success (auto-login handled by onAuthStateChange)
+      
       setSignUpName('');
       setSignUpEmail('');
       setSignUpPassword('');
@@ -66,7 +62,7 @@ export default function AuthScreen() {
 
   return (
     <div className="auth-root">
-      {/* Left panel — marketing panel */}
+      {}
       <div className="auth-left">
         <div className="auth-left-brand">
           <div className="auth-left-logo">
@@ -107,11 +103,11 @@ export default function AuthScreen() {
         </div>
       </div>
 
-      {/* Right panel — login/signup form */}
+      {}
       <div className="auth-right">
         <div className="auth-form-wrap">
           
-          {/* Logo header for mobile view */}
+          {}
           <div className="auth-mobile-header">
             <Icon name="car" size={28} color="#f75d34" strokeWidth={2.2} />
             <div className="auth-mobile-title">PriceRef</div>
@@ -126,7 +122,7 @@ export default function AuthScreen() {
               : 'Register your dealership to get started'}
           </div>
 
-          {/* Form Tabs */}
+          {}
           <div className="auth-tabs" style={{ display: 'flex', gap: 4, background: '#f1f5f9', padding: 4, borderRadius: 10, marginBottom: 24 }}>
             <button 
               type="button"
@@ -170,7 +166,7 @@ export default function AuthScreen() {
             </button>
           </div>
 
-          {/* Error Banner */}
+          {}
           {error && (
             <div className="error-banner" style={{ marginBottom: 20 }}>
               <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
@@ -179,7 +175,7 @@ export default function AuthScreen() {
           )}
 
           {activeTab === 'signin' ? (
-            /* SIGN IN FORM */
+            
             <form onSubmit={handleSignIn} className="auth-form">
               <div className="field-group" style={{ marginBottom: 16 }}>
                 <label className="field-label">Email Address</label>
@@ -260,7 +256,7 @@ export default function AuthScreen() {
               </button>
             </form>
           ) : (
-            /* SIGN UP FORM */
+            
             <form onSubmit={handleSignUp} className="auth-form">
               <div className="field-group" style={{ marginBottom: 16 }}>
                 <label className="field-label">FullName / Dealership Name</label>

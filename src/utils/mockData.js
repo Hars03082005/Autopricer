@@ -1,6 +1,4 @@
-// Mock Data – Vehicle Valuation Platform
 
-/** Car images mapped by brand + model key */
 export const CAR_IMAGES = {
   'Honda City':          '/cars/honda_city.png',
   'Honda Amaze':         '/cars/honda_city.png',
@@ -42,7 +40,6 @@ export const CAR_IMAGES = {
   'Kia EV6':             '/cars/kia_seltos.png',
 };
 
-/** VIN Database: pre-loaded registrations for auto-fill demo */
 export const VIN_DATABASE = {
   'VIN-HONDA-2021': {
     brand: 'Honda', model: 'City', year: 2021, fuel: 'Petrol',
@@ -66,7 +63,6 @@ export const VIN_DATABASE = {
   },
 };
 
-/** Available brands and their models */
 export const BRANDS = {
   Honda:   ['City', 'Amaze', 'Jazz', 'WR-V', 'CR-V'],
   Hyundai: ['Creta', 'i20', 'Venue', 'Tucson', 'Alcazar'],
@@ -78,7 +74,6 @@ export const BRANDS = {
   Kia:     ['Seltos', 'Sonet', 'Carnival', 'EV6'],
 };
 
-/** City demand scores and multipliers */
 export const CITY_DEMAND = {
   Mumbai:    { score: 92, multiplier: 1.08 },
   Delhi:     { score: 88, multiplier: 1.05 },
@@ -92,7 +87,6 @@ export const CITY_DEMAND = {
   Surat:     { score: 58, multiplier: 0.85 },
 };
 
-/** Major localities for Bangalore and regional hubs */
 export const LOCALITIES = [
   'Indiranagar',
   'Koramangala',
@@ -125,8 +119,6 @@ export const LOCALITIES = [
   'Sriranga Nagar',
   'Yeshwanthpur',
 ];
-
-/** Comparable market transactions */
 
 export const MODEL_COMPARISON = [
   { model: 'Linear Regression', mae: 98000, rmse: 142000, mape: 14.8, r2: 0.78, speed: 'Fast', selected: false },

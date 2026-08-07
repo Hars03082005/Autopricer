@@ -1,7 +1,8 @@
+import { useState, useCallback } from 'react';
+import { runMLValuationWithVariant } from '../utils/apiValuation.js';
 import { useApp } from '../context/AppContext.jsx';
 import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
-
 
 const fmt = (n) => {
   const v = Number(n || 0);
@@ -29,7 +30,71 @@ const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
   { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
 
+const MAIN_VARIANTS = [
+  { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
+  { id: 'variant_2', label: 'Variant 2', mape: '6.67%', emoji: '🥈' },
+  { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
+];
 
+function VariantSwitcher({ activeVariant, onSwitch, switching }) {
+  return (
+    <div style={{
+      background: 'var(--surface-1)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '14px 18px',
+      marginBottom: 12,
+    }}>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
+          ML MODEL ENGINE
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {MAIN_VARIANTS.map(v => {
+            const active = activeVariant === v.id;
+            return (
+              <button
+                key={v.id}
+                onClick={() => onSwitch(v.id)}
+                disabled={switching}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 8,
+                  border: active ? '2px solid #2563eb' : '1.5px solid var(--border)',
+                  background: active ? '#eff6ff' : 'var(--surface-2)',
+                  color: active ? '#1d4ed8' : 'var(--text-2)',
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 13,
+                  cursor: switching ? 'not-allowed' : 'pointer',
+                  opacity: switching ? 0.6 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span>{v.emoji}</span>
+                <span>{v.label}</span>
+                <span style={{ fontSize: 10, color: active ? '#3b82f6' : 'var(--text-3)', fontWeight: 600 }}>
+                  {v.mape}
+                </span>
+                {active && (
+                  <span style={{
+                    fontSize: 9, background: '#2563eb', color: 'white',
+                    borderRadius: 4, padding: '1px 5px', fontWeight: 700,
+                  }}>ACTIVE</span>
+                )}
+              </button>
+            );
+          })}
+          {switching && (
+            <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center', marginLeft: 4 }}>
+              Switching…
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LoadingState() {
   return (
@@ -47,7 +112,6 @@ function LoadingState() {
   );
 }
 
-
 function EmptyState({ setActiveScreen }) {
   return (
     <div className="rs2-empty">
@@ -62,7 +126,6 @@ function EmptyState({ setActiveScreen }) {
     </div>
   );
 }
-
 
 function CarImage() {
   return (
@@ -84,7 +147,6 @@ function CarImage() {
     </div>
   );
 }
-
 
 function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
   return (
@@ -112,7 +174,6 @@ function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
   );
 }
 
-/* ─── Negotiation Strategy ──────────────────────────────────── */
 function NegotiationSection({ opening, ideal, walkAway }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -163,10 +224,8 @@ function NegotiationSection({ opening, ideal, walkAway }) {
   );
 }
 
-/* ─── Similar Cars Section ──────────────────────────────────── */
 function SimilarCarsSection({ cars, predictedPrice }) {
-  // Only display cars that came from the real dataset (source === 'dataset').
-  // Never fall back to the local evaluations history or fabricate entries.
+  
   const rows = (cars || []).filter(c => c && (c.source === 'dataset' || c.market_value > 0));
 
   if (rows.length === 0) return null;
@@ -197,7 +256,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
         </div>
       </div>
 
-      {/* Table header */}
+      {}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
@@ -227,7 +286,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
               borderBottom: '1px solid var(--border)',
               alignItems: 'center',
             }}>
-              {/* Vehicle */}
+              {}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
                   {car.brand} {car.model}{car.variant && car.variant !== 'Unknown' && car.variant !== 'unknown' ? ` · ${car.variant}` : ''}
@@ -236,19 +295,19 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   {car.year}{car.condition ? ` · ${car.condition}` : ''}{car.segment ? ` · ${car.segment.toUpperCase()}` : ''}
                 </div>
               </div>
-              {/* Fuel / Trans */}
+              {}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.fuel || '—'}{car.transmission ? ` / ${car.transmission}` : ''}
               </div>
-              {/* Odometer */}
+              {}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.odometer > 0 ? `${(car.odometer / 1000).toFixed(0)}k km` : '—'}
               </div>
-              {/* Owners */}
+              {}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.ownerCount ? `${car.ownerCount} owner${car.ownerCount > 1 ? 's' : ''}` : '—'}
               </div>
-              {/* Price + diff */}
+              {}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{fmtFull(car.marketValue)}</div>
                 <span style={{
@@ -256,7 +315,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   color: isPos ? '#16a34a' : '#dc2626',
                 }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
               </div>
-              {/* Similarity badge */}
+              {}
               {car.similarity > 0 ? (
                 <div style={{
                   textAlign: 'center',
@@ -278,11 +337,30 @@ function SimilarCarsSection({ cars, predictedPrice }) {
   );
 }
 
-
-
 export default function ResultScreen() {
   const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
-  const result = valuationResult;
+
+  const [activeVariant, setActiveVariant] = useState('variant_1');
+  const [displayResult, setDisplayResult] = useState(null);
+  const [switching, setSwitching] = useState(false);
+  const [s5Active, setS5Active] = useState(false);
+
+  const result = displayResult || valuationResult;
+
+  const handleVariantSwitch = useCallback(async (variantId) => {
+    if (variantId === activeVariant && !s5Active) return;
+    setSwitching(true);
+    setS5Active(false);
+    try {
+      const switched = await runMLValuationWithVariant(inputs, variantId);
+      setDisplayResult(switched);
+      setActiveVariant(variantId);
+    } catch (e) {
+      console.error('Variant switch failed:', e);
+    } finally {
+      setSwitching(false);
+    }
+  }, [activeVariant, s5Active, inputs]);
 
   if (isLoading) return <LoadingState />;
   if (!result) return <EmptyState setActiveScreen={setActiveScreen} />;
@@ -298,22 +376,16 @@ export default function ResultScreen() {
     maxOffer,
     targetOffer,
     expectedProfit = 0,
-    expectedMarginPct = 0,
     action = 'BUY',
     segmentClass = 'economy',
     similarCars = [],
-    marketRangeCompCount = 0,
-    marketRangeSource = 'mape_fallback',
-    // Adaptive valuation engine enrichment
     valuationConfidence = 'Low',
     marketSupport = 'Weak',
     comparablesUsed = 0,
     averageSimilarity = 0,
     expectedModelError = 6.3,
-    confidenceCase = 'low',
   } = result;
 
-  // Confidence badge colour for the adaptive valuation confidence
   const confColor = {
     'Very High': { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
     'High':      { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
@@ -324,8 +396,7 @@ export default function ResultScreen() {
 
   const ac = getAction(action);
   const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
-  // Sell price: use backend recommendedSellPrice (which is above market_value + recon uplift).
-  // Fallback: predictedPrice * 1.08 only when backend value is missing or illogical.
+  
   const rawSellPrice = Number(recommendedSellPrice || 0);
   const sellPrice = rawSellPrice > buyPrice ? rawSellPrice : Math.round(buyPrice * 1.10 / 500) * 500;
   const profit    = Number(expectedProfit || sellPrice - buyPrice);
@@ -341,7 +412,6 @@ export default function ResultScreen() {
   const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
   const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
 
-  // Dynamic market range sub-label
   const rangeSub = comparablesUsed > 0
     ? `${comparablesUsed} comps · ${averageSimilarity.toFixed(1)}% avg match · ${marketSupport} support`
     : `ML model uncertainty band · ±${expectedModelError.toFixed(1)}% MAPE`;
@@ -351,9 +421,39 @@ export default function ResultScreen() {
   return (
     <div className="rs2-root">
 
-      {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
+      {}
+      <VariantSwitcher
+        activeVariant={activeVariant}
+        onSwitch={handleVariantSwitch}
+        switching={switching}
+      />
+
+      {}
+      {s5Active && (
+        <div style={{
+          background: '#f5f3ff',
+          border: '1.5px solid #c4b5fd',
+          borderRadius: 10,
+          padding: '10px 16px',
+          marginBottom: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 13,
+          fontWeight: 600,
+          color: '#6d28d9',
+        }}>
+          <span style={{ fontSize: 16 }}>✨</span>
+          <span>
+            S5 Quality Shop Model — Pricing from specialized quality dealer dataset (age ≤ 7 yrs).
+            These prices reflect premium quality shop benchmarks and may be higher than the general market.
+          </span>
+        </div>
+      )}
+
+      {}
       <div className="rs2-card rs2-hero-card">
-        {/* Top Row: Info and Decision */}
+        {}
         <div className="rs2-hero-top">
           <div className="rs2-hero-top-left">
             <CarImage />
@@ -409,7 +509,7 @@ export default function ResultScreen() {
           </div>
         </div>
 
-        {/* Bottom Row: Stats grid */}
+        {}
         <div className="rs2-hero-stats-new">
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Market Selling Range</div>
@@ -453,7 +553,7 @@ export default function ResultScreen() {
         </div>
       </div>
 
-      {/* ── MARKET SELLING RANGE ─────────────────────────── */}
+      {}
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
@@ -463,7 +563,7 @@ export default function ResultScreen() {
         confidenceScore={confidenceScore}
       />
 
-      {/* ── RECOMMENDED BUY RANGE ────────────────────────── */}
+      {}
       <PricingBandCard
         title="Recommended Purchase Range"
         icon="coins"
@@ -473,17 +573,16 @@ export default function ResultScreen() {
         confidenceScore={confidenceScore}
       />
 
-      {/* ── NEGOTIATION COLLAPSIBLE ──────────────────────── */}
+      {}
       <NegotiationSection opening={opening} ideal={ideal} walkAway={walkAway} />
 
-      {/* ── SIMILAR CARS ──────────────────────────────────── */}
+      {}
       <SimilarCarsSection
         cars={similarCars}
         predictedPrice={predictedPrice}
       />
 
-
-      {/* ── BOTTOM ACTIONS ───────────────────────────────── */}
+      {}
       <div className="rs2-actions" style={{ justifyContent: 'center', marginTop: '16px' }}>
         <button className="rs2-btn-primary" onClick={() => setActiveScreen('pricing')}>
           <Icon name="coins" size={15} color="white" strokeWidth={2} />
@@ -510,7 +609,6 @@ export default function ResultScreen() {
           </button>
         )}
       </div>
-
 
     </div>
   );

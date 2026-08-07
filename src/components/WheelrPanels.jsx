@@ -2,7 +2,6 @@ import { formatINR } from '../utils/format.js';
 
 export function NegotiationPlaybook({ negotiation, variant = 'enhanced', confidenceScore }) {
   const opening  = variant === 'reverse' ? negotiation?.opening  : negotiation?.opening_offer;
-  const target   = variant === 'reverse' ? negotiation?.target   : negotiation?.target_offer;
   const walkAway = variant === 'reverse' ? negotiation?.walk_away : negotiation?.walk_away_price;
 
   const confScore = confidenceScore ?? null;
@@ -10,7 +9,7 @@ export function NegotiationPlaybook({ negotiation, variant = 'enhanced', confide
 
   return (
     <div className="negotiation-playbook">
-      {/* Section title + confidence badge */}
+      {}
       <div className="neg-playbook-header">
         <div className="cd-section-label" style={{ marginBottom: 0 }}>
           Price Range &amp; Negotiation Guide
@@ -22,12 +21,12 @@ export function NegotiationPlaybook({ negotiation, variant = 'enhanced', confide
         )}
       </div>
 
-      {/* Intro description */}
+      {}
       <div className="neg-playbook-intro">
         Predicted acquisition price range based on ML valuation + rule engine adjustments
       </div>
 
-      {/* Two range cards — no middle value */}
+      {}
       <div className="negotiation-trio" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div className="negotiation-card opening">
           <div className="trio-label">RANGE FLOOR</div>
@@ -41,7 +40,7 @@ export function NegotiationPlaybook({ negotiation, variant = 'enhanced', confide
         </div>
       </div>
 
-      {/* One-line confidence summary (Change 3) */}
+      {}
       {confScore != null && opening != null && walkAway != null && (
         <div className="neg-playbook-summary">
           Model is <strong>{confScore}% confident</strong> the fair buy price falls between{' '}

@@ -1,98 +1,236 @@
+# ==============================================================================
+# AutoQuant — Production-Grade .gitignore
+# Python (FastAPI) + React/Vite + Flutter + ML (CatBoost/LightGBM/XGBoost)
+# ==============================================================================
+
+
+# ── Secrets & Environment Variables ───────────────────────────────────────────
+.env
+.env.*
+!.env.example          # always keep the example template
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+service_account*.json
+gcp_key*.json
+firebase*.json
+*_secret*
+*_private*
+
+
 # ── Node / Frontend ───────────────────────────────────────────────────────────
 node_modules/
-
-# Environment variables (contains secrets — never commit!)
-.env
-.env.local
-.env.*.local
-!.env.example
-
-# Build output (generated; run `npm run build` to reproduce)
 dist/
 dist-ssr/
 build/
+.vite/
 *.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm/
+.yarn/
+
 
 # ── Python / Backend ──────────────────────────────────────────────────────────
 venv/
 .venv/
 env/
 ENV/
+.python-version
 
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
 .Python
+*.egg
 *.egg-info/
 .eggs/
+MANIFEST
 pip-wheel-metadata/
-.pytest_cache/
+site-packages/
+
+# Type checking & linting
 .mypy_cache/
 .ruff_cache/
-htmlcov/
+.pyright/
+
+# Testing
+.pytest_cache/
 .coverage
 .coverage.*
+htmlcov/
+coverage.xml
+*.cover
+nosetests.xml
 
-# ── ML runtime / training cache ───────────────────────────────────────────────
+# Profiling
+*.prof
+
+
+# ── ML Training & Experiment Tracking ─────────────────────────────────────────
+# CatBoost
 catboost_info/
 ml_training/catboost_info/
-mlruns/
-.wandb/
 
-# ── Datasets & data folder (NEVER COMMIT DATASETS) ───────────────────────────
+# Weights & Biases
+.wandb/
+wandb/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Ray Tune
+ray_results/
+
+# Optuna
+optuna.db
+optuna_journal.log
+
+# Training logs (auto-generated — reproduced by rerunning train scripts)
+model_registry/*/training.log
+model_artifacts/training.log
+model_artifacts/training_report.json
+
+
+# ── Datasets (NEVER COMMIT RAW OR PROCESSED DATASETS) ────────────────────────
+# Raw inputs
 *.csv
 *.xlsx
+*.xls
 *.parquet
+*.feather
+*.arrow
+*.h5
+*.hdf5
+*.json.gz
 *.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# Dataset directories
+data/
 ml_training/data/
-
-# ── Model Registry (Keep only Variant 1 active default) ───────────────────────
-model_registry/variant_2/
-model_registry/variant_3/
-model_registry/variant_4/
+raw_data/
+processed_data/
+datasets/
 
 
-# ── Mobile (Flutter) ──────────────────────────────────────────────────────────
-mobile/.dart_tool/
-mobile/.idea/
-mobile/.flutter-plugins-dependencies
-mobile/.metadata
-mobile/build/
-mobile/assets/flutter_assets/
+# ── Model Artifacts (large binary files) ──────────────────────────────────────
+# Legacy model_artifacts/ folder (superseded by model_registry/)
+model_artifacts/
+
+# DO NOT ignore model_registry/ — pre-trained artifacts are committed
+# to allow immediate `git clone && run` without retraining.
+# Individual large-file exceptions if needed:
+# model_registry/variant_*/vehicle_price_xgboost.json  # ~11MB each
+
+
+# ── Temporary / Scratch / One-off Files ───────────────────────────────────────
+ml_training/scratch_diff.txt
+ml_training/find_dropped.py
+analyze_raw.py
+split_dataset.py
+test_*.py
+!test_adaptive.py          # keep the canonical integration test
+!tests/test_coverage_boost.py  # permanent CI coverage tests
+scratch/
+tmp/
+temp/
+
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Exception: keep structured training logs in registry
 
-# ── OS & editor ───────────────────────────────────────────────────────────────
+
+# ── Flutter / Mobile ──────────────────────────────────────────────────────────
+mobile/.dart_tool/
+mobile/.idea/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.metadata
+mobile/.packages
+mobile/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties      # signing keys — NEVER commit
+mobile/android/*.jks               # keystore
+mobile/ios/.symlinks/
+mobile/ios/Pods/
+mobile/ios/Flutter/flutter_export_environment.sh
+mobile/assets/flutter_assets/
+mobile/assets/web/                 # built web bundle (reproduced by npm run build:mobile)
+*.apk
+*.ipa
+*.aab
+
+
+# ── OS Artifacts ──────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 Desktop.ini
-.vscode/*
-!.vscode/extensions.json
+
+
+# ── IDE & Editor ──────────────────────────────────────────────────────────────
 .idea/
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/dictionaries/
+.idea/**/shelf/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
 
-# ── IDE / local tooling ───────────────────────────────────────────────────────
+# VSCode — keep shared settings, ignore personal/workspace state
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+
+# ── AI / Agent Tooling ────────────────────────────────────────────────────────
 .gemini/
 .cursor/
 .agents/
+.copilot/
 
-# ── Jupyter Notebooks & checkpoints ───────────────────────────────────────────
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb
 
-# ── Temp / scratch files ──────────────────────────────────────────────────────
-test_adaptive.py
-scripts/verify_fixes.py
-scripts/query_exact_car.py
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+.dockerignore
+docker-compose.override.yml
+
+
+# ── Cloud / Deployment ────────────────────────────────────────────────────────
+.vercel/
+.netlify/
+.railway/
+__sapper__/
+.svelte-kit/

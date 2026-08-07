@@ -81,7 +81,6 @@ export default function DashboardScreen() {
     const buyCount  = filtered.filter(v=>v.action==='BUY').length;
     const convRate  = count ? Math.round((buyCount/count)*100) : 0;
 
-    // 1. Most Profitable Brand
     const brandProfitMap = {};
     filtered.forEach(v => {
       if (!v.brand || v.brand === 'Unknown') return;
@@ -96,7 +95,6 @@ export default function DashboardScreen() {
       }
     });
 
-    // 2. Fastest Selling Segment
     const segmentLiquidityMap = {};
     const segmentCountMap = {};
     filtered.forEach(v => {
@@ -115,16 +113,12 @@ export default function DashboardScreen() {
       }
     });
 
-    // 3. High Risk Vehicles Count
     const highRiskCount = filtered.filter(v => Number(v.riskScore || 0) > 60).length;
 
-    // 4. Average Confidence
     const avgConfidence = count ? Math.round(filtered.reduce((s,v) => s + Number(v.confidenceScore||0), 0) / count) : 0;
 
-    // 5. Monthly Pipeline (sum of active buyPrices)
     const monthlyPipeline = filtered.reduce((s,v) => s + Number(v.buyPrice||0), 0);
 
-    // Brand performance
     const brandMap = {};
     filtered.forEach(v => {
       if (!v.brand) return;
@@ -138,7 +132,6 @@ export default function DashboardScreen() {
       .sort((a,b) => b.avgVal-a.avgVal)
       .slice(0,10);
 
-    // City profitability
     const cityMap = {};
     filtered.forEach(v => {
       if (!v.city) return;
@@ -148,17 +141,14 @@ export default function DashboardScreen() {
     });
     const cityProf = Object.values(cityMap).map(c => ({...c, avgProfit:Math.round(c.profit/c.count)})).sort((a,b)=>b.avgProfit-a.avgProfit).slice(0,8);
 
-    // Action distribution
     const actionDist = ['BUY','NEGOTIATE','REJECT','MANUAL REVIEW'].map(a => ({
       action: a.replace(' REVIEW',''), count: filtered.filter(v=>v.action===a).length,
     })).filter(a=>a.count>0);
 
-    // Scatter: mileage vs price
     const scatter = filtered
       .filter(v => v.marketValue>0 && v.kmDriven>0)
       .map(v => ({ x:Math.round(Number(v.kmDriven||0)/1000), y:Math.round(Number(v.marketValue||0)/100000*10)/10, action:v.action }));
 
-    // Profit histogram
     const profitBuckets = [
       { range:'<₹0',     min:-Infinity, max:0         },
       { range:'₹0-25K',  min:0,         max:25000     },
@@ -250,7 +240,7 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="analytics-filters">
         <select className="filter-select" value={dashFilters.brand} onChange={e => upd('brand',e.target.value)}>
           {brands.map(b => <option key={b}>{b}</option>)}
@@ -263,7 +253,7 @@ export default function DashboardScreen() {
         </select>
       </div>
 
-      {/* KPIs */}
+      {}
       <div className="kpi-grid">
         <div className="kpi-tile">
           <div className="kpi-tile-header">
@@ -347,7 +337,7 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      {/* Pipeline Summary Bar */}
+      {}
       <div className="cd-card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px' }}>
         <div>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Active Acquisition Pipeline</div>
@@ -358,7 +348,7 @@ export default function DashboardScreen() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {}
       <div className="analytics-tabs">
         {TABS.map(t => (
           <button
@@ -371,10 +361,10 @@ export default function DashboardScreen() {
         ))}
       </div>
 
-      {/* Tab content */}
+      {}
       {activeTab === 'Overview' && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))', gap:16 }}>
-          {/* Action distribution */}
+          {}
           <div className="chart-card">
             <div className="chart-card-title">Decision Distribution</div>
             <div className="chart-card-sub">BUY / NEGOTIATE / REJECT breakdown</div>
@@ -393,7 +383,7 @@ export default function DashboardScreen() {
             </ResponsiveContainer>
           </div>
 
-          {/* Profit histogram */}
+          {}
           <div className="chart-card">
             <div className="chart-card-title">Profit Distribution</div>
             <div className="chart-card-sub">Number of deals by profit range</div>
@@ -408,7 +398,7 @@ export default function DashboardScreen() {
             </ResponsiveContainer>
           </div>
 
-          {/* Mileage vs Price scatter */}
+          {}
           {metrics.scatter.length > 1 && (
             <div className="chart-card">
               <div className="chart-card-title">Odometer vs Market Value</div>

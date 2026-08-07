@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1.7
+# ─────────────────────────────────────────────────────────────────────────────
+# PriceRef web UI — Vite/React build served by nginx, which also reverse-proxies
+# the API so browser traffic stays single-origin.
+#
+# Build from the REPOSITORY ROOT:
+#   docker build -f Dockerfile.frontend -t priceref-frontend .
+#
+# The image is environment-agnostic: API and Supabase URLs are injected at
+# container start (docker/frontend-entrypoint.sh), not baked in at build time.
+# That is what allows the exact artifact that passed staging to be promoted.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ══ Stage 1: build the bundle ════════════════════════════════════════════════
+FROM node:22-alpine AS builder
+
+WORKDIR /build
+
+# Dependency layer first so it survives source-only changes.
+# `npm ci` (not `npm install`) so the build is bound to package-lock.json and
+# cannot silently resolve a different tree than what was tested.
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY index.html vite.config.js eslint.config.js ./
+COPY public/ ./public/
+COPY src/ ./src/
+
+# APP_RELEASE (git SHA) is the one value baked in on purpose: it identifies the
+# artifact, so it cannot come from runtime config without being a lie.
+ARG APP_RELEASE=unknown
+ENV VITE_APP_RELEASE=$APP_RELEASE
+
+RUN npm run build \
+ && test -f dist/index.html \
+ && test -f dist/config.js   # public/config.js must reach dist; the entrypoint overwrites it
+
+
+# ══ Stage 2: runtime ═════════════════════════════════════════════════════════
+# nginx-unprivileged rather than nginx: runs as uid 101 with no root process at
+# all, where the standard image starts its master as root.
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+
+USER root
+
+# The stock image ships a default server on :80 that would shadow ours.
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY docker/nginx.conf.template    /etc/nginx/nginx.conf.template
+COPY docker/frontend-entrypoint.sh /frontend-entrypoint.sh
+COPY --from=builder /build/dist    /usr/share/nginx/html
+
+# uid 101 (nginx) must be able to rewrite config.js and the rendered vhost at
+# every boot; everything else stays read-only to it.
+RUN chmod +x /frontend-entrypoint.sh \
+ && chown 101:101 /usr/share/nginx/html/config.js /etc/nginx/conf.d \
+ && chmod 0644 /usr/share/nginx/html/config.js
+
+USER 101
+
+EXPOSE 8080
+
+# Static file serving has no warm-up, so a short start period is fine here —
+# unlike the backend, which needs ~2 minutes to load its models.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["/bin/sh", "-c", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null 2>&1 || exit 1"]
+
+ENTRYPOINT ["/frontend-entrypoint.sh"]

@@ -50,8 +50,6 @@ const ELECTRICAL_COSTS = {
   multi_fault: { inhouse: 8000, vendor: 15000 },
 };
 
-const FIXED_COST = 8000; // default fallback (rc 3500 + detailing 2500 + ops 2000)
-
 export const GRADE_OPTIONS = {
   engine: [
     { value: 'good', label: 'Good', inhouse: 0, vendor: 0 },
@@ -94,7 +92,7 @@ export function getReconCost(grades, vendorType = DEFAULT_VENDOR_TYPE, rcCost = 
   const interiorCost = categoryCost(INTERIOR_COSTS, grades.interior, vendorType.interior);
   const electricalCost = categoryCost(ELECTRICAL_COSTS, grades.electrical, vendorType.electrical);
   const rcTransferCost = Math.max(0, Number(rcCost) || 3500);
-  const fixedCost = rcTransferCost + 2500 + 2000; // rc + detailing + ops
+  const fixedCost = rcTransferCost + 2500 + 2000; 
   const total = engineCost + tyreCost + bodyCost + interiorCost + electricalCost + fixedCost;
 
   return {

@@ -1,8 +1,4 @@
-"""
-ml_training/registry_helper.py
-Shared utility used by all train-*.py scripts.
-Saves artifacts to model_registry/variant_N/ and updates registry.json.
-"""
+"""Shared utility used by all train-*.py scripts to save artifacts to model_registry."""
 from __future__ import annotations
 
 import json
@@ -17,7 +13,7 @@ REGISTRY_DIR = ROOT / "model_registry"
 def _read_registry() -> dict:
     f = REGISTRY_DIR / "registry.json"
     if f.exists():
-        with open(f, "r", encoding="utf-8") as fh:
+        with open(f, encoding="utf-8") as fh:
             return json.load(fh)
     return {"default": None, "variants": {}}
 
@@ -96,7 +92,6 @@ def register_variant(
         "status":        "candidate",
     }
 
-    # Auto-promote: find overall best variant
     best = _best_variant_id(reg)
     if best:
         for vid in reg["variants"]:

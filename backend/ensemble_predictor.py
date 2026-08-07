@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -10,12 +9,12 @@ from catboost import CatBoostRegressor
 
 try:
     import lightgbm as lgb
-except ImportError:  # pragma: no cover
+except ImportError:
     lgb = None
 
 try:
     import xgboost as xgb
-except ImportError:  # pragma: no cover
+except ImportError:
     xgb = None
 
 
@@ -30,7 +29,7 @@ class EnsemblePredictor:
         ensemble = metadata.get("ensemble", {})
         self.enabled = bool(ensemble.get("enabled", True))
         self.weights = ensemble.get("weights", metadata.get("ensemble_weights", {"catboost": 1.0}))
-        self.category_levels: Dict[str, list[str]] = ensemble.get("category_levels", {})
+        self.category_levels: dict[str, list[str]] = ensemble.get("category_levels", {})
 
         catboost_path = artifact_dir / "vehicle_price_catboost.cbm"
         self.catboost = CatBoostRegressor()
@@ -56,9 +55,7 @@ class EnsemblePredictor:
                 self.xgboost.load_model(str(xgb_path))
 
     def _prepare_frame(self, features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        # Use the model's own feature list as source of truth — avoids stale metadata mismatch
         catboost_cols = self.catboost.feature_names_
-        # Start from the full incoming DataFrame so all derived features are available
         frame = features.copy()
 
         catboost_frame = frame.copy()
@@ -69,7 +66,6 @@ class EnsemblePredictor:
 
         for col in self.cat_features:
             if col not in frame.columns:
-                # Add missing categorical columns with default "unknown"
                 catboost_frame[col] = "unknown"
                 lgb_frame[col] = pd.Categorical(["unknown"], categories=self.category_levels.get(col, ["unknown"])) if has_lgb_cats else 0
                 xgb_frame[col] = 0
@@ -98,12 +94,10 @@ class EnsemblePredictor:
                     lgb_frame[col] = 0
                 xgb_frame[col] = 0
 
-        # Add any columns the CatBoost model expects but are missing (fill with 0 / "unknown")
         for col in catboost_cols:
             if col not in catboost_frame.columns:
                 catboost_frame[col] = "unknown" if col in self.cat_features else 0.0
 
-        # Reindex to exact model column order
         catboost_frame = catboost_frame[catboost_cols]
 
         if self.lightgbm is not None:
@@ -142,15 +136,7 @@ class EnsemblePredictor:
         return float(blended)
 
     def predict_with_variance(self, features: pd.DataFrame) -> dict:
-        """
-        Returns individual model log-price predictions plus the blended result and
-        ensemble variance (std of contributing predictions).
-
-        XGBoost is evaluated even when its ensemble weight is 0, since its
-        prediction diversity provides a useful confidence signal.
-        """
-        import numpy as _np
-
+        """Returns model log-price predictions, blended result, and ensemble variance."""
         catboost_frame, lgb_frame, xgb_frame = self._prepare_frame(features)
         cb_log  = float(self.catboost.predict(catboost_frame)[0])
         lgb_log = None
@@ -164,7 +150,6 @@ class EnsemblePredictor:
             except Exception:
                 xgb_log = None
 
-        # Blended prediction (same logic as predict_log_price)
         if not self.enabled:
             blended = cb_log
         else:
@@ -175,9 +160,8 @@ class EnsemblePredictor:
             if xgb_log is not None and weights.get("xgboost", 0.0) > 0:
                 blended += weights["xgboost"] * xgb_log
 
-        # Variance: std of all available individual predictions (diversity signal)
         preds = [p for p in [cb_log, lgb_log, xgb_log] if p is not None]
-        variance = float(_np.std(preds)) if len(preds) > 1 else 0.0
+        variance = float(np.std(preds)) if len(preds) > 1 else 0.0
 
         return {
             "log_price":     float(blended),
@@ -189,8 +173,8 @@ class EnsemblePredictor:
 
 
     @classmethod
-    def from_artifact_dir(cls, artifact_dir: Path) -> "EnsemblePredictor":
+    def from_artifact_dir(cls, artifact_dir: Path) -> EnsemblePredictor:
         metadata_path = artifact_dir / "model_metadata.json"
-        with open(metadata_path, "r", encoding="utf-8") as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
         return cls(artifact_dir, metadata)

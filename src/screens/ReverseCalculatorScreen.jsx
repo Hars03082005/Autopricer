@@ -99,13 +99,13 @@ export default function ReverseCalculatorScreen() {
         </div>
       )}
 
-      {/* Main 2-column workspace */}
+      {}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, alignItems: 'start' }}>
         
-        {/* Left Column: Input Form parameters */}
+        {}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           
-          {/* Expected Sell Price Card */}
+          {}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Expected Listing Price</div>
             <div style={{ position: 'relative' }}>
@@ -124,7 +124,7 @@ export default function ReverseCalculatorScreen() {
             </div>
           </div>
 
-          {/* Target Margin Input */}
+          {}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Target Margin %</div>
             <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -146,7 +146,7 @@ export default function ReverseCalculatorScreen() {
             </div>
           </div>
 
-          {/* Condition Grades */}
+          {}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 12 }}>Condition Grades</div>
             <ConditionGradesSection
@@ -162,7 +162,7 @@ export default function ReverseCalculatorScreen() {
             </div>
           </div>
 
-          {/* Risk Factors */}
+          {}
           <div className="card">
             <div className="label-xs" style={{ marginBottom: 16 }}>Risk Adjustments</div>
             
@@ -240,10 +240,10 @@ export default function ReverseCalculatorScreen() {
           </button>
         </div>
 
-        {/* Right Column: Results & Playbook */}
+        {}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           
-          {/* Seasonal context banner */}
+          {}
           <div className="card" style={{ background: 'var(--info-light)', borderLeft: '3px solid var(--info)' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon name="calendar" size={16} color="var(--info)" strokeWidth={2.2} />
@@ -258,7 +258,7 @@ export default function ReverseCalculatorScreen() {
             </div>
           </div>
 
-          {/* Pre-screening failure */}
+          {}
           {reverseResult?.disqualifier?.disqualified && (
             <div className="card card-danger" style={{ borderLeft: '3px solid' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -281,7 +281,7 @@ export default function ReverseCalculatorScreen() {
                 <DealHealthBanner dealHealth={reverseResult.dealHealth} meta={DEAL_HEALTH_META} />
               )}
 
-              {/* Price Waterfall */}
+              {}
               <div className="card">
                 <div className="label-xs" style={{ marginBottom: 12 }}>Cost Deductions Waterfall</div>
                 
@@ -323,7 +323,7 @@ export default function ReverseCalculatorScreen() {
                 </div>
               </div>
 
-              {/* Negotiation Playbook */}
+              {}
               <div className="card" style={{ padding: '20px' }}>
                 <NegotiationPlaybook negotiation={reverseResult.negotiation} variant="reverse" />
               </div>

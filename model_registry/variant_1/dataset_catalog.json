@@ -6,7 +6,6 @@
     ],
     "a4": [
       "177BHP PREMIUM PLUS",
-      "PREMIUM",
       "PREMIUM PLUS TFSI",
       "TECHNOLOGY TFSI",
       "TFSI",
@@ -44,8 +43,10 @@
       "320D",
       "320D GT LUXURY LINE",
       "320D LUXURY LINE",
-      "320D SPORTLINE",
-      "325I"
+      "320D SPORTLINE"
+    ],
+    "3 series gt": [
+      "330I M SPORT"
     ],
     "5 series": [
       "520D",
@@ -71,8 +72,7 @@
   },
   "chevrolet": {
     "aveo": [
-      "LS",
-      "LT"
+      "LS"
     ],
     "aveo u va": [
       "LS"
@@ -80,7 +80,6 @@
     "beat": [
       "LS",
       "LT",
-      "LT OPT",
       "PS"
     ],
     "captiva": [
@@ -100,7 +99,6 @@
       "LS ABS"
     ],
     "sail uva": [
-      "BASE",
       "LS ABS",
       "LT ABS"
     ],
@@ -131,7 +129,7 @@
     ],
     "redi go": [
       "A",
-      "GOLD LIMITED EDITION",
+      "GOLD",
       "S",
       "T O"
     ],
@@ -175,19 +173,14 @@
       "S",
       "TITANIUM",
       "TITANIUM ECOBOOST",
-      "TITANIUM ECOBOOST OPT",
       "TITANIUM ECOBOOST SPORTS SUNROOF",
-      "TITANIUM OPT",
-      "TITANIUM SIGNATURE EDITION SUNROOF",
       "TITANIUM SPORTS SUNROOF",
       "TITANIUM THUNDER EDTION",
       "TITANIUM TI VCT",
       "TREND",
       "TREND TI VCT"
     ],
-    "endeavour": [
-      "TREND"
-    ],
+    "endeavour": [],
     "fiesta": [
       "EXI",
       "STYLE",
@@ -223,19 +216,17 @@
       "TITANIUM PLUS",
       "TITANIUM PLUS TI VCT",
       "TITANIUM TI VCT",
-      "TITANIUM TI VCT OPT",
       "TITANIUM1",
-      "TREND",
-      "TREND TI VCT"
+      "TREND"
     ],
     "freestyle": [
       "FLAIR EDITION",
+      "FLAIR EDITION TI VCT",
       "TITANIUM",
       "TITANIUM PLUS",
       "TITANIUM PLUS TI VCT",
       "TITANIUM TI VCT",
-      "TREND PLUS",
-      "TRENDLINE"
+      "TREND PLUS"
     ],
     "fusion": [],
     "ikon": [
@@ -244,46 +235,25 @@
     "new figo": [
       "TITANIUM",
       "TITANIUM BLU",
-      "TITANIUM PLUS",
       "TITANIUM1",
       "TREND"
     ]
   },
   "honda": {
-    "accord": [
-      "I VTEC"
-    ],
+    "accord": [],
     "amaze": [
-      "2ND GENERATION VX",
-      "EX I VTEC",
-      "I DTEC E",
-      "I DTEC EX",
-      "I DTEC S",
-      "I DTEC SX",
-      "I DTEC V",
-      "I DTEC VX",
-      "I VTEC E",
-      "I VTEC EX",
-      "I VTEC S",
-      "I VTEC SX",
-      "I VTEC V",
-      "I VTEC VX",
+      "E",
+      "EX",
       "S",
-      "S I DTEC",
-      "S I VTEC",
-      "S I VTEC OPT",
-      "SX I VTEC",
+      "SX",
       "V",
       "VX",
-      "VX I DTEC",
-      "VX I VTEC",
-      "VX O I DTEC",
+      "VX O",
       "ZX"
     ],
     "br-v": [
-      "I VTEC S",
-      "I VTEC V",
-      "I VTEC VX",
+      "I DTEC V",
+      "S",
       "V",
       "VX"
     ],
@@ -296,59 +266,34 @@
       "VX"
     ],
     "city": [
+      "E",
       "EXI",
       "GXI",
-      "I DTEC SV",
-      "I DTEC V",
-      "I DTEC VX",
-      "I DTEC ZX",
       "I VTE V",
-      "I VTEC CORPORATE",
-      "I VTEC E",
-      "I VTEC S",
-      "I VTEC SV",
-      "I VTEC V",
-      "I VTEC V 4TH GEN",
-      "I VTEC V 5TH GEN",
-      "I VTEC VX",
-      "I VTEC VX O",
-      "I VTEC ZX",
       "S",
       "SV",
       "V",
+      "V 4TH GEN",
+      "V 5TH GEN",
       "V SUNROOF",
+      "VTEC PLUS",
       "VX",
       "VX O",
       "ZX"
     ],
-    "city zx": [
-      "GXI",
-      "VTEC PLUS"
-    ],
     "civic": [
-      "I VTEC S",
-      "I VTEC V",
-      "I VTEC V SUNROOF",
-      "I VTEC VX",
-      "I VTEC ZX",
+      "S",
+      "V",
+      "V SUNROOF",
+      "VX",
       "ZX"
     ],
     "crv": [],
     "elevate": [
-      "ZX",
-      "ZX DUAL TONE"
+      "ZX"
     ],
     "jazz": [
-      "I DTEC S",
-      "I DTEC SV",
-      "I DTEC VX",
-      "I VTEC BASE",
-      "I VTEC S",
-      "I VTEC SV",
-      "I VTEC V",
-      "I VTEC VX",
-      "I VTEC X",
-      "I VTEC ZX",
+      "BASE",
       "S",
       "SV",
       "V",
@@ -356,97 +301,68 @@
       "ZX"
     ],
     "mobilio": [
-      "I DTEC RS",
-      "I DTEC S",
-      "I DTEC V",
-      "I VTEC V",
+      "RS",
       "S",
       "V"
     ],
     "wr-v": [
-      "I DTEC SV",
-      "I DTEC VX",
-      "I VTEC S",
-      "I VTEC VX",
       "S",
+      "SV",
       "VX"
     ]
   },
   "hyundai": {
     "accent": [
-      "GLE",
-      "VIVA BASE"
+      "EXECUTIVE",
+      "GLE"
     ],
     "alcazar": [
-      "EXECUTIVE TURBO",
+      "EXECUTIVE",
       "PLATINUM",
       "PLATINUM O",
       "PLATINUM O 6STR",
+      "PLATINUM O 7STR",
       "PLATINUM O SEATER",
-      "PLATINUM TURBO",
       "PRESTIGE EXE 6S",
       "PRESTIGE O",
       "PRESTIGE O 6STR",
       "SIGNATURE O",
-      "SIGNATURE O 6STR",
-      "SIGNATURE O SEATER"
+      "SIGNATURE O 6STR"
     ],
     "aura": [
       "S",
       "SX",
       "SX (O)",
-      "SX PLUS",
-      "SX TURBO"
+      "SX PLUS"
     ],
     "creta": [
       "BASE",
       "E",
       "E PLUS",
       "EX",
+      "KING EDITION",
       "S",
       "S (O)",
       "S (O) KNIGHT EDITION",
       "S PLUS",
       "S PLUS KNIGHT",
-      "S PLUS TURBO",
       "SX",
       "SX (O)",
       "SX (O) EXECUTIVE",
       "SX (O) KNIGHT",
-      "SX (O) TURBO",
-      "SX (O) TURBO DUAL TONE",
-      "SX DUAL TONE",
       "SX EXECUTIVE",
-      "SX OPT TURBO",
-      "SX PLUS",
-      "SX PLUS SPECIAL EDITION",
-      "TURBO SX (O)"
+      "SX PLUS"
     ],
     "creta n-line": [
-      "N10 TURBO"
+      "N10"
     ],
     "elantra": [
       "SX (O)"
-    ],
-    "elite i20": [
-      "ASTA",
-      "ASTA DUAL TONE",
-      "ASTA O",
-      "ASTA O OUTSIDE FITTED",
-      "ERA",
-      "MAGNA",
-      "MAGNA EXECUTIVE",
-      "MAGNA PLUS",
-      "SPORTZ",
-      "SPORTZ O",
-      "SPORTZ PLUS",
-      "SPORTZ PLUS DUAL TONE"
     ],
     "eon": [
       "D LITE",
       "ERA",
       "ERA PLUS O",
-      "ERA SE",
       "KAPPA MAGNA",
       "MAGNA",
       "MAGNA AIRBAG",
@@ -454,11 +370,10 @@
       "SPORTZ"
     ],
     "exter": [
+      "S",
       "SX",
       "SX (O)",
       "SX (O) CONNECT",
-      "SX (O) CONNECT DUAL TONE",
-      "SX DUAL TONE",
       "SX KNIGHT EDITION",
       "SX TECH HY DUO"
     ],
@@ -467,10 +382,6 @@
     ],
     "getz": [
       "GLE"
-    ],
-    "getz prime": [
-      "GLS",
-      "GVS"
     ],
     "grand i10": [
       "ASTA",
@@ -484,7 +395,6 @@
       "MAGNA U2",
       "SPORTZ",
       "SPORTZ KAPPA",
-      "SPORTZ KAPPA DUAL TONE",
       "SPORTZ O KAPPA"
     ],
     "grand i10 nios": [
@@ -493,21 +403,15 @@
       "MAGNA CORPORATE EDITION KAPPA",
       "MAGNA KAPPA",
       "SPORTZ",
-      "SPORTZ KAPPA",
-      "SPORTZ KAPPA DUAL TONE",
-      "SPORTZ O KAPPA",
-      "SPORTZ TURBO",
-      "SPORTZ U2"
+      "SPORTZ KAPPA"
     ],
     "i10": [
       "ASTA",
       "ASTA KAPPA2",
-      "ASTA KAPPA2 WITH SUNROOF",
       "ASTA SUNROOF",
-      "D LITE",
       "ERA",
       "ERA IRDE2",
-      "L KAPPA MAGNA SPECIAL EDITION",
+      "KAPPA MAGNA",
       "MAGNA",
       "MAGNA IRDE2",
       "MAGNA KAPPA2",
@@ -517,15 +421,18 @@
     ],
     "i20": [
       "ASTA",
+      "ASTA IMT",
       "ASTA O",
-      "ASTA O TURBO",
-      "ASTA TURBO IMT",
+      "ASTA O OUTSIDE FITTED",
       "ERA",
       "MAGNA",
+      "MAGNA EXECUTIVE",
       "MAGNA O",
+      "MAGNA PLUS",
       "SPORTZ",
       "SPORTZ BS IV",
-      "SPORTZ O"
+      "SPORTZ O",
+      "SPORTZ PLUS"
     ],
     "i20 active": [
       "BASE",
@@ -533,8 +440,8 @@
       "SX"
     ],
     "i20 n line": [
-      "N8 TURBO",
-      "N8 TURBO DUAL TONE"
+      "N6",
+      "N8"
     ],
     "ioniq": [],
     "new elantra": [
@@ -542,27 +449,14 @@
       "SX",
       "SX (O)"
     ],
-    "new i20": [
-      "ASTA",
-      "ASTA O",
-      "ASTA O DUAL TONE",
-      "ASTA O TURBO",
-      "ASTA O TURBO DUAL TONE",
-      "ASTA TURBO",
-      "ASTA TURBO IMT",
-      "SPORTZ",
-      "SPORTZ O",
-      "SPORTZ TURBO IMT DUAL TONE"
-    ],
     "new i20 n line": [
-      "N6 TURBO",
-      "N6 TURBO IMT",
-      "N8 TURBO",
-      "N8 TURBO IMT"
+      "N6",
+      "N6 IMT",
+      "N8",
+      "N8 IMT"
     ],
     "new santro": [
       "ASTA",
-      "ERA EXECUTIVE",
       "MAGNA",
       "SPORTZ",
       "SPORTZ EXECUTIVE"
@@ -575,8 +469,6 @@
       "SPORTZ"
     ],
     "santro xing": [
-      "GL",
-      "GL PLUS",
       "GLS",
       "XG",
       "XL",
@@ -591,55 +483,41 @@
       "SIGNATURE"
     ],
     "venue": [
-      "E",
       "S",
       "S (O)",
+      "S (O) IMT",
       "S (O) PLUS",
-      "S (O) TURBO",
-      "S (O) TURBO IMT",
       "S PLUS",
-      "S TURBO",
       "SX",
       "SX (O)",
       "SX (O) EXECUTIVE",
-      "SX (O) TURBO",
-      "SX (O) TURBO DUAL TONE",
-      "SX (O) TURBO IMT",
-      "SX (O) TURBO KNIGHT EDITION",
-      "SX PLUS TURBO",
-      "SX PLUS TURBO DUAL TONE",
-      "SX TURBO",
-      "SX TURBO DUAL TONE",
-      "SX TURBO IMT",
-      "TURBO"
+      "SX (O) IMT",
+      "SX (O) KNIGHT EDITION",
+      "SX IMT",
+      "SX PLUS"
     ],
     "venue n line": [
-      "N8 TURBO"
+      "N6",
+      "N8"
     ],
     "venue n-line": [
-      "N8 DUAL TONE"
+      "N8"
     ],
     "verna": [
       "EX",
       "FLUIDIC",
-      "FLUIDIC 4S",
       "FLUIDIC 4S S",
       "FLUIDIC 4S S (O)",
-      "FLUIDIC 4S SX",
       "FLUIDIC 4S1 S (O)",
       "FLUIDIC CX",
       "FLUIDIC EX",
       "FLUIDIC S (O) 4S",
-      "FLUIDIC S 4S",
       "FLUIDIC SX",
       "FLUIDIC SX 4S",
-      "FLUIDIC SX OPT",
       "S",
-      "S (O) TURBO",
+      "S (O)",
       "SX",
       "SX (O)",
-      "SX (O) TURBO",
-      "SX (O) TURBO DUAL TONE",
       "SX PLUS",
       "TRANSFORM",
       "XI"
@@ -655,11 +533,12 @@
   "jaguar": {
     "xf": [
       "LUXURY"
-    ]
+    ],
+    "xj l": []
   },
   "jeep": {
     "compass": [
-      "5TH ANNIVERSARY EDITION",
+      "5TH",
       "ANNIVERSARY",
       "LIMITED",
       "LIMITED O",
@@ -676,85 +555,62 @@
     "carens": [
       "GRAVITY",
       "LUXURY",
-      "LUXURY O TURBO",
+      "LUXURY IMT",
       "LUXURY PLUS",
       "LUXURY PLUS IMT",
-      "LUXURY PLUS TURBO",
-      "LUXURY TURBO IMT",
       "PREMIUM",
-      "PREMIUM IMT",
       "PREMIUM O",
       "PRESTIGE",
+      "PRESTIGE IMT",
       "PRESTIGE O",
       "PRESTIGE PLUS",
-      "PRESTIGE PLUS IMT",
-      "PRESTIGE PLUS TURBO",
-      "PRESTIGE TURBO IMT"
+      "PRESTIGE PLUS IMT"
     ],
     "carens clavis": [
-      "HTK PLUS TURBO",
-      "HTX PLUS TURBO 6STR"
+      "HTK PLUS",
+      "HTX PLUS 6STR",
+      "HTX PLUS 7STR"
     ],
     "seltos": [
       "GTK",
       "GTX",
       "GTX O",
       "GTX PLUS",
-      "GTX PLUS DUAL TONE",
-      "GTX PLUS TURBO",
       "HTE",
       "HTK",
       "HTK PLUS",
       "HTK PLUS IMT",
       "HTX",
-      "HTX ANNIVERSARY EDITION",
       "HTX G",
       "HTX IMT",
       "HTX PLUS",
       "HTX PLUS AT1",
       "HTX PLUS IMT",
-      "HTX PLUS IMT DUAL TONE",
-      "HTX PLUS TURBO IMT",
       "X LINE"
     ],
     "sonet": [
       "GRAVITY",
       "GTX PLUS",
-      "GTX PLUS DUAL TONE",
       "GTX PLUS IMT",
-      "GTX PLUS TURBO",
       "HTE",
-      "HTE O",
-      "HTK",
       "HTK IMT",
       "HTK O",
       "HTK PLUS",
       "HTK PLUS IMT",
-      "HTK PLUS TURBO IMT",
       "HTX",
-      "HTX ANNIVERSARY EDITION",
-      "HTX ANNIVERSARY EDITION IMT",
       "HTX IMT",
       "HTX PLUS",
       "HTX PLUS IMT",
-      "HTX PLUS TURBO IMT",
-      "HTX TURBO",
-      "HTX TURBO IMT",
       "X LINE"
     ],
     "syros": [
-      "HTK PLUS TURBO 7DCT",
+      "HTK PLUS 7DCT",
       "HTX",
       "HTX PLUS O",
-      "HTX PLUS O TURBO 7DCT",
-      "HTX TURBO",
-      "HTX TURBO 7DCT"
+      "HTX PLUS O 7DCT"
     ]
   },
   "land rover": {
-    "discovery 4": [
-      "SDV6 SE"
-    ],
     "discovery sport": [
       "HSE SEATER"
     ],
@@ -779,8 +635,7 @@
       "B4",
       "B6",
       "B6 O",
-      "CAMPER GOLD ZX",
-      "ZLX BS IV"
+      "CAMPER GOLD ZX"
     ],
     "bolero neo": [
       "N",
@@ -804,6 +659,7 @@
       "4*2"
     ],
     "kuv 100 nxt": [
+      "K4 D",
       "K4 P",
       "K6 P",
       "K8 D",
@@ -819,13 +675,10 @@
       "K8"
     ],
     "kuv100 nxt": [
+      "K2",
       "K4 PLUS",
       "K8",
-      "K8 D",
-      "K8 D DUAL TONE"
-    ],
-    "logan": [
-      "GLE"
+      "K8 D"
     ],
     "marazzo": [
       "M",
@@ -843,30 +696,26 @@
       "C8"
     ],
     "scorpio": [
-      "CRDE",
       "DX",
       "S11",
       "S3 PLUS",
-      "S4 PLUS",
       "S5",
       "SLE",
-      "SLE CRDE",
-      "SLX CRDE",
-      "TURBO",
+      "SLX",
       "VLX AIRBAG BS III"
-    ],
-    "scorpio classic": [
-      "S 9STR"
     ],
     "scorpio n": [
       "Z8",
       "Z8 L"
     ],
     "scorpio-n": [
-      "Z6",
-      "Z8"
+      "Z2",
+      "Z4",
+      "Z6"
     ],
     "thar": [
+      "AX5 L",
+      "AX7 L",
       "LX D CONVERTIBLE",
       "LX D HT",
       "LX HARD TOP",
@@ -875,16 +724,11 @@
       "LX P CONVERTIBLE",
       "LX P HT"
     ],
-    "thar roxx": [
-      "AX5 L",
-      "AX7 L"
-    ],
     "tuv300": [
       "T10",
       "T6",
       "T6 PLUS",
-      "T8",
-      "T8 DUAL TONE"
+      "T8"
     ],
     "verito": [
       "D4 BS III"
@@ -893,22 +737,18 @@
       "W8",
       "W8 O"
     ],
-    "xuv 3xo": [
-      "AX5 L TCMPFI",
-      "AX5 TURBO",
+    "xuv300": [
+      "AX5 TCMPFI",
       "AX5L",
       "AX7",
       "AX7L",
-      "MX3 L TCMPFI",
-      "REVX A"
-    ],
-    "xuv300": [
+      "MX3",
+      "MX3 TCMPFI",
       "W4",
       "W6",
       "W6 SUNROOF",
       "W8",
-      "W8 O",
-      "W8 O TURBO"
+      "W8 O"
     ],
     "xuv400": [
       "EL KW"
@@ -929,6 +769,7 @@
       "AX LUXURY D",
       "AX LUXURY P",
       "AX LUXURY PACK",
+      "AX LUXURY PACK D",
       "AX P",
       "AX5",
       "AX5 SELECT",
@@ -938,7 +779,6 @@
       "MX P"
     ],
     "xylo": [
-      "E4",
       "E4 BS III",
       "E6 BS III",
       "E8 ABS",
@@ -962,12 +802,6 @@
       "LXI BS IV",
       "LXI O",
       "STD",
-      "VXI",
-      "VXI+"
-    ],
-    "alto 800": [
-      "LXI",
-      "LXI O",
       "VXI",
       "VXI+"
     ],
@@ -997,13 +831,10 @@
       "LXI",
       "VDI",
       "VXI",
-      "VXI S",
       "ZDI",
       "ZXI",
-      "ZXI DUAL TONE",
       "ZXI S",
-      "ZXI+",
-      "ZXI+ DUAL TONE"
+      "ZXI+"
     ],
     "celerio": [
       "LDI",
@@ -1011,7 +842,6 @@
       "VDI",
       "VXI",
       "VXI O",
-      "ZDI",
       "ZXI",
       "ZXI O",
       "ZXI+",
@@ -1020,8 +850,7 @@
     "celerio x": [
       "VXI O",
       "ZXI",
-      "ZXI O",
-      "ZXI OPT"
+      "ZXI O"
     ],
     "ciaz": [
       "ALPHA",
@@ -1040,9 +869,11 @@
       "LXI",
       "TOUR",
       "TOUR S",
+      "TOUR S (O)",
       "TOUR S STD",
       "VDI",
       "VXI",
+      "VXI O",
       "ZDI",
       "ZDI PLUS",
       "ZXI",
@@ -1078,23 +909,22 @@
       "VXI BS IV"
     ],
     "fronx": [
-      "ALPHA TURBO",
+      "ALPHA",
       "DELTA",
+      "DELTA AGS",
       "DELTA PLUS",
       "DELTA PLUS 2MT",
       "DELTA PLUS AGS",
-      "DELTA PLUS TURBO",
-      "ZETA TURBO"
+      "ZETA"
     ],
     "grand vitara": [
       "ALPHA",
       "ALPHA ALLGRIP",
-      "ALPHA ALLGRIP DUAL TONE",
-      "ALPHA DUAL TONE",
       "ALPHA PLUS ECVT",
       "ALPHA PLUS INTELLIGENT ECVT",
       "DELTA",
       "IE STRONG ALPHA",
+      "IE STRONG ZETA",
       "SIGMA",
       "ZETA",
       "ZETA PLUS INTELLIGENT ECVT"
@@ -1124,13 +954,9 @@
       "VXI",
       "VXI O",
       "ZXI",
-      "ZXI+",
-      "ZXI+ DUAL TONE"
+      "ZXI+"
     ],
     "omni": [
-      "STD"
-    ],
-    "omni e": [
       "STD"
     ],
     "ritz": [
@@ -1140,7 +966,6 @@
       "VDI",
       "VXI",
       "VXI BS IV",
-      "ZDI",
       "ZXI",
       "ZXI BS IV"
     ],
@@ -1151,7 +976,6 @@
       "ZETA"
     ],
     "s presso": [
-      "LXI",
       "LXI O",
       "STD O",
       "VXI",
@@ -1184,20 +1008,10 @@
       "ZDI PLUS",
       "ZXI",
       "ZXI AGS",
-      "ZXI+",
-      "ZXI+ DUAL TONE"
-    ],
-    "swift dzire": [
-      "LXI",
-      "TOUR",
-      "TOUR S (O)",
-      "VDI",
-      "VXI",
-      "VXI O",
-      "ZDI",
-      "ZXI"
+      "ZXI+"
     ],
     "sx4": [
+      "VDI",
       "ZDI",
       "ZXI"
     ],
@@ -1211,14 +1025,14 @@
       "ZDI",
       "ZDI AGS",
       "ZDI PLUS",
-      "ZDI PLUS DUAL TONE",
-      "ZDI PLUS DUAL TONE AGS",
+      "ZDI PLUS AGS",
       "ZXI",
-      "ZXI+",
-      "ZXI+ DUAL TONE"
+      "ZXI+"
     ],
     "wagon r": [
+      "DUO LXI",
       "LXI",
+      "LXI DUO",
       "LXI MINOR",
       "VXI",
       "VXI AGS",
@@ -1226,21 +1040,11 @@
       "VXI O",
       "ZXI",
       "ZXI AGS",
-      "ZXI+ AGS",
-      "ZXI+ AGS DUAL TONE"
-    ],
-    "wagon r 1.0": [
-      "LXI",
-      "VXI",
-      "VXI O",
-      "VXI OPT"
+      "ZXI+",
+      "ZXI+ AGS"
     ],
     "wagon r duo": [
-      "LX",
       "LXI"
-    ],
-    "wagon r stingray": [
-      "VXI"
     ],
     "xl6": [
       "ALPHA",
@@ -1254,8 +1058,7 @@
       "VXI"
     ],
     "zen estilo": [
-      "LXI",
-      "VXI"
+      "LXI"
     ]
   },
   "mercedes-benz": {
@@ -1271,11 +1074,11 @@
     "c class": [
       "C CDI",
       "C CDI AVANTAGARDE",
-      "C CGI ELEGANCE"
+      "C CGI ELEGANCE",
+      "CGI AVANTGARDE"
     ],
     "e class": [
       "CDI",
-      "E CDI AVANTGARDE",
       "E CDI ELEGANCE"
     ],
     "e-class": [
@@ -1284,9 +1087,6 @@
     ],
     "gl": [
       "CDI"
-    ],
-    "gl class": [
-      "CDI 4MATIC"
     ],
     "gla": [
       "D SPORT"
@@ -1299,41 +1099,39 @@
     ],
     "ml class": [
       "CDI GRAND EDITION"
+    ],
+    "s class": [
+      "S350 CDI"
     ]
   },
   "mg": {
     "astor": [
       "SAVVY PRO IVORY",
       "SAVVY S RED",
-      "SAVVY TURBO S RED",
       "SELECT IVORY",
       "SHARP",
       "SHARP EX",
-      "SHARP TURBO",
+      "SHARP PRO IVORY",
       "STYLE",
       "SUPER"
     ],
+    "comet": [
+      "PLUSH"
+    ],
     "hector": [
-      "PRO TURBO",
-      "SAVVY PRO TURBO",
+      "PRO",
+      "SAVVY PRO",
       "SHARP",
-      "SHARP DUAL TONE",
       "SHARP EX",
-      "SHARP PRO TURBO",
-      "SHARP TURBO",
+      "SHARP PRO",
       "STYLE",
-      "SUPER",
-      "TURBO"
+      "SUPER"
     ],
     "hector plus": [
-      "SAVVY PRO TURBO",
-      "SELECT TURBO",
-      "SHARP PRO TURBO",
-      "SHARP TURBO",
-      "TURBO"
-    ],
-    "zs ev": [
-      "EXCLUSIVE"
+      "SAVVY PRO",
+      "SELECT",
+      "SHARP",
+      "SHARP PRO"
     ]
   },
   "mini": {
@@ -1349,38 +1147,27 @@
   },
   "nissan": {
     "kicks": [
-      "XL",
-      "XV"
+      "XL"
     ],
     "magnite": [
       "ACENTA B4D",
-      "TEKNA B4D DUAL TONE",
-      "TEKNA HRAO TURBO",
-      "TEKNA PLUS HRAO TURBO",
+      "TEKNA B4D",
+      "TEKNA HRAO",
+      "TEKNA PLUS HRAO",
+      "VISIA PLUS B4D",
       "XE",
       "XE EZ SHIFT",
       "XL",
-      "XL TURBO",
       "XV",
-      "XV DUAL TONE",
       "XV EXECUTIVE",
-      "XV EXECUTIVE TURBO",
       "XV EZ SHIFT DT",
       "XV PREMIUM",
-      "XV PREMIUM DUAL TONE",
-      "XV PREMIUM TURBO",
-      "XV PREMIUM TURBO O",
-      "XV TURBO",
-      "XV TURBO DUAL TONE"
+      "XV PREMIUM O"
     ],
     "micra": [
       "XL",
       "XV",
-      "XV PREMIUM"
-    ],
-    "micra active": [
-      "XL",
-      "XV",
+      "XV PREMIUM",
       "XV SAFETY PACK"
     ],
     "sunny": [
@@ -1388,21 +1175,19 @@
       "XV"
     ],
     "terrano": [
-      "XL D",
+      "XL",
       "XL D PLUS",
-      "XL O D",
-      "XL P",
+      "XL O",
       "XV D THP PREMIUM PS",
       "XV D THP PS"
     ]
   },
   "renault": {
     "captur": [
-      "PLATINE DUAL TONE",
+      "PLATINE",
       "PLATINE MONO",
       "RXE",
-      "RXT",
-      "RXT DUAL TONE"
+      "RXT"
     ],
     "duster": [
       "PS RXE",
@@ -1414,47 +1199,34 @@
       "PS RXZ",
       "PS RXZ ADVENTURE EDITION",
       "RXE",
-      "RXE TURBO",
       "RXL",
       "RXL 85PS EXPLORE",
       "RXS",
-      "RXS TURBO",
-      "RXZ",
-      "RXZ TURBO"
+      "RXZ"
     ],
     "fluence": [
       "E2"
     ],
     "kiger": [
-      "RXE",
       "RXL",
       "RXT",
-      "RXT DUAL TONE",
       "RXT O",
-      "RXT O DUAL TONE",
-      "RXT O TURBO DUAL TONE",
       "RXT OUTSIDE FITTED",
-      "RXT TURBO",
-      "RXZ",
-      "RXZ DUAL TONE",
-      "RXZ TURBO",
-      "RXZ TURBO DUAL TONE"
+      "RXZ"
     ],
     "koleos": [],
     "kwid": [
       "CLIMBER",
-      "CLIMBER DUAL TONE",
       "CLIMBER O",
-      "CLIMBER OPT",
+      "CLIMBER URBAN NIGHT",
+      "NEOTECH RXL",
       "RXL",
       "RXL O",
       "RXT",
       "RXT O",
-      "RXT O SCE EDITION",
-      "RXT OPT"
+      "RXT O SCE EDITION"
     ],
     "lodgy": [
-      "PS RXL",
       "PS RXZ",
       "PS RXZ STEPWAY"
     ],
@@ -1468,24 +1240,19 @@
       "RXZ"
     ],
     "triber": [
-      "EVOLUTION",
       "RXE",
       "RXL",
       "RXT",
       "RXT EASY R",
       "RXZ",
-      "RXZ DUAL TONE",
-      "RXZ EASY R",
-      "RXZ EASY R DUAL TONE"
+      "RXZ EASY R"
     ]
   },
   "skoda": {
     "fabia": [
-      "ACTIVE",
       "ACTIVE PLUS",
       "ACTIVE PLUS CR",
       "AMBIENTE",
-      "AMBITION",
       "AMBITION PLUS",
       "CLASSIC",
       "ELEGANCE"
@@ -1505,9 +1272,7 @@
       "SIGNATURE PLUS"
     ],
     "laura": [
-      "AMBIENTE CR",
-      "L&K",
-      "L&K PD"
+      "AMBIENTE CR"
     ],
     "octavia": [
       "AMBIENTE",
@@ -1517,12 +1282,12 @@
       "ELEGANCE",
       "L&K",
       "RIDER",
+      "RIDER CLASSIC",
       "STYLE",
       "STYLE PLUS"
     ],
     "rapid": [
       "ACTIVE",
-      "ACTIVE CR",
       "ACTIVE CR PLUS",
       "AMBITION",
       "AMBITION CR",
@@ -1540,6 +1305,7 @@
     ],
     "slavia": [
       "AMBITION",
+      "MONTE CARLO",
       "STYLE"
     ],
     "superb": [
@@ -1550,7 +1316,6 @@
       "STYLE"
     ],
     "yeti": [
-      "AMBIENTE",
       "AMBITION CR"
     ]
   },
@@ -1564,15 +1329,15 @@
       "XM PLUS",
       "XMA PLUS S",
       "XT",
-      "XT I TURBO",
+      "XT I",
       "XZ",
-      "XZ I TURBO",
+      "XZ I",
       "XZ O",
       "XZ SUNROOF",
       "XZ+",
       "XZ+ DARK EDITION",
-      "XZ+ I TURBO",
-      "XZ+ I TURBO DARK EDITION",
+      "XZ+ I",
+      "XZ+ I DARK EDITION",
       "XZ+ O S",
       "XZ+ S",
       "XZA",
@@ -1583,7 +1348,8 @@
       "XZA SUNROOF"
     ],
     "aria": [
-      "PRESTIGE"
+      "PRESTIGE",
+      "PURE LX"
     ],
     "bolt": [
       "XMS REVOTRON",
@@ -1595,25 +1361,23 @@
       "ACCOMPLISHED S",
       "ACCOMPLISHED S 7DCA",
       "ACCOMPLISHED S REVOTRON",
-      "CREATIVE PLUS S REVOTRON 7DCA",
       "PURE PLUS",
       "PURE PLUS REVOTRON"
     ],
     "harrier": [
-      "XM KRYOTEC",
+      "FEARLESS PLUS DARK EDITION",
       "XMA KRYOTEC",
       "XT",
       "XT 0LKRYOTEC HALO EDITION",
       "XT+ KRYOTEC",
+      "XT+ KRYOTEC DARK EDITON",
       "XZ",
-      "XZ DUAL TONE",
       "XZ+",
       "XZ+ 0LKRYOTEC HALO DARK EDITION",
       "XZ+ DARK EDITION",
       "XZA",
       "XZA DARK EDITION",
       "XZA PLUS",
-      "XZA PLUS DUAL TONE",
       "XZA PLUS KAZIRANGA",
       "XZA PLUS O"
     ],
@@ -1637,18 +1401,9 @@
     "indica v2 turbo": [
       "DLG"
     ],
-    "indica v2 xeta": [
-      "GLG"
-    ],
     "indica vista": [
-      "AQUA QUADRAJET",
       "AURA QUADRAJET",
-      "LX",
       "VX QUADRAJET"
-    ],
-    "indigo": [
-      "GLX",
-      "LS BS III"
     ],
     "indigo cs": [
       "LX"
@@ -1656,6 +1411,7 @@
     "manza": [
       "AURA ABS QUADRAJET",
       "AURA QUADRAJET",
+      "ELAN QUADRAJET",
       "ELAN SAFIRE"
     ],
     "nano": [
@@ -1669,9 +1425,7 @@
     ],
     "nexon": [
       "CREATIVE",
-      "CREATIVE DCA",
-      "CREATIVE DUAL TONE",
-      "CREATIVE PLUS PS DUAL TONE",
+      "CREATIVE PLUS PS",
       "CREATIVE PLUS REVOTRON",
       "CREATIVE PLUS REVOTRON 7DCA DARK EDITION",
       "CREATIVE PLUS REVOTRON DCA",
@@ -1681,15 +1435,17 @@
       "CREATIVE REVOTRON",
       "CREATIVE SUNROOF",
       "CREATIVE SUNROOF DCA",
-      "FEARLESS DUAL TONE",
-      "FEARLESS PLUS PS 6AMT DUAL TONE",
-      "FEARLESS PLUS PS DCA DUAL TONE",
-      "FEARLESS PLUS PURPLE DCA DUAL TONE",
+      "FEARLESS",
+      "FEARLESS DCA",
+      "FEARLESS PLUS PS 6AMT",
+      "FEARLESS PLUS PS DCA",
+      "FEARLESS PLUS PURPLE DCA",
       "FEARLESS PLUS S DARK",
-      "FEARLESS PLUS S PURPLE REVOTRON 7DCA DUAL TONE",
-      "FEARLESS S PURPLE REVOTRON 7DCA DUAL TONE",
-      "FEARLESS SUNROOF DCA DUAL TONE",
-      "FEARLESS SUNROOF DUAL TONE",
+      "FEARLESS PLUS S PURPLE REVOTRON 7DCA",
+      "FEARLESS PURPLE SUNROOF",
+      "FEARLESS S PURPLE REVOTRON 7DCA",
+      "FEARLESS SUNROOF",
+      "FEARLESS SUNROOF DCA",
       "PLUS REVOTRON",
       "PURE PLUS S",
       "PURE PLUS S 6AMT",
@@ -1709,24 +1465,20 @@
       "XZ",
       "XZ+",
       "XZ+ DARK EDITION",
-      "XZ+ DUAL TONE",
       "XZ+ HS",
       "XZ+ HS DARK EDITION",
       "XZ+ KAZIRANGA",
       "XZ+ L",
       "XZ+ LUX",
-      "XZ+ LUXS JET",
       "XZ+ LUXURY SUNROOF",
       "XZ+ O",
       "XZ+ O DARK EDITION",
-      "XZ+ O DUAL TONE",
       "XZ+ PREMIUM",
       "XZ+ PREMIUM KAZIRANGA",
       "XZ+ S",
       "XZ+ SUNROOF",
       "XZA PLUS",
       "XZA PLUS DARK EDITION",
-      "XZA PLUS DUAL TONE",
       "XZA PLUS HS",
       "XZA PLUS HS DARK EDITION",
       "XZA PLUS L",
@@ -1735,22 +1487,18 @@
       "XZA PLUS LUXURY SUNROOF",
       "XZA PLUS O",
       "XZA PLUS O DARK EDITION",
-      "XZA PLUS O DUAL TONE",
       "XZA PLUS PREMIUM",
       "XZA PLUS PREMIUM KAZIRANGA",
       "XZA PLUS S",
-      "XZA PLUS SUNROOF",
-      "XZA PLUS SUNROOF DARK"
+      "XZA PLUS SUNROOF"
     ],
     "nexon ev": [
       "XM",
       "XZ+",
       "XZ+ DARK EDITION",
+      "XZ+ KW",
       "XZ+ LUX",
       "XZ+ LUX DARK EDITION"
-    ],
-    "nexon ev max": [
-      "XZ+ KW"
     ],
     "punch": [
       "ACCOMPLISHED",
@@ -1762,17 +1510,14 @@
       "ADVENTURE PLUS",
       "ADVENTURE PLUS ICNG",
       "ADVENTURE RHYTHM PACK",
-      "ADVENTURE S",
       "ADVENTURE SUNROOF",
       "CAMO ACCOMPLISHED",
       "CREATIVE",
-      "CREATIVE DUAL TONE",
-      "CREATIVE DUAL TONE SUNROOF",
-      "CREATIVE FLAGSHIP DUAL TONE",
-      "CREATIVE KAZIRANGA EDITION",
+      "CREATIVE FLAGSHIP",
       "CREATIVE PLUS",
       "CREATIVE PLUS S",
-      "CREATIVE RTN DUAL TONE",
+      "CREATIVE RTN",
+      "CREATIVE SUNROOF",
       "KAZIRANGA CREATIVE",
       "PURE"
     ],
@@ -1781,12 +1526,8 @@
       "ADVENTURE S"
     ],
     "safari": [
-      "EX DICOR",
       "EX DICOR VTT",
       "LX DICOR",
-      "LX DICOR VTT",
-      "VX DICOR",
-      "VX DICOR VTT",
       "XMA SUNROOF",
       "XT+",
       "XZ",
@@ -1794,18 +1535,16 @@
       "XZ+ KAZIRANGA",
       "XZ+ S",
       "XZA PLUS",
-      "XZA PLUS GOLD",
       "XZA PLUS KAZIRANGA",
       "XZA PLUS O 6STR"
     ],
-    "sumo gold": [
+    "sumo": [
       "EX"
     ],
     "sumo grande": [
       "LX"
     ],
     "tiago": [
-      "LIMITED EDITION",
       "REVOTORQ XM",
       "REVOTORQ XT",
       "REVOTORQ XZ+",
@@ -1814,10 +1553,9 @@
       "REVOTRON XT",
       "REVOTRON XTA",
       "REVOTRON XZ",
-      "REVOTRON XZ W O ALLOY",
+      "REVOTRON XZ W O",
       "REVOTRON XZ+",
       "REVOTRON XZA",
-      "WIZZ EDITION",
       "XE",
       "XM",
       "XT",
@@ -1825,18 +1563,12 @@
       "XTA",
       "XZ",
       "XZ+",
-      "XZ+ DUAL TONE",
       "XZA",
       "XZA PLUS"
     ],
     "tiago ev": [
       "XT MEDIUM RANGE",
-      "XZ+ TECH LUX LONG RANGE",
-      "XZ+ TECH LUX LONG RANGE FAST CHARGER"
-    ],
-    "tiago jtp": [],
-    "tiago nrg": [
-      "XZ"
+      "XZ+ TECH LUX LONG RANGE"
     ],
     "tigor": [
       "REVOTORQ XM",
@@ -1848,8 +1580,7 @@
       "XZ O",
       "XZ+",
       "XZA",
-      "XZA PLUS",
-      "XZA PLUS DUAL TONE"
+      "XZA PLUS"
     ],
     "tigor ev": [
       "XM PLUS",
@@ -1875,63 +1606,32 @@
     ],
     "corolla altis": [
       "G",
-      "GL",
       "J",
       "JS"
     ],
     "etios": [
+      "CROSS VD",
       "G",
       "G SP",
       "GD",
-      "GD SP",
-      "V",
       "VD",
-      "VX D",
-      "VXD"
+      "VX D"
     ],
     "etios liva": [
       "G",
       "GD",
       "V",
-      "V DUAL TONE",
-      "VX",
-      "VX DUAL TONE"
+      "VX"
     ],
     "fortuner": [
       "SPORTIVO"
     ],
     "glanza": [
-      "E",
       "G",
       "G ISG",
       "V"
     ],
-    "innova": [
-      "G BS III",
-      "G3",
-      "G4",
-      "GX",
-      "GX BS IV",
-      "V",
-      "VX",
-      "ZX"
-    ],
-    "innova crysta": [
-      "GX",
-      "V",
-      "VX",
-      "ZX",
-      "ZX 7STR"
-    ],
-    "innova hycross": [
-      "VX"
-    ],
-    "urban cruiser": [
-      "HIGH GRADE",
-      "PREMIUM GRADE",
-      "PREMIUM GRADE DUAL TONE"
-    ],
-    "urban cruiser hyryder": [
+    "hyryder": [
       "E NEO",
       "G",
       "G NEO",
@@ -1941,13 +1641,31 @@
       "V",
       "V NEO"
     ],
+    "innova": [
+      "G4",
+      "GX",
+      "V",
+      "VX",
+      "ZX"
+    ],
+    "innova crysta": [
+      "GX",
+      "VX",
+      "ZX",
+      "ZX 7STR"
+    ],
+    "innova hycross": [
+      "VX"
+    ],
+    "urban cruiser": [
+      "HIGH GRADE",
+      "PREMIUM GRADE"
+    ],
     "urban cruiser taisor": [
-      "S",
       "S PLUS",
       "V"
     ],
     "yaris": [
-      "G",
       "J",
       "V",
       "VX"
@@ -1956,43 +1674,29 @@
   "volkswagen": {
     "ameo": [
       "COMFORTLINE",
-      "COMFORTLINE D",
       "HIGHLINE",
-      "HIGHLINE PLUS ALLOY",
-      "HIGHLINE PLUS D ALLOY",
-      "HIGHLINE PLUS P ALLOY",
+      "HIGHLINE PLUS",
       "HIGHLINE1 2L",
-      "HIGHLINE1 2L PLUS ALLOY",
+      "HIGHLINE1 2L PLUS",
       "HIGHLINE1 5L",
-      "TRENDLINE",
-      "TRENDLINE D",
-      "TRENDLINE P"
+      "TRENDLINE"
     ],
     "jetta": [
       "COMFORTLINE",
       "HIGHLINE"
     ],
     "passat": [
-      "COMFORTLINE",
-      "HIGHLINE",
-      "PD"
+      "COMFORTLINE"
     ],
     "polo": [
       "COMFORTLINE",
-      "COMFORTLINE P",
       "GT",
       "HIGHLINE",
       "HIGHLINE PLUS",
-      "HIGHLINE PLUS ALLOY",
-      "HIGHLINE PLUS P",
-      "HIGHLINE PLUS P ALLOY",
-      "HIGHLINE1 0L P",
+      "HIGHLINE1 0L",
       "HIGHLINE1 2L",
-      "HIGHLINE1 2L P",
       "HIGHLINE1 5L",
-      "HIGHLINE1 5L D",
-      "TRENDLINE",
-      "TRENDLINE P"
+      "TRENDLINE"
     ],
     "taigun": [
       "COMFORTLINE",
@@ -2009,13 +1713,8 @@
     ],
     "vento": [
       "COMFORTLINE",
-      "COMFORTLINE D",
       "HIGHLINE",
-      "HIGHLINE D",
-      "HIGHLINE P",
       "HIGHLINE PLUS",
-      "HIGHLINE PLUS ALLOY",
-      "HIGHLINE PLUS P",
       "TRENDLINE"
     ],
     "virtus": [
@@ -2024,27 +1723,18 @@
       "GT PIUS",
       "GT PLUS EVO",
       "HIGHLINE",
+      "HIGHLINE PLUS",
       "TOPLINE"
     ]
   },
   "volvo": {
-    "s60": [
-      "SUMMUM D5"
-    ],
     "v40 cross country": [
       "D3"
-    ],
-    "v90 cross country": [
-      "D5 INSCRIPTION"
     ],
     "xc 40": [
       "T4 R DESIGN"
     ],
-    "xc 90": [
-      "D5"
-    ],
     "xc60": [
-      "B5 ULTIMATE",
       "D5 INSCRIPTION"
     ]
   }

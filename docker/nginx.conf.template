@@ -1,0 +1,169 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# nginx config template for the PriceRef frontend container.
+#
+# Two jobs:
+#   1. Serve the Vite SPA bundle, with an index.html fallback for client routing.
+#   2. Reverse-proxy the API paths to the backend, so browser traffic is
+#      single-origin and production needs no CORS at all.
+#
+# Placeholders use __DOUBLE_UNDERSCORE__ form and are substituted by
+# docker/frontend-entrypoint.sh. That is deliberate: the nginx base image's
+# built-in envsubst step would also rewrite any $variable whose name happened to
+# match an environment variable, which silently breaks $host / $uri / $remote_addr.
+#
+# Listens on 8080 as an unprivileged user; binding :80 needs CAP_NET_BIND_SERVICE.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Resolve the backend hostname at request time, not at config-load time. nginx
+# otherwise caches the startup DNS answer indefinitely, so every backend
+# revision swap (new replica, new container IP) is served 502s until nginx is
+# restarted. The resolver line plus a *variable* in proxy_pass forces re-lookup.
+resolver __DNS_RESOLVER__ valid=10s ipv6=off;
+resolver_timeout 5s;
+
+server {
+    listen 8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # A cold backend replica is still loading its ~250 MB ensemble; 90s is
+    # comfortably above the observed worst case for a first request.
+    proxy_connect_timeout 10s;
+    proxy_send_timeout    90s;
+    proxy_read_timeout    90s;
+
+    client_max_body_size 8m;   # /bulk-evaluate accepts batches of vehicles
+
+    # ── Security headers ────────────────────────────────────────────────────
+    # These are repeated inside every location block below, and that repetition
+    # is required, not sloppiness.
+    #
+    # nginx's add_header does not merge across levels: a location that declares
+    # any add_header of its own discards every one inherited from the server
+    # block. Each location here sets its own Cache-Control, so declaring these
+    # three only at server level meant none of them were ever emitted on any
+    # real response — the smoke test caught it as "missing
+    # X-Content-Type-Options" on /, and a live check confirmed all three absent
+    # everywhere.
+    #
+    # Keeping them here as well still has value: responses generated outside
+    # any location, such as nginx's own error pages, do inherit them.
+    #
+    # No HSTS: TLS terminates upstream at the Container Apps ingress, and
+    # emitting HSTS from behind it would also apply to plain-HTTP local runs of
+    # this same image.
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # ── Platform health probe ───────────────────────────────────────────────
+    # Answered by nginx itself, not proxied. This reports whether the *frontend*
+    # is servable; coupling it to backend health would pull the UI out of
+    # rotation during a backend deploy, when it can still usefully render.
+    location = /healthz {
+        access_log off;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Content-Type application/json;
+        return 200 '{"status":"ok","component":"frontend"}';
+    }
+
+    # ── Runtime config must never be cached ─────────────────────────────────
+    # Rewritten on every container boot; a cached copy pins a browser to a
+    # previous environment's API and Supabase URLs.
+    location = /config.js {
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Cache-Control "no-store, must-revalidate" always;
+        expires -1;
+        try_files /config.js =404;
+    }
+
+    # ── API reverse proxy ───────────────────────────────────────────────────
+    # Explicit prefixes rather than a catch-all, so an unmatched path falls
+    # through to the SPA (correct for client-side routes) instead of being
+    # proxied and 404'd by FastAPI. Keep in sync with backend/main.py's routes.
+    location ~ ^/(api|evaluate|evaluate-enhanced|predict|reverse-calculate|bulk-evaluate|health|metadata|docs|redoc|openapi\.json)(/|$) {
+        set $backend "__BACKEND_ORIGIN__";
+        proxy_pass $backend$request_uri;
+
+        # Send SNI upstream. Container Apps' internal ingress routes purely on
+        # the TLS server name, and nginx omits SNI on proxied connections by
+        # default — so the ingress cannot tell which app the connection is for
+        # and resets it mid-handshake:
+        #
+        #   peer closed connection in SSL handshake ...
+        #   while SSL handshaking to upstream, upstream: "https://100.100.x.y:443/..."
+        #
+        # producing a 502 on every proxied request. Note the upstream in that
+        # message is an IP: the resolver above deliberately re-resolves the
+        # hostname per request to survive revision swaps, which is precisely why
+        # the name has to be re-attached here. proxy_ssl_name reads $proxy_host,
+        # which nginx derives from the variable in proxy_pass, so this needs no
+        # second copy of the hostname.
+        #
+        # Inert when BACKEND_ORIGIN is http:// (docker compose), where no TLS
+        # handshake happens at all.
+        proxy_ssl_server_name on;
+        proxy_ssl_name        $proxy_host;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $proxy_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header Authorization     $http_authorization;
+
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        # Responses are per-user (history, profile) or freshly computed; caching
+        # any of it would risk serving one dealer's valuations to another.
+        add_header Cache-Control "no-store" always;
+    }
+
+    # ── Static assets ───────────────────────────────────────────────────────
+    # Vite emits content-hashed filenames under /assets, so these are safe to
+    # cache immutably.
+    location /assets/ {
+        expires 1y;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Cache-Control "public, immutable" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    location ~* \.(png|jpg|jpeg|gif|svg|webp|woff2?|ico)$ {
+        expires 30d;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Cache-Control "public" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # ── SPA fallback ────────────────────────────────────────────────────────
+    # index.html is never cached, otherwise a browser keeps requesting the
+    # previous deploy's hashed asset URLs after a revision swap.
+    location / {
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ /index.html;
+    }
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+}

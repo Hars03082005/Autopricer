@@ -14,7 +14,6 @@ except Exception:
 import numpy as np
 import pandas as pd
 
-# Paths
 HERE          = Path(__file__).resolve().parent
 ROOT          = HERE.parent
 DATA_DIR      = ROOT / "ml_training" / "data"
@@ -24,19 +23,16 @@ REPORT_PATH   = ARTIFACTS_DIR / "training_report.json"
 
 DIV = "=" * 72
 
-# Dataset preference order — official dataset (s1-s4_owner) first
 DATASET_CANDIDATES = [
     "processed_s1_s4_owner.csv",
     "processed_overall.csv",
     "processed_s1_s4_owner_1.csv",
 ]
 
-# Minimum rows per category
 MIN_MODEL_ROWS    = 20
 MIN_LOCALITY_ROWS = 30
 MIN_RTO_ROWS      = 20
 
-# Brand → segment mapping
 LUXURY_BRANDS = {
     "bmw", "mercedes-benz", "mercedes", "audi", "lexus", "volvo",
     "land rover", "jaguar", "porsche", "bentley", "rolls-royce",
@@ -55,7 +51,6 @@ def get_segment(brand: str) -> str:
         return "premium"
     return "economy"
 
-# Load dataset and training report
 def load_data() -> tuple[pd.DataFrame, str, dict]:
     chosen_path = None
     chosen_name = None
@@ -111,7 +106,6 @@ def load_data() -> tuple[pd.DataFrame, str, dict]:
     print(f"  Selling price      : Rs.{df['selling_price'].min():,.0f} – Rs.{df['selling_price'].max():,.0f}")
     return df, chosen_name, report
 
-# Compute model market bands
 def compute_market_bands(df: pd.DataFrame) -> dict[str, list[float]]:
     print(f"\n{DIV}")
     print("COMPUTING MARKET BANDS (per model)")
@@ -133,7 +127,6 @@ def compute_market_bands(df: pd.DataFrame) -> dict[str, list[float]]:
         print(f"    {k:<24}  Rs. {bands[k][0]//1000:>4}k – Rs. {bands[k][1]//1000:>4}k")
     return bands
 
-# Compute segment market bands
 def compute_segment_bands(df: pd.DataFrame) -> dict[str, list[float]]:
     print(f"\n{DIV}")
     print("COMPUTING SEGMENT BANDS")
@@ -149,7 +142,6 @@ def compute_segment_bands(df: pd.DataFrame) -> dict[str, list[float]]:
         print(f"  {seg:<10} Rs.{p5//1000}k – Rs.{p95//1000}k  ({len(group):,} rows)")
     return seg_bands
 
-# Compute locality demand
 def compute_locality_demand(df: pd.DataFrame) -> dict[str, float]:
     print(f"\n{DIV}")
     print("COMPUTING LOCALITY DEMAND")
@@ -177,7 +169,6 @@ def compute_locality_demand(df: pd.DataFrame) -> dict[str, float]:
         print(f"    {loc:<24}  {val*100:+.2f}%")
     return loc_demand
 
-# Compute RTO demand
 def compute_rto_demand(df: pd.DataFrame) -> dict[str, float]:
     print(f"\n{DIV}")
     print("COMPUTING RTO DEMAND")
@@ -204,7 +195,6 @@ def compute_rto_demand(df: pd.DataFrame) -> dict[str, float]:
         print(f"    {rto:<14}  {val*100:+.2f}%")
     return rto_demand
 
-# Compute annual km tiers
 def compute_annual_km_tiers(df: pd.DataFrame) -> dict[str, float]:
     print(f"\n{DIV}")
     print("COMPUTING ANNUAL KM TIERS")
@@ -223,7 +213,6 @@ def compute_annual_km_tiers(df: pd.DataFrame) -> dict[str, float]:
         print(f"  {k:<14} {v:,} km/yr")
     return tiers
 
-# Compute certified vehicle premium
 def compute_certified_premium(df: pd.DataFrame) -> float:
     print(f"\n{DIV}")
     print("COMPUTING CERTIFIED VEHICLE PREMIUM")
@@ -249,7 +238,6 @@ def compute_certified_premium(df: pd.DataFrame) -> float:
     print(f"  Premium            : {premium*100:.2f}%")
     return round(premium, 4)
 
-# Compute owner statistics
 def compute_owner_stats(df: pd.DataFrame) -> dict[str, float]:
     print(f"\n{DIV}")
     print("COMPUTING OWNER STATISTICS")
@@ -271,7 +259,6 @@ def compute_owner_stats(df: pd.DataFrame) -> dict[str, float]:
 
     return stats
 
-# Compute seller type statistics
 def compute_seller_stats(df: pd.DataFrame) -> dict[str, float]:
     print(f"\n{DIV}")
     print("COMPUTING SELLER TYPE STATISTICS")
@@ -293,7 +280,6 @@ def compute_seller_stats(df: pd.DataFrame) -> dict[str, float]:
         stats["dealer"] = 1.0
     return stats
 
-# Compute clamp tolerances from training metrics
 def compute_clamp_tolerances(report: dict) -> tuple[dict[str, list[float]], dict]:
     print(f"\n{DIV}")
     print("COMPUTING CLAMP TOLERANCE (from MAPE)")
@@ -327,7 +313,6 @@ def compute_clamp_tolerances(report: dict) -> tuple[dict[str, list[float]], dict
     print(f"\n  Confidence baseline — mc_base={mc_base}  bc_base={bc_base}  mape={mape:.2f}%")
     return tolerances, conf_baseline
 
-# Compute comparable density
 def compute_comparable_density(df: pd.DataFrame) -> int:
     if "locality" not in df.columns:
         return len(df.groupby("model"))
@@ -337,7 +322,6 @@ def compute_comparable_density(df: pd.DataFrame) -> int:
     print(f"\n  Comparable density — {n_pairs:,} model/locality pairs")
     return n_pairs
 
-# Main generation flow
 def generate_config() -> None:
     print("=" * 72)
     print("AutoPricer — generate_engine_config.py")

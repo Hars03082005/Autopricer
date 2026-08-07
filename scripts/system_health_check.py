@@ -20,10 +20,9 @@ print("==================================================================")
 print("       PRICEREF SYSTEM COMPREHENSIVE END-TO-END HEALTH AUDIT       ")
 print("==================================================================")
 
-# 1. Health Check
 try:
     health = get("/health")
-    print(f"\n[1] GET /health")
+    print("\n[1] GET /health")
     print(f"    Status           : {health.get('status')}")
     print(f"    Active Variant   : {health.get('active_variant')}")
     print(f"    Model Loaded     : {health.get('model_loaded')}")
@@ -31,24 +30,21 @@ try:
 except Exception as e:
     print(f"[FAIL] GET /health error: {e}")
 
-# 2. Registry Check
 try:
     reg = get("/api/registry")
-    print(f"\n[2] GET /api/registry")
+    print("\n[2] GET /api/registry")
     print(f"    Default Variant  : {reg.get('default')}")
     print(f"    Total Variants   : {len(reg.get('variants', []))}")
 except Exception as e:
     print(f"[FAIL] GET /api/registry error: {e}")
 
-# 3. Brands Catalog
 try:
     brands = get("/api/brands")
-    print(f"\n[3] GET /api/brands")
+    print("\n[3] GET /api/brands")
     print(f"    Total Brands     : {len(brands.get('brands', {}))}")
 except Exception as e:
     print(f"[FAIL] GET /api/brands error: {e}")
 
-# 4. Standard /predict Endpoint Test (Swift 2017)
 try:
     payload = {
         "brand": "Maruti",
@@ -63,7 +59,7 @@ try:
         "condition": "Good"
     }
     res = post("/predict", payload)
-    print(f"\n[4] POST /predict (Maruti Swift 2017 VXI)")
+    print("\n[4] POST /predict (Maruti Swift 2017 VXI)")
     print(f"    Base Market Value : Rs. {res.get('base_market_value'):,}")
     print(f"    Final Market Value: Rs. {res.get('market_value'):,}")
     print(f"    Sanity Clamped    : {res.get('sanity_clamped')} ({res.get('sanity_note')})")
@@ -72,7 +68,6 @@ try:
 except Exception as e:
     print(f"[FAIL] POST /predict error: {e}")
 
-# 5. Standard /evaluate Endpoint Test (Hyundai i20 2021)
 try:
     payload2 = {
         "brand": "Hyundai",
@@ -87,7 +82,7 @@ try:
         "condition": "Good"
     }
     res2 = post("/evaluate", payload2)
-    print(f"\n[5] POST /evaluate (Hyundai i20 2021 Sportz)")
+    print("\n[5] POST /evaluate (Hyundai i20 2021 Sportz)")
     print(f"    Base Market Value : Rs. {res2.get('base_market_value'):,}")
     print(f"    Final Market Value: Rs. {res2.get('market_value'):,}")
     print(f"    Recommended Buy   : Rs. {res2.get('recommended_buy_price'):,}")
@@ -96,7 +91,6 @@ try:
 except Exception as e:
     print(f"[FAIL] POST /evaluate error: {e}")
 
-# 6. Enhanced Evaluation /evaluate-enhanced Test (Mercedes C-Class 2019)
 try:
     payload3 = {
         "brand": "Mercedes-Benz",
@@ -117,7 +111,7 @@ try:
         "idv_value": 2500000
     }
     res3 = post("/evaluate-enhanced", payload3)
-    print(f"\n[6] POST /evaluate-enhanced (Mercedes C-Class 2019)")
+    print("\n[6] POST /evaluate-enhanced (Mercedes C-Class 2019)")
     print(f"    Base Market Value : Rs. {res3.get('base_market_value'):,}")
     print(f"    Final Market Value: Rs. {res3.get('market_value'):,}")
     print(f"    Enhanced Max Buy  : Rs. {res3.get('enhanced_max_buy_price'):,}")

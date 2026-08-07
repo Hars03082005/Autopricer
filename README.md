@@ -1,370 +1,314 @@
-# PriceRef — AI-Powered Used Vehicle Valuation Engine
+﻿# AutoQuant — AI-Powered Used Vehicle Valuation Engine
 
-> **Data-driven valuation, acquisition risk assessment, and deal profitability for used vehicles.**
+> **Data-driven market valuation, acquisition risk assessment, and deal profitability for used vehicles in the Indian market.**
 
-PriceRef is a high-performance machine learning system built for instant vehicle valuation, profit estimation, acquisition risk scoring, and negotiation strategy calculation. Powered by a **dual-mode ML architecture** — a **CatBoost + LightGBM + XGBoost global ensemble (Variant 1)** for broad market coverage, and a **specialized CatBoost + LightGBM S5 model (Variant 4)** for quality shop premium vehicles — PriceRef processes vehicle attributes and returns market valuations in milliseconds across Web and Mobile platforms.
+AutoQuant is a full-stack machine learning system that delivers instant vehicle market valuations, dealer buy/sell recommendations, profit estimates, risk scores, and negotiation strategies. Powered by a **CatBoost + LightGBM + XGBoost global ensemble** with price-band segment routing and a data-driven **Adaptive Range Engine**, the system processes vehicle attributes and returns calibrated market insights in milliseconds.
 
 ---
 
-## 🔄 Full End-to-End Project Pipeline
-
-PriceRef connects a responsive React frontend, a Flutter mobile shell, a FastAPI REST service, an ML ensemble model, an adaptive financial decision engine, and an optional cloud persistence layer into a single unified workflow:
+## 🔄 System Pipeline
 
 ```mermaid
 graph TD
-    User([User / Dealer]) -->|Web / App User| UISelector{Platform Interface}
-    UISelector -->|Browser| Frontend[1. React Frontend UI]
-    UISelector -->|Android / iOS| MobileApp[1b. Flutter Mobile Shell]
-    MobileApp -->|WebView Bundle| Frontend
-    Frontend -->|POST /evaluate| FastAPI[2. FastAPI Backend Gateway]
-    FastAPI -->|Extracts & Sanitizes| FE[3. Feature Engineering & Vectorizer]
-    FE -->|Predicts Log Price| ModelRouter{4. Model Router}
-    ModelRouter -->|General Vehicles| Ensemble[4a. Variant 1: CatBoost + LightGBM + XGBoost Ensemble]
-    ModelRouter -->|S5 Quality Shop: age ≤7 + known model| S5Model[4b. Variant 4: CatBoost + LightGBM S5 Specialist]
-    Ensemble -->|Routes Price Tier| SegRouting[5. Segment-Wise Sub-Models]
-    S5Model -->|+8% Premium Fallback to Variant 1| SegRouting
-    SegRouting -->|Raw Market Value| Decision[6. Adaptive Dealer Financial Decision Engine]
-    Decision -->|Market Value, Buy Target, Risk & Decision| APIResp[7. API JSON Response]
-    APIResp -->|Displays Dashboard & Analytics| Frontend
-    Frontend -.->|Cloud Sync / Offline Fallback| Sync[8. History Persistence: Supabase or LocalStorage]
+    User([Dealer / User]) --> UISelector{Platform}
+    UISelector -->|Browser| Frontend[React + Vite Web App]
+    UISelector -->|Android / iOS| Mobile[Flutter Mobile Shell]
+    Mobile -->|WebView| Frontend
+    Frontend -->|POST /evaluate| FastAPI[FastAPI Backend :8008]
+    FastAPI --> FE[Feature Engineering]
+    FE --> Ensemble[CatBoost + LightGBM + XGBoost Ensemble]
+    Ensemble --> SegRouter{Segment Router}
+    SegRouter -->|₹0-6L| Seg1[Budget Sub-model]
+    SegRouter -->|₹6-12L| Seg2[Mid Sub-model]
+    SegRouter -->|₹12L+| Seg3[Luxury Sub-model]
+    Seg1 & Seg2 & Seg3 --> RangeEngine[Adaptive Range Engine]
+    RangeEngine --> DecisionEngine[Dealer Decision Engine]
+    DecisionEngine --> Response[JSON API Response]
+    Response --> Frontend
+    Frontend -.->|Optional| Supabase[(Supabase DB / localStorage)]
 ```
 
-### 1. User Interface & Data Ingestion
-- **React + Vite Web App**: Supports Single Vehicle Evaluation, Enhanced Multi-Grade Inspection, VIN Lookup, Bulk Batch Evaluation, AI Dealer Assistant, and Reverse Price Calculation.
-- **Flutter Mobile Shell (`mobile/`)**: Native cross-platform mobile application wrapping the Vite build in an embedded WebView with seamless API URL injection.
-- **Client Sanitization**: Automatically normalizes user inputs (trim spacing, title-casing brand/model names, fuel type conversion) before constructing API payloads.
+---
 
-### 2. API Gateway & Request Routing (FastAPI REST API)
-- High-throughput asynchronous Python web server exposing structured endpoints:
-  - `/evaluate`: Standard ML valuation, risk scoring, and profitability breakdown.
-  - `/evaluate-enhanced`: Comprehensive evaluation incorporating component grades (Engine, Tyres, Body, Interior, Electricals).
-  - `/predict`: Lightweight valuation endpoint returning target market value and soft physical range bounds.
-  - `/reverse-calculate`: Computes maximum buy price target given a desired sell price and profit margin.
-  - `/api/brands`: Fetches canonical brand catalog and valid model variants.
-  - `/api/registry`: Returns active model variant configuration (**Variant 1**).
+## 📊 Model Performance (Variant 1 — Active Default)
 
-### 3. Feature Construction & Normalization Pipeline (`backend/main.py`)
-- Constructs a 23-column feature DataFrame (`build_features`) in real time:
-  - **Categorical Features**: `brand`, `model`, `variant` (trim), `city`, `locality`, `rto`, `segment_class`, `fuel_type`, `transmission`, `seller_type`.
-  - **Engineered Numeric Features**: `vehicle_age`, `odometer_reading`, `km_per_year`, `owner_count`, `brand_tier`, `age_km_interaction`, `ownership_trust_score`, `vehicle_health_score`, `locality_tier`, `usage_category_num`, `locality_density_norm`, `popularity_score_log`.
+### Validation Set Metrics (17,632 train / 3,778 validation rows)
 
-### 4a. Variant 1 — Global Weighted ML Ensemble (Default)
-- Predicts log-transformed price $\hat{y}_{\text{log}}$ using optimized model weights:
-  $$\hat{y}_{\text{ensemble}} = 0.8918 \times \hat{y}_{\text{LightGBM}} + 0.1082 \times \hat{y}_{\text{CatBoost}} + 0.0000 \times \hat{y}_{\text{XGBoost}}$$
-- **LightGBM (89.18% Weight)**: Processes continuous splits, age-km interaction features, and vehicle usage curves.
-- **CatBoost (10.82% Weight)**: Handles high-cardinality categorical target encoding for brand, model, and trim combinations.
-- **XGBoost (0.00% Weight)**: Included for API compatibility; optimizer assigns zero weight.
+| Model | MAPE | R2 | MAE |
+|:---|:---:|:---:|:---:|
+| LightGBM | 7.58% | 0.9580 | Rs.44,416 |
+| CatBoost | 9.15% | 0.9541 | Rs.57,858 |
+| XGBoost | 7.92% | 0.9582 | Rs.47,166 |
+| **Ensemble (Active)** | **7.48%** | **0.9607** | **Rs.44,383** |
 
-### 4b. Variant 4 — S5 Quality Shop Specialist Model
-- Activated **only** when `vehicle_age ≤ 7` **AND** the vehicle's brand/model is present in the S5 catalog.
-- Small-dataset (173 rows) two-model ensemble trained with heavy regularization to prevent overfitting:
-  $$\hat{y}_{\text{S5}} = 0.8061 \times \hat{y}_{\text{CatBoost}} + 0.1939 \times \hat{y}_{\text{LightGBM}}$$
-- **CatBoost (80.61% Weight)**: Primary model for high-cardinality brand/model/trim encoding on premium vehicles.
-- **LightGBM (19.39% Weight)**: Supports age-mileage curve fitting on young, low-odometer quality stock.
-- **Fallback Rule**: When the vehicle is not found in the S5 catalog, falls back to Variant 1 with a `+8% quality premium` applied.
-- **Training Script**: `ml_training/train-s5.py` | **Dataset**: `processed_s5.csv` (173 rows, age 0–7 years)
+### Hold-out Test Set Metrics (3,748 unseen rows — zero overlap with train/val)
 
-### 5. Price-Band Segment Routing
-- Evaluates the initial ensemble quote and routes the vehicle into dedicated price-tier CatBoost sub-models:
-  - **Budget Tier (`₹0 – ₹6 Lakhs`)**: `segment_0_6_lakh.cbm`
-  - **Mid Tier (`₹6 Lakhs – ₹12 Lakhs`)**: `segment_6_12_lakh.cbm`
-  - **Luxury Tier (`₹12 Lakhs+`)**: `segment_12_plus_lakh.cbm`
+| Model | MAPE | R2 | MAE | RMSE |
+|:---|:---:|:---:|:---:|:---:|
+| LightGBM | 7.09% | 0.9646 | Rs.41,851 | Rs.97,753 |
+| CatBoost | 9.00% | 0.9537 | Rs.57,814 | Rs.1,37,748 |
+| XGBoost | 7.43% | 0.9643 | Rs.44,313 | Rs.1,05,923 |
+| **Ensemble** | **7.07%** | **0.9660** | **Rs.42,333** | **Rs.1,01,006** |
 
-### 6. Dealer Financial Decision Engine (`backend/decision_engine.py`)
-- **Market Value Calculation**: Converts log price back to INR using $\text{Price} = \exp(\hat{y}_{\text{log}}) - 1$, rounded to the nearest ₹500 step.
-- **Configurable Adaptive Parameters (`backend/valuation_config.json`)**: Allows zero-code tuning of similarity weights, age/odometer sigmas, confidence limits, and luxury brand thresholds.
-- **Dealer Waterfall Model**:
-  $$\text{Recommended Buy Price} = \text{Market Value} \times (1 - \text{Margin \%}) - \text{Recon Costs} - \text{Holding/Risk Buffer}$$
-- **Locality & RTO Demand Adjustment**: Dynamic geographic price micro-tuning based on intracity demand signals.
-- **Risk & Confidence Engine**: Computes Risk Score (0–100 based on mileage, age, owner count, physical inspection) and Confidence Score (0–100 based on comparable market matches and dataset density).
-- **Decision Output**: Generates clear dealer actions (`BUY`, `BUY AFTER INSPECTION`, `NEGOTIATE`, `REJECT`).
+### Segment-wise Test Performance (Ensemble)
 
-### 7. Interactive Response Rendering
-- Renders key financial metrics, price range visualizers, risk breakdown gauges, negotiation opening/walk-away targets, and counterfactual insights on both web and mobile dashboards.
+| Price Band | Test Rows | MAPE | R2 |
+|:---|:---:|:---:|:---:|
+| **Budget** Rs.0 – 6L | 2,291 | 7.51% | 0.9149 |
+| **Mid** Rs.6L – 12L | 1,153 | 6.17% | 0.7619 |
+| **Luxury** Rs.12L+ | 325 | 7.12% | 0.6907 |
 
-### 8. Persistence & Dual-Mode History Sync
-- **Authenticated Mode**: Automatically syncs completed valuations to Supabase PostgreSQL database using Row-Level Security (`evaluations` table).
-- **Offline / Guest Mode**: Fallback persistence using browser `localStorage` if Supabase environment variables are unconfigured.
+### Ensemble Weights (Optimizer-derived, Validation Set)
+
+| Algorithm | Weight | Role |
+|:---|:---:|:---|
+| **LightGBM** | **82.89%** | Primary: mileage, age, km-per-year curves |
+| **CatBoost** | **17.11%** | Secondary: brand/model/variant/locality encoding |
+| **XGBoost** | **~0.00%** | Included for API compatibility (optimizer zeroed) |
 
 ---
 
-## 📊 Complete Model Results & Benchmarks
+## 📁 Dataset Details & Preprocessing
 
-PriceRef ships with **`variant_1`** in `model_registry/` as the single active default model for general vehicle valuations, alongside `variant_4` for S5 quality shop stock.
+### Three Registered Variants
 
-### 1. Variant 1 — Global Ensemble Metrics (Active Default)
+| Variant | Dataset | Total Rows | Train | Valid | Test | Status |
+|:---|:---|:---:|:---:|:---:|:---:|:---:|
+| **variant_1** *(active)* | overall_only | 25,158 | 17,632 | 3,778 | 3,748 | Active |
+| variant_2 | overall_plus_s5 | 25,340 | 17,775 | 3,789 | 3,776 | Archived |
+| variant_3 | s1s4_plus_s5 | 25,371 | 17,773 | 3,819 | 3,779 | Archived |
 
-| Metric | Result | Benchmark Quality |
-| :--- | :---: | :--- |
-| **Active Engine** | `Variant 1 Ensemble` | Active Default |
-| **MAPE (Mean Absolute Percentage Error)** | **`6.16%`** | 🌟 Top Precision (< 6.2% error) |
-| **R² Score (Variance Explained)** | **`0.9777` (97.77%)** | 🎯 High Overall Accuracy |
-| **MAE (Mean Absolute Error)** | **`₹38,273`** | Average deviation per quote |
-| **RMSE (Root Mean Squared Error)** | **`₹98,254`** | Outlier-penalized error |
-| **Training Dataset** | `processed_overall.csv` | 33,979 listings |
+### Split Strategy
 
-### 2. Variant 1 — Weighted Ensemble Breakdown
+- **70 / 15 / 15** group-stratified by price bucket
+- **Price buckets**: Rs.0-3L, Rs.3-5L, Rs.5-10L, Rs.10-15L, Rs.15L+
+- **Leak-free**: train/validation/test deduplication verified before save
+- **Normalization**: brand, model, and variant strings canonicalized (engine-size badges, fuel-tech suffixes removed) before splitting
 
-| Base Algorithm | Ensemble Weight (%) | Primary Feature Focus |
-| :--- | :---: | :--- |
-| ⚡ **LightGBM** | **`89.18%`** | Age, Mileage, Age-KM Interactions, Health Scores |
-| 🐱 **CatBoost** | **`10.82%`** | Brand, Model, Trim Variant, City, Locality, RTO |
-| 🚀 **XGBoost** | **`0.00%`** | Included for API compatibility (optimizer zeroed out) |
+### Price Distribution (Variant 1 — overall_only)
 
-### 3. Segment-wise Price-Band Routing Metrics (Variant 1)
+| Bucket | Train | Validation | Test |
+|:---|:---:|:---:|:---:|
+| Rs.0 – 3L | 3,216 | 693 | 673 |
+| Rs.3 – 5L | 5,325 | 1,154 | 1,154 |
+| Rs.5 – 10L | 6,615 | 1,403 | 1,402 |
+| Rs.10 – 15L | 1,850 | 396 | 387 |
+| Rs.15L+ | 626 | 132 | 132 |
 
-| Price Segment Bracket | Dataset Size (Listings) | Segment MAPE | Segment R² | Active Model File |
-| :--- | :---: | :---: | :---: | :--- |
-| **Budget Tier** (`₹0 – ₹6 Lakhs`) | 11,941 listings | **`8.14%`** | **`0.9154`** | `segment_0_6_lakh.cbm` |
-| **Mid Tier** (`₹6L – ₹12 Lakhs`) | 6,525 listings | **`5.64%`** | **`0.8522`** | `segment_6_12_lakh.cbm` |
-| **Luxury / High-Value** (`₹12L+`) | 1,993 listings | **`5.09%`** | **`0.8872`** | `segment_12_plus_lakh.cbm` |
+### Model Features (15 total)
 
-### 4. Registered Variant Summary
-
-| Rank | Model Variant | Training Dataset | MAPE (%) | R² Score | MAE (₹) | RMSE (₹) | System Status |
-| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| 🥇 **1** | **`variant_1` (Default)** | `processed_overall.csv` | **`6.16%`** | **`0.9777`** | **₹38,273** | **₹98,254** | **Active Default** |
-| 🏅 **4** | **`variant_4` (S5 Specialist)** | `processed_s5.csv` | **`16.38%`** | **`0.3429`** | **₹2,72,324** | **₹5,04,875** | **S5 Quality Active** |
+| Type | Features |
+|:---|:---|
+| **Categorical** (9) | brand, model, variant, locality, rto, fuel_type, transmission, seller_type, color |
+| **Numeric** (6) | vehicle_age, odometer_reading, km_per_year, owner_count, certified, pincode |
 
 
 
 ---
 
-## 📱 Flutter Mobile Application (`mobile/`)
+## 🎯 Market Selling Range Logic (AdaptiveRangeEngine)
 
-PriceRef includes a dedicated **Flutter cross-platform shell** located in `mobile/`. It wraps the compiled React web bundle into a native WebView container for deployment on Android and iOS devices.
+The market selling range is computed in 5 stages inside `backend/decision_engine.py`:
 
-### Mobile Build & Execution Pipeline
+### Stage 1 — Outlier Filtering (Tukey IQR Fence)
+Comparable prices outside `[Q1 - 1.5*IQR, Q3 + 1.5*IQR]` are dropped before range calculation. This prevents extreme outlier listings from distorting the band.
 
-```powershell
-# 1. Bundle web UI for mobile
-npm run build:mobile
+### Stage 2 — Confidence Tier
 
-# 2. Run Flutter app on Android emulator
-cd mobile
-flutter pub get
-flutter run
+| Tier | Condition |
+|:---|:---|
+| **High** | >= 10 comps AND avg similarity >= 75% |
+| **Medium** | >= 4 comps AND avg similarity >= 60% |
+| **Low** | Everything else |
 
-# 3. Run on a physical device connected to your network
-flutter run --dart-define=API_URL=http://192.168.1.10:8000
+### Stage 3 — Blended Center Price
+Top-5 comps weighted by `sim^6 x owner-weight x odometer-Gaussian`.
+Center = `alpha x comp_anchor + (1-alpha) x ML_prediction`
+where `alpha` scales linearly from 0.50 to 0.70 as similarity rises from 60% to 75%.
 
-# 4. Generate Production Release Packages
-flutter build apk --release
-flutter build appbundle --release
-flutter build ios --release
+### Stage 4 — Robust Sigma Range
+
+```
+sigma = IQR / 1.35        (robust std estimator, equivalent to normal std)
+k     = 0.25 (high) or 0.30 (medium)
+
+comp_range = [center - k*sigma,  center + k*sigma]
+ml_range   = [center*(1-MAPE),   center*(1+MAPE)]
+final_range = alpha * comp_range + (1-alpha) * ml_range
 ```
 
-### Mobile Configuration Flags (`--dart-define`)
+Fallback (< 4 comps): pure MAPE band around ML prediction.
 
-| Configuration Flag | Description | Default Value |
-| :--- | :--- | :--- |
-| `API_URL` | FastAPI backend base URL accessible by emulator/device | `http://10.0.2.2:8000` (Android) / `http://localhost:8000` (iOS) |
-| `WEB_URL` | Development live-reload server URL (optional) | Bundled `assets/web/` |
+### Stage 5 — Hard Width Cap
+Maximum range width capped at **8% of center price** (`max_allowed_range_pct = 0.08`). Rounded to nearest Rs.500.
 
----
+**Typical output**: 7-10% width (e.g. Rs.48K on a Rs.6.26L vehicle = 7.7%).
 
-## 🛠️ System Architecture & Connection Flow
-
-```mermaid
-graph TD
-    WebUI[Vite + React Dashboard] -->|HTTP / REST API| FastAPI[FastAPI Backend Server]
-    MobileShell[Flutter WebView Shell] -->|Embedded Web Assets| WebUI
-    FastAPI -->|Loads Pre-trained Artifacts| Registry[Model Registry: Variant 1]
-    Registry -->|Ensemble Ingestion| Predictor[CatBoost + LightGBM + XGBoost Predictor]
-    FastAPI -->|Reads Engine Configuration| Config[valuation_config.json / engine_config.json]
-    WebUI -.->|Optional Auth & History Sync| Supabase[(Supabase PostgreSQL Database)]
-```
-
-### Connection Details
-* **Frontend Web**: React (Vite) running on `http://localhost:5173`.
-* **Mobile Shell**: Flutter app running on Android / iOS device.
-* **Backend API**: FastAPI server running on `http://127.0.0.1:8000`.
-* **Swagger API Docs**: `http://localhost:8000/docs`.
+All parameters tunable in `backend/valuation_config.json` — no code changes needed.
 
 ---
 
-## 📋 API Endpoints
+## 🔧 Price-Band Segment Routing
+
+After the ensemble prediction, each vehicle is routed to a dedicated CatBoost sub-model:
+
+| Price Band | Train Rows | Val MAPE | Improvement vs Global |
+|:---|:---:|:---:|:---:|
+| **Budget** Rs.0 – 6L | 10,809 | 8.80% | +8.4% |
+| **Mid** Rs.6L – 12L | 5,426 | 5.95% | +27.6% |
+| **Luxury** Rs.12L+ | 1,501 | 5.92% | +52.1% |
+
+Segment routing auto-activates when segment MAPE improvement exceeds 5% over the global ensemble.
+
+---
+
+## 🛠️ Backend API (`http://localhost:8008`)
 
 | Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `/evaluate` | `POST` | Core ML valuation request — returns Market Value, Buy/Sell targets, Risk score, and Recommendation. |
-| `/evaluate-enhanced` | `POST` | Comprehensive evaluation incorporating physical grade inspection and component condition. |
-| `/predict` | `POST` | Fast ML market value prediction with price range bounds. |
-| `/reverse-calculate` | `POST` | Calculates maximum buy price target given a desired sell price and profit margin. |
-| `/api/brands` | `GET` | Fetches canonical brand catalog and valid models. |
-| `/api/registry` | `GET` | Returns active model variant configuration (**Variant 1**). |
+|:---|:---:|:---|
+| `/evaluate` | POST | Full valuation — market value, buy/sell targets, risk score, recommendation |
+| `/evaluate-enhanced` | POST | Evaluation with physical component-grade inspection |
+| `/predict` | POST | Lightweight market value + price range |
+| `/reverse-calculate` | POST | Max buy price given desired sell price and target margin |
+| `/api/options` | GET | Dynamic year/fuel/transmission options for a brand+model |
+| `/api/brands` | GET | Canonical brand catalog |
+| `/api/catalog` | GET | Full brand -> model -> variant catalog |
+| `/api/registry` | GET | Active model variant metadata and metrics |
+| `/health` | GET | Server health and loaded model status |
+| `/docs` | GET | Interactive Swagger API documentation |
+
+### Dealer Decision Engine (Waterfall Model)
+
+```
+Buy Price = Market Value - Recon - Holding - Docs - Risk Buffer - Target Profit
+```
+
+- Dynamic margins capped by vehicle category (Economy Rs.40K -> Luxury Rs.85K)
+- Negotiation strategy: Opening offer, target offer, walk-away price
+- Risk scoring: 0-100 based on mileage, age, owner count, inspection
+- Recommendations: BUY, BUY AFTER INSPECTION, NEGOTIATE, REJECT
 
 ---
 
-## ⚙️ Configuration & Utility Scripts
+## ⚙️ Configuration
 
-### Configurable Engine Parameters (`backend/valuation_config.json`)
-The adaptive decision engine allows zero-code adjustment of similarity weights and thresholds without code modification:
-- `similarity_weights`: Feature weights for brand, model, variant, age, odometer, fuel, locality, transmission, owner count.
-- `luxury_brands`: Explicit list of luxury brands receiving tailored geographic dampening and similarity thresholds.
-- `confidence_weights` & `confidence_labels`: Tuning confidence score ranges and market support thresholds.
+### `backend/valuation_config.json` — Zero-code tuning
 
-### Diagnostic & Operational Helper Scripts (`scripts/`)
+| Parameter | Default | Description |
+|:---|:---:|:---|
+| `max_allowed_range_pct` | 0.08 | Hard cap on range width as fraction of center price |
+| `range_sigma.high` | 0.25 | Sigma multiplier k for high-confidence range |
+| `range_sigma.medium` | 0.30 | Sigma multiplier k for medium-confidence range |
+| `high_confidence_min_comps` | 10 | Min comps needed for high-confidence tier |
+| `medium_confidence_min_comps` | 4 | Min comps needed for medium-confidence tier |
+| `high_confidence_avg_sim` | 0.75 | Min avg similarity for high-confidence tier |
+| `medium_confidence_avg_sim` | 0.60 | Min avg similarity for medium-confidence tier |
+| `comp_weight_high` | 0.70 | Max comp blend weight (high similarity) |
+| `comp_weight_medium` | 0.50 | Comp blend weight at medium similarity |
 
-| Script File | Command | Description |
-| :--- | :--- | :--- |
-| `system_health_check.py` | `python scripts/system_health_check.py` | Validates model files, backend imports, decision engine logic, and mock valuation requests. |
-| `validate_models.py` | `python scripts/validate_models.py` | Runs automated prediction verification across all variant artifacts. |
-| `generate_engine_config.py` | `python scripts/generate_engine_config.py` | Regenerates statistical market percentiles and locality demand tables into `engine_config.json`. |
-| `show_buy_price.py` | `python scripts/show_buy_price.py` | CLI tool to calculate dealer buy prices, margins, and risk buffers interactively. |
-| `feature_sensitivity_test.py` | `python scripts/feature_sensitivity_test.py` | Tests model sensitivity to individual feature changes (mileage, age, condition). |
-| `query_exact_car.py` | `python scripts/query_exact_car.py` | Queries the training dataset for a specific vehicle and returns matching comparable listings. |
-| `verify_fixes.py` | `python scripts/verify_fixes.py` | Sanity-checks recent model or engine fixes by running before/after valuation comparisons. |
+### `.env`
+
+```env
+VITE_API_URL=http://localhost:8008
+VITE_SUPABASE_URL=https://your-project.supabase.co   # optional
+VITE_SUPABASE_ANON_KEY=your-anon-key                 # optional
+```
 
 ---
 
-## 🏁 Quick Start (Run Out of the Box)
+## 🏁 Quick Start
 
-> 💡 **No model training is required after cloning.** The pre-trained Variant 1 model artifacts are included directly in `model_registry/variant_1`.
+> No model training required. Pre-trained Variant 1 artifacts are included in `model_registry/variant_1/`.
 
 ### Prerequisites
-* **Python 3.10+**
-* **Node.js 18+**
-* **Flutter SDK 3.44+** *(Optional: required only for mobile app)*
-* **Git**
+- Python 3.10+
+- Node.js 18+
+- Flutter SDK 3.44+ *(optional — mobile only)*
 
-### 1. Clone & Set Up Backend
+### 1. Clone & Install
 
 ```bash
-# Clone repository
 git clone https://github.com/UmaDamotharan/Price-Prediction.git
 cd Price-Prediction
 
-# Create and activate Python virtual environment
 python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 
-# Install Python backend dependencies
 pip install -r backend/requirements.txt
 ```
 
-### 2. Configure Environment Variables (Optional for Supabase)
-
-Copy `.env.example` to `.env`:
+### 2. Configure `.env`
 
 ```bash
 cp .env.example .env
+# Set VITE_API_URL=http://localhost:8008
 ```
 
-Or create `.env` manually:
-
-```env
-VITE_API_URL=http://localhost:8000
-ACTIVE_VARIANT_ID=variant_1
-VITE_SUPABASE_URL=https://placeholder-project.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0MDAwMDAsImV4cCI6MTkwMDA0MDAwMH0.placeholder
-```
-
-### 3. Run FastAPI Backend
+### 3. Start Backend
 
 ```bash
-uvicorn backend.main:app --reload --port 8000
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8008
+# Swagger docs at: http://localhost:8008/docs
 ```
-Backend will start at `http://127.0.0.1:8000` and load pre-trained Variant 1 models automatically.
 
-### 4. Install & Run Frontend Web UI
-
-Open a second terminal:
+### 4. Start Frontend
 
 ```bash
-# Install Node dependencies
 npm install
-
-# Start Vite React development server
 npm run dev
+# App at: http://localhost:5173
 ```
-Frontend will start at `http://localhost:5173`.
 
-### 5. Build & Run Mobile Shell (Optional)
-
-Open a third terminal:
+### 5. Mobile (Optional)
 
 ```bash
-# Bundle React web assets for mobile WebView
 npm run build:mobile
-
-# Launch Flutter mobile application
-cd mobile
-flutter pub get
-flutter run
+cd mobile && flutter pub get && flutter run
 ```
 
 ---
 
-## 🍴 How to Fork this Repository
+## 📱 Flutter Mobile Shell
 
-If you want to create your own copy of this repository on GitHub to customize or host under your account:
+```powershell
+# Release builds
+flutter build apk --release
+flutter build appbundle --release
+flutter build ios --release
 
-1. Click the **`Fork`** button at the top right of this repository page ([`github.com/UmaDamotharan/Price-Prediction`](https://github.com/UmaDamotharan/Price-Prediction)).
-2. Select your account to create an independent copy under your GitHub profile.
-3. You can now clone your forked repository or connect it directly to **Render**, **Railway**, or **Vercel** for 1-click cloud deployment!
-
----
-
-## 🌐 Deployment & Hosting Guide
-
-Anyone cloning or forking this repository can deploy it online using any of the following methods:
-
-### **Method 1: Render.com (Recommended — 1-Click Auto Blueprint)**
-
-Since `render.yaml` is pre-configured in this repository:
-
-1. Fork this repository to your GitHub account.
-2. Sign up at **[render.com](https://render.com)**.
-3. Click **New + → Blueprint** and select your repository.
-4. Click **Apply**. Render will automatically deploy:
-   - **Backend Web Service**: Python FastAPI + Uvicorn server (`price-prediction-backend`).
-   - **Frontend Static Site**: React Vite bundle (`price-prediction-frontend`).
+# Custom API URL for device
+flutter run --dart-define=API_URL=http://192.168.1.10:8008
+```
 
 ---
 
-### **Method 2: Vercel (Frontend) + Railway (Backend)**
+## 🌐 Deployment
 
-1. **Backend (Railway.app):**
-   - New Project → Deploy from GitHub → Select Repository.
-   - Set Start Command: `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-2. **Frontend (Vercel.com):**
-   - New Project → Import GitHub Repo.
-   - Build Command: `npm run build`, Output Directory: `dist`.
-   - Add Environment Variable: `VITE_API_URL=https://your-backend-railway-url.up.railway.app`
+### Render.com (Recommended — 1-Click)
+1. Fork this repo
+2. Sign up at [render.com](https://render.com)
+3. **New → Blueprint** → select your fork → **Apply**
+4. `render.yaml` auto-configures FastAPI backend + Vite static frontend
 
----
+### Vercel + Railway
+```
+Railway: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+Vercel:  Build=npm run build  Output=dist  Env=VITE_API_URL=<railway-url>
+```
 
-### **Method 3: Docker Deployment**
-
-Run using Docker locally or on any Cloud VPS (AWS / DigitalOcean / Hetzner):
-
+### Docker
 ```bash
-# Build & Run using docker-compose
 docker-compose up --build
 ```
 
 ---
 
-## ⚡ Supabase Setup (Optional — User Accounts & History Sync)
+## ☁️ Supabase Setup (Optional)
 
-> **Note:** Core ML valuations work **100% offline without Supabase**. Supabase is only required if you want user authentication (login/signup) and persistent cloud evaluation history.
-
-To enable Supabase integration:
-
-1. Create a free project at [supabase.com](https://supabase.com).
-2. Copy your project **URL** and **anon Key** into `.env`:
-   ```env
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   ```
-3. Run this SQL in your Supabase **SQL Editor**:
+Core ML valuations work 100% offline. Supabase enables user auth and cloud history.
 
 ```sql
--- User Profiles
 create table if not exists profiles (
   id uuid references auth.users(id) primary key,
   name text not null,
@@ -373,24 +317,22 @@ create table if not exists profiles (
   created_at timestamptz default now()
 );
 
--- Valuation History
 create table if not exists evaluations (
   id text primary key,
   user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz default now(),
   source text, brand text, model text, year int,
   fuel text, transmission text, city text,
-  odometer int, fuel_efficiency numeric, owner_count int,
-  engine_cc int, condition text, seller_asking_price numeric,
-  market_value numeric, buy_price numeric, sell_price numeric,
-  expected_profit numeric, margin_pct numeric, risk_score numeric,
-  confidence_score numeric, deal_quality_score numeric, action text,
-  urgency_score numeric, is_ml_powered boolean,
+  odometer int, owner_count int, condition text,
+  seller_asking_price numeric, market_value numeric,
+  buy_price numeric, sell_price numeric,
+  expected_profit numeric, margin_pct numeric,
+  risk_score numeric, confidence_score numeric,
+  action text, is_ml_powered boolean,
   positive_factors jsonb, negative_factors jsonb
 );
 
--- Enable RLS
-alter table profiles enable row level security;
+alter table profiles   enable row level security;
 alter table evaluations enable row level security;
 
 create policy "own profile read"   on profiles   for select using (auth.uid() = id);
@@ -401,23 +343,59 @@ create policy "own evals insert"   on evaluations for insert with check (auth.ui
 
 ---
 
-## 🔬 Optional: Retraining Model Variants
-
-> **Note:** This section is completely optional. The app runs immediately without running these scripts.
-
-If you wish to clean a raw dataset and retrain model variants from scratch in the future:
+## 🔬 Retraining (Optional)
 
 ```bash
-# ── Variant 1: Full General Market Model (33,979 rows) ──────────────────────
-python ml_training/clean-1.py     # Clean raw dataset → processed_overall.csv
-python ml_training/train-1.py     # Train CatBoost + LightGBM + XGBoost ensemble
+# Step 1: Prepare stratified splits for all datasets
+python ml_training/prepare_splits.py
 
-# ── Variant 4: S5 Quality Shop Specialist (173 rows, age 0–7 years) ─────────
-python ml_training/clean-s5.py    # Clean S5 shop data → processed_s5.csv
-python ml_training/train-s5.py    # Train CatBoost + LightGBM specialist model
+# Step 2: Train variant (set VARIANT env var or edit train-1.py)
+python ml_training/train-1.py   # writes to model_registry/variant_N/
+
+# Step 3: Validate
+python scripts/validate_models.py
+python scripts/system_health_check.py
+
+# Step 4: Regenerate engine config (locality demand, market percentiles)
+python scripts/generate_engine_config.py
 ```
 
-> **Note:** Variant 1 (`variant_1`) is the active default model used for valuation. Variant 4 (`variant_4`) is a specialist model for S5 quality shop listings only.
+---
 
-*Note: Training outputs will update `model_registry/variant_N` and automatically register in `model_registry/registry.json`. Variant 4 never auto-promotes to default — it is a specialist S5 model only. The active default is always `Variant 1` (`ACTIVE_VARIANT_ID=variant_1`).*
+## 🛡️ Diagnostic Scripts (`scripts/`)
 
+| Script | Description |
+|:---|:---|
+| `system_health_check.py` | Validates model files, imports, engine logic, mock valuations |
+| `validate_models.py` | Prediction verification across all variant artifacts |
+| `generate_engine_config.py` | Regenerates market percentiles and locality demand tables |
+| `show_buy_price.py` | Interactive CLI for buy price / margin / risk calculation |
+| `feature_sensitivity_test.py` | Tests model sensitivity to individual feature changes |
+
+---
+
+## 📂 Project Structure
+
+```
+Price-Prediction/
+├── backend/
+│   ├── main.py                  # FastAPI app, endpoints, feature engineering
+│   ├── decision_engine.py       # AdaptiveRangeEngine, ConfidenceEngine, DecisionEngine
+│   ├── ensemble_predictor.py    # Model loader and ensemble predictor
+│   ├── valuation_config.json    # All tunable engine parameters
+│   └── engine_config.json       # Auto-generated market stats and locality data
+├── ml_training/
+│   ├── prepare_splits.py        # 70/15/15 stratified data splitting pipeline
+│   ├── train-1.py               # Main ensemble training script
+│   ├── clean_datasets.py        # Brand/model/variant normalization
+│   └── data/                    # Train/valid/test CSVs per dataset variant
+├── model_registry/
+│   ├── registry.json            # Active variant pointer and metrics index
+│   └── variant_1/               # Pre-trained artifacts (ensemble + 3 segment models)
+├── src/                         # React + Vite frontend source
+├── mobile/                      # Flutter cross-platform shell
+├── scripts/                     # Diagnostic and operational utilities
+├── .env                         # VITE_API_URL and Supabase keys
+├── render.yaml                  # 1-click Render deployment blueprint
+└── vite.config.js               # Frontend build configuration
+```

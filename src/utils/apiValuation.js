@@ -1,38 +1,12 @@
-// Lazy getter — evaluated at call time so the Flutter WebView shell's
-// window.PriceRef_API_URL injection (fired after onPageFinished) is
-// always picked up, even though it arrives after module initialisation.
-function getApiBase() {
-  if (typeof window !== 'undefined') {
-    if (window.PriceRef_API_URL) return window.PriceRef_API_URL;
-
-    const host = window.location.hostname;
-    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
-    const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_ML_API_URL || '').trim();
-
-    // If VITE_API_URL is set to a valid non-localhost URL (or we are on localhost), use it
-    if (envUrl) {
-      const envIsLocal = envUrl.includes('localhost') || envUrl.includes('127.0.0.1');
-      if (isLocalHost || !envIsLocal) {
-        return envUrl.replace(/\/+$/, '');
-      }
-    }
-
-    // Smart fallback for Render live deployments
-    if (host.endsWith('.onrender.com')) {
-      const name = host.replace('.onrender.com', '');
-      if (name === 'priceref' || name.startsWith('priceref')) {
-        return 'https://priceref-backend.onrender.com';
-      }
-      return 'https://price-prediction-backend.onrender.com';
-    }
-  }
-
-  return (
-    import.meta.env.VITE_API_URL ||
-    import.meta.env.VITE_ML_API_URL ||
-    'http://localhost:8000'
-  ).replace(/\/+$/, '');
-}
+// API base resolution moved to src/lib/runtimeConfig.js so that this module, the
+// API client and the Supabase client all agree on one answer, and so the value
+// can be injected at container start instead of baked in by Vite at build time.
+//
+// The previous implementation also hardcoded a fallback to
+// price-prediction-backend.onrender.com for any unrecognised hostname, which
+// meant a fork deployed anywhere else silently sent its users' vehicle data to
+// a third party's backend.
+import { getApiBase } from '../lib/runtimeConfig.js';
 
 function toNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === '') return fallback;
@@ -227,9 +201,6 @@ function normalizeApiResult(data, inputs) {
     validationMetrics: data.validation_metrics || {},
     testMetrics: data.test_metrics || {},
     overfittingCheck: data.overfitting_check || {},
-    valuationSource: 'CatBoost ML Backend',
-    segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
-    segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     valuationSource: 'CatBoost ML Backend',
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,

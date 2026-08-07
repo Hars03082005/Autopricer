@@ -1,8 +1,12 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { BRANDS } from '../utils/mockData.js';
 import { useAuth } from './AuthContext.jsx';
-import { supabase } from '../lib/supabaseClient.js';
+import {
+  fetchHistory,
+  createHistoryEntry,
+  clearHistory as clearHistoryApi,
+  ApiError,
+} from '../lib/apiClient.js';
 
 const DEFAULT_INPUTS = {
   brand: 'Honda', model: 'City', variant: '', year: '2021',
@@ -34,7 +38,11 @@ const DEFAULT_INSPECTION = {
   },
 };
 
-const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1'; // kept for demo-user fallback
+// Guest and demo sessions keep history here and never touch the database. That
+// is the honest representation of "not signed in": the previous code wrote
+// user_id: 'guest' into a uuid column, so every guest save failed and was
+// swallowed by a console.warn.
+const HISTORY_KEY = 'PriceRef_ml_evaluation_history_v1';
 const AppContext = createContext(null);
 
 function toNumber(value, fallback = 0) {
@@ -104,85 +112,67 @@ function recordFromResult(inputs, result, source = 'Single Vehicle') {
   };
 }
 
-/** Convert camelCase record → snake_case DB row for Supabase insert */
-function recordToDbRow(rec, userId) {
-  return {
-    id:                   rec.id,
-    user_id:              userId,
-    created_at:           rec.createdAt,
-    source:               rec.source,
-    brand:                rec.brand,
-    model:                rec.model,
-    variant:              rec.variant || '',
-    year:                 rec.year,
-    fuel:                 rec.fuel,
-    transmission:         rec.transmission,
-    city:                 rec.city,
-    locality:             rec.locality || '',
-    odometer:             rec.odometer,
-    fuel_efficiency:      rec.fuelEfficiency,
-    owner_count:          rec.ownerCount,
-    engine_cc:            rec.engineCc,
-    condition:            rec.condition,
-    seller_asking_price:  rec.sellerAskingPrice,
-    market_value:         rec.marketValue,
-    buy_price:            rec.buyPrice,
-    sell_price:           rec.sellPrice,
-    expected_profit:      rec.expectedProfit,
-    margin_pct:           rec.marginPct,
-    risk_score:           rec.riskScore,
-    confidence_score:     rec.confidenceScore,
-    deal_quality_score:   rec.dealQualityScore,
-    action:               rec.action,
-    urgency_score:        rec.urgencyScore,
-    is_ml_powered:        rec.isMLPowered,
-    positive_factors:     rec.positiveFactors,
-    negative_factors:     rec.negativeFactors,
-  };
+/**
+ * Fields the API owns and must not be sent to it.
+ *
+ * `id` and `createdAt` are assigned server-side from the verified token and the
+ * server clock. Sending them would let a client collide with an existing id or
+ * backdate a record, so POST /api/history rejects them by ignoring them — this
+ * keeps the request payload honest about that.
+ */
+const SERVER_OWNED_FIELDS = ['id', 'createdAt'];
+
+/**
+ * UI-only aliases derived from canonical fields.
+ *
+ * Several screens read `mileage`/`kmDriven` for the odometer and
+ * `predictedPrice`/`recommendedBuyPrice` for the valuation. Those are display
+ * conveniences, not distinct data, so they are computed on read rather than
+ * stored — persisting them would mean four columns that can disagree.
+ */
+const UI_ONLY_FIELDS = [
+  'kmDriven', 'mileage', 'predictedPrice', 'recommendedBuyPrice',
+  'recommendedSellPrice', 'dealQuality', 'conditionScore', 'modelName',
+  'valuationSource',
+];
+
+/** Strip client-side and server-owned fields to get the POST /api/history body. */
+function recordToApiPayload(rec) {
+  const payload = { ...rec };
+  for (const key of [...SERVER_OWNED_FIELDS, ...UI_ONLY_FIELDS]) delete payload[key];
+  return payload;
 }
 
-/** Convert snake_case DB row → camelCase record for the UI */
-function dbRowToRecord(row) {
+/**
+ * Re-attach the UI aliases to a record returned by the API.
+ *
+ * The backend emits camelCase already (see backend/routers/history.py), so this
+ * is no longer a naming translation — only alias expansion. The snake_case
+ * mapping that used to live here now lives server-side, in one place, next to
+ * the schema it has to agree with.
+ */
+function hydrateRecord(rec) {
+  const odometer = toNumber(rec.odometer, 0);
+  const marketValue = toNumber(rec.marketValue, 0);
+  const buyPrice = toNumber(rec.buyPrice, 0);
+  const sellPrice = toNumber(rec.sellPrice, 0);
+
   return {
-    id:                   row.id,
-    createdAt:            row.created_at,
-    source:               row.source,
-    brand:                row.brand,
-    model:                row.model,
-    variant:              row.variant || '',
-    year:                 row.year,
-    fuel:                 row.fuel,
-    transmission:         row.transmission,
-    city:                 row.city,
-    locality:             row.locality || '',
-    odometer:             row.odometer,
-    kmDriven:             row.odometer,
-    mileage:              row.odometer,
-    fuelEfficiency:       row.fuel_efficiency,
-    ownerCount:           row.owner_count,
-    engineCc:             row.engine_cc,
-    condition:            row.condition,
-    conditionScore:       75,
-    sellerAskingPrice:    row.seller_asking_price,
-    marketValue:          row.market_value,
-    predictedPrice:       row.market_value,
-    buyPrice:             row.buy_price,
-    recommendedBuyPrice:  row.buy_price,
-    sellPrice:            row.sell_price,
-    recommendedSellPrice: row.sell_price,
-    expectedProfit:       row.expected_profit,
-    marginPct:            row.margin_pct,
-    riskScore:            row.risk_score,
-    confidenceScore:      row.confidence_score,
-    dealQualityScore:     row.deal_quality_score,
-    dealQuality:          row.deal_quality_score,
-    action:               row.action,
-    urgencyScore:         row.urgency_score,
-    isMLPowered:          row.is_ml_powered,
-    positiveFactors:      row.positive_factors || [],
-    negativeFactors:      row.negative_factors || [],
-    modelName:            'CatBoostRegressor',
-    valuationSource:      'CatBoost ML Backend',
+    ...rec,
+    variant: rec.variant || '',
+    locality: rec.locality || '',
+    positiveFactors: rec.positiveFactors || [],
+    negativeFactors: rec.negativeFactors || [],
+
+    kmDriven: odometer,
+    mileage: odometer,
+    predictedPrice: marketValue,
+    recommendedBuyPrice: buyPrice,
+    recommendedSellPrice: sellPrice,
+    dealQuality: toNumber(rec.dealQualityScore, 0),
+    conditionScore: toNumber(rec.conditionScore, 75),
+    modelName: rec.modelName || 'CatBoostRegressor',
+    valuationSource: rec.valuationSource || 'CatBoost ML Backend',
   };
 }
 
@@ -197,40 +187,86 @@ export function AppProvider({ children }) {
   const [enhancedResult, setEnhancedResult] = useState(null);
   const [enhancedInspection, setEnhancedInspection] = useState(DEFAULT_INSPECTION);
   const [reverseResult, setReverseResult] = useState(null);
-  const [evaluations, setEvaluations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dashFilters, setDashFilters] = useState({ brand: 'All', city: 'All', priceRange: 'All' });
+  // Non-fatal persistence problems, so the UI can say "saved locally only"
+  // rather than implying a valuation was stored in the cloud when it was not.
+  const [historyError, setHistoryError] = useState(null);
 
-  // Load evaluations from Supabase (or localStorage fallback)
+  // History is held in two buckets rather than one, and the list the UI reads is
+  // derived during render.
+  //
+  // The obvious alternative — a single `evaluations` state that an effect
+  // overwrites whenever the user changes — means synchronously calling setState
+  // from an effect body, which triggers a second render pass before paint and is
+  // what react-hooks/set-state-in-effect warns about. Deriving instead makes the
+  // guest case need no effect at all.
+  const [localHistory, setLocalHistory] = useState(loadLocalHistory);
+  // Tagged with the user it was fetched for, as { userId, rows }.
+  //
+  // The tag is what makes a sign-out cleanup effect unnecessary: rather than
+  // clearing this when the user changes (a synchronous setState in an effect),
+  // the derived value below simply ignores rows belonging to anyone else. One
+  // user's history can therefore never be read into another's session.
+  const [cloudHistory, setCloudHistory] = useState(null);
+
+  // True when history should round-trip through the API. Demo sessions have no
+  // auth.users row and therefore no user id to own database records.
+  const isCloudUser = Boolean(currentUser && currentUser.id !== 'demo');
+
+  // null here means "not fetched for this user yet", which is distinct from []
+  // meaning "fetched, and this user genuinely has no history".
+  const cloudRows =
+    cloudHistory && currentUser && cloudHistory.userId === currentUser.id
+      ? cloudHistory.rows
+      : null;
+
+  // Guests read the local store. Signed-in users read the cloud copy, falling
+  // back to the local mirror until the first fetch resolves — so the dashboard
+  // is populated immediately instead of flashing empty.
+  const evaluations = isCloudUser ? (cloudRows ?? localHistory) : localHistory;
+
+  // Fetch cloud history for signed-in users. setState happens only inside the
+  // promise callbacks, never synchronously in the effect body.
   useEffect(() => {
-    const userId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
+    if (!isCloudUser) return;
 
-    supabase
-      .from('evaluations')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(500)
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn('[PriceRef] Supabase load note (using local fallback):', error.message);
-          setEvaluations(loadLocalHistory());
-          return;
-        }
-        if (data && data.length > 0) {
-          setEvaluations(data.map(dbRowToRecord));
-        } else {
-          setEvaluations(loadLocalHistory());
-        }
+    const userId = currentUser.id;
+    // Abort on user change so a slow response for the previous user cannot land
+    // in the new user's dashboard.
+    const controller = new AbortController();
+
+    fetchHistory({ limit: 500, signal: controller.signal })
+      .then(rows => {
+        setCloudHistory({ userId, rows: rows.map(hydrateRecord) });
+        setHistoryError(null);
       })
-      .catch(() => {
-        setEvaluations(loadLocalHistory());
+      .catch(error => {
+        if (error?.name === 'AbortError') return;
+        // Leave cloudHistory unset so the local mirror keeps showing, but say so:
+        // the old code silently substituted local data for cloud data, which
+        // looked identical to "your cloud history is intact".
+        setHistoryError(
+          error instanceof ApiError && error.isUnavailable
+            ? 'Cloud history is unavailable — showing this browser\'s local copy.'
+            : `Could not load cloud history (${error.message}) — showing local copy.`
+        );
       });
-  }, [currentUser]);
 
-  // Persist local evaluations backup
+    return () => controller.abort();
+  }, [isCloudUser, currentUser?.id]);
+
+  // Local mirror of the history.
+  //
+  // For guests this is the system of record. For signed-in users it is a cache
+  // that keeps the dashboard populated when the API is unreachable. Capped at
+  // 500 to stay well inside the ~5 MB localStorage quota.
   useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(evaluations.slice(0, 500)));
+    } catch {
+      // Quota exceeded or private browsing — the cache is optional, so drop it.
+    }
   }, [evaluations]);
 
   const updateInput = useCallback((field, value) => {
@@ -259,41 +295,73 @@ export function AppProvider({ children }) {
     }));
   }, []);
 
+  const prepend = useCallback((record) => {
+    setLocalHistory(prev => [record, ...prev].slice(0, 500));
+    setCloudHistory(prev =>
+      prev === null ? prev : { ...prev, rows: [record, ...prev.rows].slice(0, 500) }
+    );
+  }, []);
+
   const addEvaluation = useCallback(async (vehicleInputs, result, source = 'Single Vehicle') => {
-    const record = recordFromResult(vehicleInputs, result, source);
-    setEvaluations(prev => [record, ...prev].slice(0, 500));
+    const record = hydrateRecord(recordFromResult(vehicleInputs, result, source));
 
-    // ALWAYS persist evaluation inputs & predictions to Supabase database!
-    const targetUserId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
+    // Show it immediately; reconcile with the server's version below. A dealer
+    // should never wait on a network round-trip to see the valuation they just ran.
+    prepend(record);
+
+    if (!isCloudUser) return record;
+
     try {
-      const dbRow = recordToDbRow(record, targetUserId);
-      const { error } = await supabase.from('evaluations').insert(dbRow);
-      if (error) {
-        console.warn('[PriceRef] Supabase save notice:', error.message);
-      } else {
-        console.log('[PriceRef] Saved evaluation input to Supabase:', record.id);
-      }
-    } catch (err) {
-      console.warn('[PriceRef] Supabase save exception:', err);
+      const saved = await createHistoryEntry(recordToApiPayload(record));
+      const persisted = hydrateRecord(saved);
+      // Swap the optimistic row for the persisted one so the record carries the
+      // server-assigned id — without this, deleting a single entry later would
+      // reference an id the database never issued.
+      const swapIn = rows => rows.map(item => (item.id === record.id ? persisted : item));
+      setLocalHistory(swapIn);
+      setCloudHistory(prev => (prev === null ? null : { ...prev, rows: swapIn(prev.rows) }));
+      setHistoryError(null);
+      return persisted;
+    } catch (error) {
+      // Keep the optimistic row: it is still in the local mirror, so the
+      // valuation is not lost. Report it rather than console.warn-ing, because
+      // "saved" and "saved to this browser only" are materially different.
+      setHistoryError(
+        error instanceof ApiError && error.isUnavailable
+          ? 'Cloud history is unavailable — this valuation was saved locally only.'
+          : `Could not save to cloud history (${error.message}) — saved locally only.`
+      );
+      return record;
     }
-
-    return record;
-  }, [currentUser]);
+  }, [isCloudUser, prepend]);
 
   const clearEvaluations = useCallback(async () => {
-    setEvaluations([]);
-    localStorage.removeItem(HISTORY_KEY);
-    const targetUserId = (currentUser && currentUser.id !== 'demo') ? currentUser.id : 'guest';
+    const previousLocal = localHistory;
+    const previousCloud = cloudHistory;
+
+    setLocalHistory([]);
+    // Left null when it was already null: nothing has been fetched yet, and the
+    // derived list falls through to localHistory — which is now empty — so the
+    // UI shows a cleared history either way. Avoiding the currentUser reference
+    // here also keeps this callback's dependencies to the values it actually reads.
+    setCloudHistory(prev => (prev === null ? null : { ...prev, rows: [] }));
     try {
-      const { error } = await supabase
-        .from('evaluations')
-        .delete()
-        .eq('user_id', targetUserId);
-      if (error) console.warn('[PriceRef] Supabase clear note:', error.message);
-    } catch (err) {
-      console.warn('[PriceRef] Supabase clear exception:', err);
+      localStorage.removeItem(HISTORY_KEY);
+    } catch { /* nothing to clean up */ }
+
+    if (!isCloudUser) return;
+
+    try {
+      await clearHistoryApi();
+      setHistoryError(null);
+    } catch (error) {
+      // Restore rather than leave the UI claiming the history is gone when the
+      // server still holds every row.
+      setLocalHistory(previousLocal);
+      setCloudHistory(previousCloud);
+      setHistoryError(`Could not clear cloud history (${error.message}) — nothing was deleted.`);
     }
-  }, [currentUser]);
+  }, [isCloudUser, localHistory, cloudHistory]);
 
   const updateEnhancedInspection = useCallback((field, value) => {
     setEnhancedInspection(prev => ({ ...prev, [field]: value }));
@@ -316,7 +384,7 @@ export function AppProvider({ children }) {
       enhancedResult, setEnhancedResult,
       enhancedInspection, setEnhancedInspection, updateEnhancedInspection, updateVendorType,
       reverseResult, setReverseResult,
-      evaluations, addEvaluation, clearEvaluations,
+      evaluations, addEvaluation, clearEvaluations, historyError,
       isLoading, setIsLoading,
       dashFilters, setDashFilters,
     }}>

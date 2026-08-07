@@ -1,0 +1,86 @@
+[project]
+name = "priceref-backend"
+version = "1.0.0"
+description = "PriceRef ML valuation API"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# Import mode importlib + rootdir on sys.path so `from backend import ...`
+# resolves without an editable install or a conftest sys.path hack.
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+pythonpath = ["."]
+markers = [
+    "models: requires the model artifacts in model_registry/ (slow: loads ~250 MB into RAM)",
+]
+filterwarnings = [
+    "error::DeprecationWarning:backend.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# ml_training/ and scripts/ are research and operational code with different
+# conventions; linting them is a separate cleanup, not part of this change.
+include = ["backend/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "S",    # bandit security checks
+    "ASYNC",
+]
+ignore = [
+    "E501",  # line length is handled by the formatter
+    "B008",  # FastAPI's Depends() in defaults is the documented idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately use assert, and hardcoded fake tokens are the point.
+"tests/**" = ["S101", "S105", "S106"]
+
+# ── Pre-existing debt ────────────────────────────────────────────────────────
+# These suppressions are scoped to the exact files and rules that were already
+# failing before this change, so that `ruff check` is a real CI gate for new and
+# edited code from day one rather than a step that has to be skipped.
+#
+# They are deliberately narrow: a *different* rule firing in any of these files
+# still fails the build. Removing each line is a self-contained cleanup — the
+# counts below are what stood at the time of writing.
+#
+# Nothing here is a correctness risk except B023 and B904 in main.py, which are
+# worth looking at first:
+#   B023 — closure captures a loop variable (2 sites); a real bug class, though
+#          both current sites are called within the loop iteration.
+#   B904 — `raise` inside `except` without `from`; loses the original traceback.
+"backend/decision_engine.py" = [
+    "E701",   # 58x  `if x: return y` on one line
+    "E402",   #  3x  imports after module-level code
+    "I001",   #  3x  unsorted imports
+    "F841",   #  2x  assigned-but-unused local
+    "B905",   #  1x  zip() without explicit strict=
+    "S110",   #  1x  try/except/pass
+]
+"backend/main.py" = [
+    "UP045",  # 14x  Optional[X] rather than X | None
+    "E701",   # 10x
+    "B023",   #  2x  see note above
+    "B904",   #  2x  see note above
+    "UP015",  #  2x  redundant open() mode
+    "I001",   #  2x
+    "F401",   #  1x  unused import
+    "UP006",  #  1x  typing.Dict rather than dict
+    "UP035",  #  1x  deprecated typing import
+]
+"backend/brand_catalog.py" = ["UP006", "UP015", "UP035"]
+"backend/ensemble_predictor.py" = ["F401", "UP006", "UP015", "UP035", "UP037"]
+"backend/model_registry.py" = ["UP015", "UP045"]

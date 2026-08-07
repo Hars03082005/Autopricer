@@ -1,0 +1,120 @@
+{
+  "variant_id": "variant_3",
+  "script": "train-3",
+  "data_folder": "s1s4_plus_s5",
+  "split_source": "pre_split",
+  "train_rows": 17773,
+  "valid_rows": 3819,
+  "features": [
+    "brand",
+    "model",
+    "variant",
+    "locality",
+    "rto",
+    "fuel_type",
+    "transmission",
+    "seller_type",
+    "color",
+    "vehicle_age",
+    "odometer_reading",
+    "km_per_year",
+    "owner_count",
+    "certified",
+    "pincode"
+  ],
+  "cat_features": [
+    "brand",
+    "model",
+    "variant",
+    "locality",
+    "rto",
+    "fuel_type",
+    "transmission",
+    "seller_type",
+    "color"
+  ],
+  "numeric_features": [
+    "vehicle_age",
+    "odometer_reading",
+    "km_per_year",
+    "owner_count",
+    "certified",
+    "pincode"
+  ],
+  "val_metrics": {
+    "CatBoost": {
+      "MAE": 60255.96,
+      "RMSE": 138823.63,
+      "R2": 0.951,
+      "MAPE": 9.32
+    },
+    "LightGBM": {
+      "MAE": 46490.83,
+      "RMSE": 128487.25,
+      "R2": 0.9549,
+      "MAPE": 7.66
+    },
+    "XGBoost": {
+      "MAE": 49016.83,
+      "RMSE": 130641.9,
+      "R2": 0.9543,
+      "MAPE": 8.02
+    },
+    "Ensemble": {
+      "MAE": 46363.38,
+      "RMSE": 125445.54,
+      "R2": 0.9581,
+      "MAPE": 7.58
+    }
+  },
+  "ensemble_weights": {
+    "catboost": 0.18061677520628464,
+    "lightgbm": 0.8193832247937154,
+    "xgboost": 0.0
+  },
+  "active_segment_models": [
+    "0_6_lakh",
+    "6_12_lakh",
+    "12_plus_lakh"
+  ],
+  "hyperparameters": {
+    "catboost": {
+      "iterations": 3000,
+      "learning_rate": 0.03,
+      "depth": 6,
+      "loss_function": "RMSE",
+      "eval_metric": "RMSE",
+      "random_seed": 42,
+      "l2_leaf_reg": 10,
+      "min_data_in_leaf": 25,
+      "early_stopping_rounds": 150
+    },
+    "lightgbm": {
+      "objective": "regression",
+      "metric": "rmse",
+      "learning_rate": 0.03,
+      "num_leaves": 48,
+      "feature_fraction": 0.8,
+      "bagging_fraction": 0.8,
+      "bagging_freq": 5,
+      "min_child_samples": 25,
+      "lambda_l2": 5.0,
+      "verbosity": -1,
+      "seed": 42,
+      "num_boost_round": 3000
+    },
+    "xgboost": {
+      "objective": "reg:squarederror",
+      "eval_metric": "rmse",
+      "learning_rate": 0.03,
+      "max_depth": 6,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "min_child_weight": 25,
+      "lambda": 5.0,
+      "seed": 42,
+      "num_boost_round": 3000
+    }
+  },
+  "artifact_path": "model_registry/variant_3"
+}

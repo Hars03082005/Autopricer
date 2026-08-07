@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 show_buy_price.py
 =================
@@ -20,7 +19,6 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 import argparse
 from pathlib import Path
 
-# ── Make sure backend package is importable ────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.decision_engine import (
@@ -39,7 +37,6 @@ from backend.decision_engine import (
 )
 
 
-# ── ANSI colours ───────────────────────────────────────────────────────────
 RESET  = "\033[0m"
 BOLD   = "\033[1m"
 CYAN   = "\033[96m"
@@ -78,7 +75,6 @@ def print_deduction(label: str, amount: float, note: str = ""):
     print(f"  {RED}−{RESET} {label:<{pad-2}} {RED}{BOLD}{fmt_inr(amount)}{RESET}{note_str}")
 
 
-# ── Argument parsing ───────────────────────────────────────────────────────
 def parse_args():
     p = argparse.ArgumentParser(description="Buy-price waterfall breakdown")
     p.add_argument("--brand",        default="Honda",    help="Brand name")
@@ -111,7 +107,6 @@ def parse_args():
     return p.parse_args()
 
 
-# ── Main ───────────────────────────────────────────────────────────────────
 def main():
     a = parse_args()
 
@@ -121,14 +116,12 @@ def main():
     fuel_lc      = a.fuel.lower().strip()
     city_lc      = a.city.lower().strip()
 
-    # Unknown field flags
     variant_known       = a.variant.lower() not in {"", "unknown", "base"}
     color_known         = a.color.lower() not in {"", "unknown"}
     accident_hist_known = a.accident.lower() not in {"unknown", ""}
     reg_state_known     = bool(a.reg_state)
     service_hist_known  = a.inspected
 
-    # Segment (simple lookup; uses economy as fallback)
     from backend.decision_engine import _INLINE_BRAND_SEGMENT
     segment = _INLINE_BRAND_SEGMENT.get(brand_lc, "economy")
 
@@ -136,7 +129,6 @@ def main():
     print(f"{BOLD}{GREEN}  PriceRef - Buy Price Waterfall Breakdown{RESET}")
     print(f"{BOLD}{GREEN}{DOUBLE}{RESET}")
 
-    # ── Vehicle inputs ─────────────────────────────────────────────────────
     print_section("VEHICLE INPUTS")
     print_row("Brand / Model",      f"{a.brand} {a.model}")
     print_row("Year / Age",         f"{a.year}  ({age} yrs)")
@@ -152,7 +144,6 @@ def main():
     print_row("Variant known",      "Yes" if variant_known else "No")
     print_row("Accident history",   a.accident)
 
-    # ── Step 0 — Sanity clamp ──────────────────────────────────────────────
     print_section("STEP 0 — MARKET SANITY CLAMP")
     print_row("Raw ML market value", fmt_inr(a.market_value))
 
@@ -163,7 +154,6 @@ def main():
               clamp_note + (" ← CLAMPED" if was_clamped else ""))
     market_value = clamped_val
 
-    # ── Risk score ─────────────────────────────────────────────────────────
     risk_score, risk_level = compute_risk_score(
         age, a.km, a.owners, condition_lc, fuel_lc, a.inspected, was_clamped,
         variant_known=variant_known,
@@ -171,7 +161,6 @@ def main():
         accident_history=a.accident,
     )
 
-    # ── Confidence score ───────────────────────────────────────────────────
     conf_score, model_conf, biz_conf = compute_confidence_score(
         age, a.km, a.owners, condition_lc, fuel_lc, a.variant, 0.0,
         risk_score, was_clamped, city_lc, a.inspected,
@@ -179,7 +168,6 @@ def main():
         accident_hist=a.accident,
     )
 
-    # Re-clamp with actual confidence
     clamped_val, was_clamped, clamp_note = apply_market_sanity_clamp(
         a.model, segment, age, market_value, city_lc,
         pre_clamp_confidence=float(conf_score)
@@ -190,7 +178,6 @@ def main():
     print_row("Risk score",       f"{risk_score}/95  ({risk_level})")
     print_row("Confidence score", f"{conf_score}/100  (model={model_conf}, biz={biz_conf})")
 
-    # ── Step 1 — Reconditioning ────────────────────────────────────────────
     print_section("STEP 1 — RECONDITIONING COST")
     if a.repair_buffer > 5_000:
         recon_cost = int(a.repair_buffer)
@@ -207,9 +194,8 @@ def main():
     print_row("Segment base",         fmt_inr(base))
     print_row("Brand repair mult",    f"×{brand_mult:.2f}  ({a.brand})")
     print_row("Inspected discount",   "×0.85" if a.inspected else "none")
-    print_row(f"RECON COST",          f"{YELLOW}{fmt_inr(recon_cost)}{RESET}")
+    print_row("RECON COST",          f"{YELLOW}{fmt_inr(recon_cost)}{RESET}")
 
-    # ── Step 2 — Holding cost ──────────────────────────────────────────────
     print_section("STEP 2 — HOLDING COST")
     holding_cost, eff_days = compute_holding_cost(segment, market_value, a.brand)
     from backend.decision_engine import _HOLDING, _BRAND_POPULARITY
@@ -221,7 +207,6 @@ def main():
     print_row("Formula",              f"MV × {h_rate}% × ({eff_days}/30)")
     print_row("HOLDING COST",         f"{YELLOW}{fmt_inr(holding_cost)}{RESET}")
 
-    # ── Step 3 — Documentation cost ───────────────────────────────────────
     print_section("STEP 3 — DOCUMENTATION COST")
     doc_cost, doc_breakdown = compute_doc_cost(a.reg_state, city_lc, a.loan)
     for k, v in doc_breakdown.items():
@@ -229,7 +214,6 @@ def main():
             print_row(f"  {k.replace('_',' ').title()}", fmt_inr(v))
     print_row("DOC COST",             f"{YELLOW}{fmt_inr(doc_cost)}{RESET}")
 
-    # ── Step 4 — Risk buffer ───────────────────────────────────────────────
     print_section("STEP 4 — RISK BUFFER")
     risk_buffer = compute_risk_buffer(
         market_value, risk_score, segment, age, a.km, a.owners, condition_lc, a.inspected,
@@ -241,7 +225,7 @@ def main():
         color_known=color_known,
     )
     print_row("Risk score used",      f"{risk_score}/95")
-    print_row("Base formula",         f"MV × risk_score × 0.0001 × seg_factor")
+    print_row("Base formula",         "MV × risk_score × 0.0001 × seg_factor")
     if not variant_known:   print_row("  + Variant unknown",    "₹1,500")
     if not color_known:     print_row("  + Color unknown",      "  ₹500")
     if not accident_hist_known: print_row("  + Accident hist unknown","₹3,000")
@@ -249,7 +233,6 @@ def main():
     if not reg_state_known: print_row("  + Reg state unknown",  "₹1,000")
     print_row("RISK BUFFER",          f"{YELLOW}{fmt_inr(risk_buffer)}{RESET}")
 
-    # ── Step 5 — Dealer profit ─────────────────────────────────────────────
     print_section("STEP 5 — TARGET DEALER PROFIT")
     eff_margin = dynamic_target_margin(
         segment, age, a.km, a.owners, condition_lc, a.inspected, fuel_lc, a.target_margin
@@ -266,7 +249,6 @@ def main():
     print_row("Profit limits",        f"{fmt_inr(p_min)} – {fmt_inr(p_max)}")
     print_row("TARGET PROFIT",        f"{YELLOW}{fmt_inr(target_profit)}{RESET}")
 
-    # ── Final waterfall ────────────────────────────────────────────────────
     print_section("WATERFALL SUMMARY")
     total_deductions = recon_cost + holding_cost + doc_cost + risk_buffer + target_profit
     raw_buy          = market_value - total_deductions
@@ -287,7 +269,6 @@ def main():
     print(f"\n  {GREEN}{BOLD}{'RECOMMENDED BUY PRICE':<36} {fmt_inr(final_buy)}{RESET}")
     print(f"  {DIM}(rounded to nearest Rs 500){RESET}")
 
-    # Sell price & expected profit
     from backend.decision_engine import _CITY_DEMAND
     city_prem = _CITY_DEMAND.get(city_lc, 0.015)
     sell_price = _round500(market_value * (1 + city_prem * 0.5))

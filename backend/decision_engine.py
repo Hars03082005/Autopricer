@@ -1,15 +1,13 @@
 
 
 from __future__ import annotations
+
 import json
 import math
 import os
 from datetime import datetime
 
-# ENGINE CONFIG — loaded once at startup from model_artifacts/engine_config.json
-#
-# If the file does not exist the engine falls back to safe hardcoded defaults,
-# so the backend always starts even before generate_engine_config.py is run.
+# Engine config loaded from model_artifacts/engine_config.json at startup; falls back to hardcoded defaults.
 
 def _load_engine_config() -> dict:
     """Load engine_config.json from model_artifacts/. Robust fallback on error."""
@@ -205,7 +203,7 @@ _MARGIN_CAPS: dict[str, tuple[float, float]] = {
     "luxury":  (2.5,  6.0),
 }
 
-# Condition multipliers (reference only — applied in main.py before engine)
+# Condition multipliers (reference only)
 _CONDITION_MULTIPLIERS_REF = {
     "excellent": 1.05, "good": 1.00, "average": 0.92, "poor": 0.82,
 }
@@ -225,7 +223,7 @@ def classify_vehicle_category(brand: str, model: str) -> str:
                              "5 series", "x1", "x3", "q3", "q5", "a4", "a6",
                              "xuv700", "safari", "defender", "range rover")):
         return "luxury"
-    # BUG-11 fix: added "xuv500" — was falling through to "economy" tier incorrectly
+
     if any(k in m for k in ("creta", "seltos", "grand vitara", "hector", "compass",
                              "harrier", "scorpio", "ertiga", "carens", "city",
                              "ciaz", "innova", "thar", "xuv300", "xuv500")):
@@ -256,11 +254,7 @@ def _annual_km_risk_factor(km: float, age: int) -> float:
     return 0.90
 
 
-# 1. MARKET SANITY CLAMP — data-driven, no manual depreciation tables
-#
-# The ML model already learned age/fuel/odometer relationships during training.
-# The clamp only catches gross ML prediction errors (outliers), using
-# dataset-derived P10/P90 market bands and MAPE-based tolerance.
+# 1. MARKET SANITY CLAMP
 
 def _normalise_model(model_name: str) -> str:
     return " ".join(model_name.lower().split())
@@ -278,19 +272,10 @@ def apply_market_sanity_clamp(
     locality: str = "",
     rto: str = "",
 ) -> tuple[float, bool, str]:
-    """
-    Clamp ML prediction to dataset-derived market bands.
-
-    - Market bands come from engine_config.json (P10-P90 per model).
-    - Clamp tolerance comes from engine_config.json (MAPE-based).
-    - No manual age/fuel/odometer adjustments — ML already learned these.
-    - Locality/RTO demand used to widen upper band in high-demand areas.
-
-    Returns (clamped_value, was_clamped, note).
-    """
+    """Clamp ML prediction to dataset P10/P90 market bands. Returns (clamped_value, was_clamped, note)."""
     model_key = _normalise_model(model_name)
 
-    # Find market band — try longest match first
+
     band = None
     keys_to_try = [model_key] + [
         " ".join(model_key.split()[:i])
@@ -306,19 +291,17 @@ def apply_market_sanity_clamp(
         seg_data = _SEGMENT_BANDS_CFG.get(segment, [100_000, 20_000_000])
         band     = (float(seg_data[0]), float(seg_data[1]))
 
-    # Locality/RTO uplift on upper band only (genuine market demand, not ML correction)
     loc_key  = (locality or "").strip().lower()
     rto_key  = (rto or "").strip().upper()
     loc_uplt = _LOCALITY_DEMAND.get(loc_key, 0.0)
     rto_uplt = _RTO_DEMAND.get(rto_key, 0.0)
-    # Use the stronger of the two signals; cap at ±20%
     geo_uplift = _clamp(max(loc_uplt, rto_uplt), -0.20, 0.20)
-    upper_adj  = 1.0 + geo_uplift * 0.5   # apply 50% of uplift to upper band
+    upper_adj  = 1.0 + geo_uplift * 0.5
 
     lower = band[0]
     upper = band[1] * upper_adj
 
-    # Confidence-scaled tolerance from engine_config
+
     clamp_data  = _CLAMP_TOLERANCE_CFG.get(segment, [0.88, 1.12])
     base_lo, base_hi = float(clamp_data[0]), float(clamp_data[1])
     conf_factor = max(0.0, (100.0 - pre_clamp_confidence) / 100.0)
@@ -428,9 +411,9 @@ def dynamic_target_margin(
     condition: str,
     inspected: bool,
     fuel: str,
-    user_target_pct: float = 3.0,  # BUG-07 fix: normalized to same scale as _MARGIN_BASE (was 15.0 → always clamped)
+    user_target_pct: float = 3.0,
 ) -> float:
-    base   = _MARGIN_BASE.get(segment, 11.0)
+    base   = _MARGIN_BASE.get(segment, 2.5)
     ann_km = _annual_km(km, vehicle_age)
 
     if vehicle_age <= 2:             base += 0.8
@@ -454,7 +437,7 @@ def dynamic_target_margin(
     if condition.lower() == "poor":    base -= 0.8
     elif condition.lower() == "average": base -= 0.4
 
-    lo, hi   = _MARGIN_CAPS.get(segment, (8.0, 18.0))
+    lo, hi   = _MARGIN_CAPS.get(segment, (1.5, 5.0))
     computed = _clamp(base, lo, hi)
     blended  = 0.55 * computed + 0.45 * float(user_target_pct)
     return round(_clamp(blended, lo, hi), 1)
@@ -629,7 +612,7 @@ def compute_confidence_score(
 
     mc_clamped = _clamp(mc, 40, 98)
     bc_clamped = _clamp(bc, 38, 96)
-    final      = int(round(math.sqrt(mc_clamped * bc_clamped)))
+    final      = round(math.sqrt(mc_clamped * bc_clamped))
     return int(_clamp(final, 42, 95)), int(mc_clamped), int(bc_clamped)
 
 
@@ -753,12 +736,12 @@ def shap_explanation(
 
     # Brand tier signal
     _BRAND_TIER_MAP = {
-        **{b: "luxury"  for b in {"bmw", "mercedes-benz", "audi", "jaguar",
-                                   "land rover", "porsche", "ferrari", "bentley"}},
+        **{b: "luxury"  for b in ("bmw", "mercedes-benz", "audi", "jaguar",
+                                   "land rover", "porsche", "ferrari", "bentley")},
         # BUG-09 fix: added mahindra to premium tier (XUV500/700 are mid-SUV premium, not mid-tier)
-        **{b: "premium" for b in {"volkswagen", "skoda", "toyota", "mg",
-                                   "kia", "jeep", "mini", "volvo", "lexus", "mahindra"}},
-        **{b: "budget"  for b in {"maruti", "maruti suzuki", "datsun", "chevrolet"}},
+        **{b: "premium" for b in ("volkswagen", "skoda", "toyota", "mg",
+                                   "kia", "jeep", "mini", "volvo", "lexus", "mahindra")},
+        **{b: "budget"  for b in ("maruti", "maruti suzuki", "datsun", "chevrolet")},
     }
     brand_tier = _BRAND_TIER_MAP.get(brand.lower().strip(), "mid")
     brand_impact = {
@@ -793,7 +776,7 @@ def compute_negotiation_trio(
 ) -> dict:
     loc_key  = (locality or "").strip().lower()
     rto_key  = (rto or "").strip().upper()
-    demand   = _LOCALITY_DEMAND.get(loc_key, _RTO_DEMAND.get(rto_key, 0.015))
+    demand   = _LOCALITY_DEMAND.get(loc_key, _RTO_DEMAND.get(rto_key, 0.0))
     nego_pct = max(0.04, 0.07 - demand * 0.8)
     nego_room = int(recommended_buy_price * nego_pct)
 
@@ -833,8 +816,8 @@ def compute_negotiation_trio(
 # 11. ADAPTIVE COMPARABLE VEHICLE SERVICE + CONFIDENCE ENGINE
 
 import json as _json
-import os as _os
 import math as _math
+import os as _os
 
 # ── VALUATION CONFIG ──────────────────────────────────────────────────────────
 
@@ -852,7 +835,7 @@ def _load_valuation_config() -> dict:
 _VCFG: dict = _load_valuation_config()
 
 def _vcfg(key: str, default):
-    return _VCFG.get(key, default)
+    return _load_valuation_config().get(key, default)
 
 # ── DATASET LOADER ─────────────────────────────────────────────────────────────
 
@@ -873,15 +856,14 @@ def _load_dataset_df():
         _data_dir = _os.path.normpath(_os.path.join(_here, "..", "ml_training", "data"))
 
         _candidates = [
-            "processed_overall.csv",
-            "processed_s1_s4_owner_1.csv",
-            "processed_s1_s4_owner.csv",
-            "processed_pincode without owner-4.csv",
-            "processed_with owner filled.csv",
+            _os.path.join(_data_dir, "overall_only", "train.csv"),
+            _os.path.join(_data_dir, "overall_plus_s5", "train.csv"),
+            _os.path.join(_data_dir, "s1s4_plus_s5", "train.csv"),
+            _os.path.join(_data_dir, "overall.csv"),
+            _os.path.join(_data_dir, "processed_overall.csv"),
         ]
         _csv = None
-        for _name in _candidates:
-            _p = _os.path.join(_data_dir, _name)
+        for _p in _candidates:
             if _os.path.exists(_p):
                 _csv = _p
                 break
@@ -1073,8 +1055,8 @@ class AdaptiveComparableService:
           stage         — always 1 (single-pass)
           stage_label   — "adaptive_similarity"
         """
-        import pandas as _pd
         import numpy as _np
+        import pandas as _pd
 
         df = _load_dataset_df()
         if df is None or df.empty:
@@ -1244,45 +1226,77 @@ class AdaptiveComparableService:
 class AdaptiveRangeEngine:
     """
     Builds market range with ML prediction as the anchor.
-
-    Strategy (read from valuation_config.json):
-    - High Confidence  (≥ high_confidence_min_comps, avg_sim ≥ high_confidence_avg_sim)
-        range = prediction ± sim-weighted comp deviations
-                blended 70% comp / 30% MAPE
-    - Medium Confidence (≥ medium_confidence_min_comps, avg_sim ≥ medium_confidence_avg_sim)
-        range = prediction ± blend(comp_deviation, MAPE, 50/50)
-    - Low Confidence   (<medium_confidence_min_comps or avg_sim too low)
-        range = prediction ± MAPE
-
-    Hard cap: range width ≤ max_allowed_range_pct × prediction.
-    Result is always centred on the ML prediction.
     """
 
-    def __init__(self) -> None:
-        self._hi_min_comps: int   = int(_vcfg("high_confidence_min_comps", 10))
-        self._med_min_comps: int  = int(_vcfg("medium_confidence_min_comps", 4))
-        self._hi_avg_sim: float   = float(_vcfg("high_confidence_avg_sim", 0.75))
-        self._med_avg_sim: float  = float(_vcfg("medium_confidence_avg_sim", 0.60))
-        self._cw_hi: float        = float(_vcfg("comp_weight_high", 0.70))
-        self._mlw_hi: float       = float(_vcfg("ml_weight_high", 0.30))
-        self._cw_med: float       = float(_vcfg("comp_weight_medium", 0.50))
-        self._mlw_med: float      = float(_vcfg("ml_weight_medium", 0.50))
-        self._max_range_pct: float = float(_vcfg("max_allowed_range_pct", 0.25))
+    @property
+    def _hi_min_comps(self) -> int:
+        return int(_vcfg("high_confidence_min_comps", 10))
+
+    @property
+    def _med_min_comps(self) -> int:
+        return int(_vcfg("medium_confidence_min_comps", 4))
+
+    @property
+    def _hi_avg_sim(self) -> float:
+        return float(_vcfg("high_confidence_avg_sim", 0.75))
+
+    @property
+    def _med_avg_sim(self) -> float:
+        return float(_vcfg("medium_confidence_avg_sim", 0.60))
+
+    @property
+    def _cw_hi(self) -> float:
+        return float(_vcfg("comp_weight_high", 0.70))
+
+    @property
+    def _mlw_hi(self) -> float:
+        return float(_vcfg("ml_weight_high", 0.30))
+
+    @property
+    def _cw_med(self) -> float:
+        return float(_vcfg("comp_weight_medium", 0.50))
+
+    @property
+    def _mlw_med(self) -> float:
+        return float(_vcfg("ml_weight_medium", 0.50))
+
+    @property
+    def _max_range_pct(self) -> float:
+        return float(_vcfg("max_allowed_range_pct", 0.08))
+
+    @property
+    def _p_hi_lo(self) -> float:
+        return float(_vcfg("range_percentiles", {}).get("high_lo", 40))
+
+    @property
+    def _p_hi_hi(self) -> float:
+        return float(_vcfg("range_percentiles", {}).get("high_hi", 60))
+
+    @property
+    def _p_med_lo(self) -> float:
+        return float(_vcfg("range_percentiles", {}).get("medium_lo", 42))
+
+    @property
+    def _p_med_hi(self) -> float:
+        return float(_vcfg("range_percentiles", {}).get("medium_hi", 58))
+
+    @property
+    def _k_hi(self) -> float:
+        return float(_vcfg("range_sigma", {}).get("high", 0.25))
+
+    @property
+    def _k_med(self) -> float:
+        return float(_vcfg("range_sigma", {}).get("medium", 0.30))
 
     def build(self, *, prediction: float, comps: list[dict],
               sim_scores: list[float], mape: float,
               odometer: float = 0.0) -> dict:
         """
-        Returns:
-          price_min, price_max, price_median — all ₹ integers
-          confidence_case   — "high" | "medium" | "low"
-          avg_similarity    — 0–1 float
-          n_comps           — int
         """
         import numpy as _np
 
         pred = float(prediction)
-        n    = len(comps)
+        len(comps)
         mape = max(0.01, float(mape))  # guard against 0
 
         prices = []
@@ -1293,10 +1307,31 @@ class AdaptiveRangeEngine:
                 prices.append(float(p))
                 valid_sims.append(float(sim))
 
-        n_valid   = len(prices)
-        avg_sim   = float(_np.mean(valid_sims)) if valid_sims else 0.0
+        n_valid    = len(prices)
+        avg_sim    = float(_np.mean(valid_sims)) if valid_sims else 0.0
+        prices_arr = _np.array(prices) if n_valid > 0 else _np.array([])
 
-        # ── determine confidence case ─────────────────────────────────────────
+        # ── Remove price outliers from comps before computing range ──────────
+        # Uses Tukey IQR fence so extreme outliers (e.g. ₹8.90L in a ₹6-7L pool)
+        # don't distort the anchor or the P10/P90 range.
+        if n_valid >= 4:
+            _q1  = float(_np.percentile(prices_arr, 25))
+            _q3  = float(_np.percentile(prices_arr, 75))
+            _iqr = max(_q3 - _q1, 1.0)
+            _lo_fence = _q1 - 1.5 * _iqr
+            _hi_fence = _q3 + 1.5 * _iqr
+            _mask = (prices_arr >= _lo_fence) & (prices_arr <= _hi_fence)
+            if _mask.sum() >= 3:  # keep filtered set only if enough remain
+                prices_arr = prices_arr[_mask]
+                # keep valid_sims aligned to filtered prices
+                valid_sims = [s for p, s in zip(prices, valid_sims)
+                              if _lo_fence <= p <= _hi_fence]
+                n_valid    = len(prices_arr)
+                avg_sim    = float(_np.mean(valid_sims)) if valid_sims else 0.0
+
+        prices_arr_all = prices_arr  # alias used below
+
+        # Determine confidence tier from filtered comp count and similarity
         if n_valid >= self._hi_min_comps and avg_sim >= self._hi_avg_sim:
             case = "high"
         elif n_valid >= self._med_min_comps and avg_sim >= self._med_avg_sim:
@@ -1304,99 +1339,88 @@ class AdaptiveRangeEngine:
         else:
             case = "low"
 
-        # ── compute similarity-weighted deviations ────────────────────────────
-        if n_valid > 0 and case in ("high", "medium"):
-            devs = _np.array([(p - pred) / pred for p in prices])
-            sims = _np.array(valid_sims)
-
-            neg_mask = devs < 0
-            pos_mask = devs >= 0
-            sum_sims = sims.sum() or 1.0
-
-            wlo = float((devs * sims * neg_mask).sum() / sum_sims)  # ≤ 0
-            whi = float((devs * sims * pos_mask).sum() / sum_sims)  # ≥ 0
-
-            comp_lo_frac = abs(wlo)
-            comp_hi_frac = abs(whi)
+        # ── Continuous blend weight proportional to avg_sim ──────────────────
+        # Instead of step-wise (50% at medium, 70% at high), weight scales
+        # linearly with avg_sim between med_threshold (→ 0) and hi_threshold (→ max).
+        # This ensures 61% sim gets much less comp weight than 74% sim.
+        _sim_lo = self._med_avg_sim   # 0.60 → comp_weight = 0
+        _sim_hi = self._hi_avg_sim    # 0.75 → comp_weight = max
+        if avg_sim >= _sim_hi:
+            _comp_alpha = self._cw_hi              # ≥75% sim → max (0.70)
+        elif avg_sim >= _sim_lo:
+            _t = (avg_sim - _sim_lo) / (_sim_hi - _sim_lo)
+            _comp_alpha = self._cw_med + _t * (self._cw_hi - self._cw_med)  # linear 0.50→0.70
         else:
-            comp_lo_frac = comp_hi_frac = 0.0
+            _comp_alpha = 0.0          # below threshold → ML-only
 
-        # ── build bands ───────────────────────────────────────────────────────
-        if case == "high":
-            lo_frac = self._cw_hi * comp_lo_frac + self._mlw_hi * mape
-            hi_frac = self._cw_hi * comp_hi_frac + self._mlw_hi * mape
-        elif case == "medium":
-            lo_frac = self._cw_med * comp_lo_frac + self._mlw_med * mape
-            hi_frac = self._cw_med * comp_hi_frac + self._mlw_med * mape
-        else:
-            lo_frac = hi_frac = mape
-
-        # ── Anchor center: similarity-weighted top-comp anchor ───────────────────
-        # Diagnostic finding: with top_k=10, comps 9–12 were 1-owner BUT 72k km
-        # (vs user's 55k km), priced at ₹7.53L–₹7.62L — dragging the anchor from
-        # ₹9.5L (top 94% match) down to ₹8.37L. Fix: top_k=5 + odometer proximity
-        # penalty so high-mileage outliers carry proportionally less weight.
-        if n_valid > 0 and case in ("high", "medium"):
-            sims_arr   = _np.array(valid_sims)
-            prices_arr = _np.array(prices)
-
-            # Use only the top 5 highest-similarity comps as the price anchor.
-            # This avoids dilution from lower-ranked comps with very different
-            # odometer readings (e.g. 72k km when query is 55k km).
-            top_k = min(5, n_valid)
-            top_prices     = prices_arr[:top_k]
+        # Similarity-weighted top-5 comp anchor (price center)
+        if n_valid > 0 and _comp_alpha > 0:
+            sims_arr       = _np.array(valid_sims)
+            top_k          = min(5, n_valid)
+            top_prices     = prices_arr_all[:top_k]
             top_sims       = sims_arr[:top_k]
             top_comps_list = comps[:top_k]
-
-            # Query odometer for proximity penalty — use the real user input, NOT comps[0]'s
-            # odometer (which is a dataset vehicle's reading, not the car being evaluated).
-            query_odo = float(odometer) if odometer else 0.0
+            query_odo      = float(odometer) if odometer else 0.0
 
             combined_weights = []
             for c, s in zip(top_comps_list, top_sims):
-                oc  = c.get("owner_count", 1)
-                odo = float(c.get("odometer_reading", query_odo) or query_odo)
-
-                # Owner alignment boost: same owner count preferred
-                w_oc = 1.30 if str(oc) == "1" or oc == 1 else 0.80
-
-                # Odometer proximity: Gaussian decay with sigma=20,000 km.
-                # A comp at 72k km vs query 55k km → penalty ≈ 0.64×.
-                # A comp at 51k km vs query 55k km → penalty ≈ 0.98× (near-perfect).
+                oc        = c.get("owner_count", 1)
+                odo       = float(c.get("odometer_reading", query_odo) or query_odo)
+                w_oc      = 1.30 if str(oc) == "1" or oc == 1 else 0.80
                 odo_sigma = 20_000.0
-                if query_odo > 0 and odo > 0:
-                    w_odo = float(_np.exp(-0.5 * ((odo - query_odo) / odo_sigma) ** 2))
-                else:
-                    w_odo = 1.0
-
+                w_odo     = float(_np.exp(-0.5 * ((odo - query_odo) / odo_sigma) ** 2)) \
+                            if (query_odo > 0 and odo > 0) else 1.0
                 combined_weights.append((s ** 6) * w_oc * w_odo)
 
-            exp_weights = _np.array(combined_weights)
+            exp_weights          = _np.array(combined_weights)
             comp_weighted_anchor = float(_np.average(top_prices, weights=exp_weights))
-
-            comp_median = comp_weighted_anchor
-            comp_p25    = float(_np.percentile(prices, 25))
-            comp_p75    = float(_np.percentile(prices, 75))
-
-            if case == "high":
-                # High confidence: trust top weighted comp anchor heavily (70%)
-                blended_center = 0.70 * comp_weighted_anchor + 0.30 * pred
-            else:
-                # Medium confidence: equal blend
-                blended_center = 0.50 * comp_weighted_anchor + 0.50 * pred
+            blended_center       = _comp_alpha * comp_weighted_anchor + (1.0 - _comp_alpha) * pred
         else:
             blended_center = pred
-            comp_p25 = comp_p75 = pred
 
-        # ── build final price range around the blended center ─────────────────
+        # ── DATA-DRIVEN RANGE — robust sigma, anchored on blended center ────────
+        # Technique: symmetric confidence interval using robust_sigma = IQR / 1.35
+        # (IQR/1.35 is the standard robust estimator of std deviation, equivalent for
+        # normal distributions but resistant to outliers).
+        # Range is anchored on blended_center (not comp median), then blended with the
+        # MAPE-based ML range using the same alpha weight as the price blending.
+        # Result: tight, negotiation-realistic band that scales with actual comp spread.
+        if n_valid >= self._hi_min_comps and case in ("high", "medium"):
+            q1    = float(_np.percentile(prices_arr_all, 25))
+            q3    = float(_np.percentile(prices_arr_all, 75))
+            iqr   = max(q3 - q1, 1.0)
+            sigma = iqr / 1.35  # robust std
+            k     = self._k_hi if case == "high" else self._k_med
+            # Comp-based symmetric range around anchor
+            comp_lo = blended_center - k * sigma
+            comp_hi = blended_center + k * sigma
+            # MAPE-based ML range around anchor
+            ml_lo   = blended_center * (1.0 - mape)
+            ml_hi   = blended_center * (1.0 + mape)
+            # Blend both range bounds with same alpha (mirrors AutoQuant approach)
+            lo = _comp_alpha * comp_lo + (1.0 - _comp_alpha) * ml_lo
+            hi = _comp_alpha * comp_hi + (1.0 - _comp_alpha) * ml_hi
+        elif n_valid >= self._med_min_comps:
+            # Some comps but not enough for sigma — use tight percentile slice
+            lo = float(_np.percentile(prices_arr_all, self._p_med_lo))
+            hi = float(_np.percentile(prices_arr_all, self._p_med_hi))
+        else:
+            # No usable comps — pure MAPE fallback
+            lo = blended_center * (1.0 - mape)
+            hi = blended_center * (1.0 + mape)
+
+        # Cap width at max_allowed_range_pct
+        half_max = blended_center * self._max_range_pct / 2.0
+        lo = max(lo, blended_center - half_max)
+        hi = min(hi, blended_center + half_max)
+
         price_median = int(round(blended_center / 500) * 500)
-        price_min    = int(round(blended_center * (1 - lo_frac) / 500) * 500)
-        price_max    = int(round(blended_center * (1 + hi_frac) / 500) * 500)
-
-        # Sanity: min < median < max
+        price_min    = int(round(lo / 500) * 500)
+        price_max    = int(round(hi / 500) * 500)
         price_min    = min(price_min, price_median - 500)
         price_max    = max(price_max, price_median + 500)
-
+        comp_p25 = float(_np.percentile(prices_arr_all, 25)) if n_valid > 0 else blended_center
+        comp_p75 = float(_np.percentile(prices_arr_all, 75)) if n_valid > 0 else blended_center
 
         return {
             "price_min":       price_min,
@@ -1405,11 +1429,9 @@ class AdaptiveRangeEngine:
             "confidence_case": case,
             "avg_similarity":  round(avg_sim, 4),
             "n_comps":         n_valid,
-            # BUG-02 fix: real quartiles for IQR outlier detection in main.py
             "comp_p25":        int(round(comp_p25 / 500) * 500) if n_valid > 0 else price_min,
             "comp_p75":        int(round(comp_p75 / 500) * 500) if n_valid > 0 else price_max,
         }
-
 
 # ── PHASE 3: CONFIDENCE ENGINE ────────────────────────────────────────────────
 
@@ -1504,6 +1526,20 @@ _confidence_engine           = ConfidenceEngine()
 _comparable_service = _adaptive_comparable_service
 
 
+def get_blend_config() -> dict:
+    """
+    Expose the valuation_config.json-driven blending thresholds so
+    calling code (e.g. main.py) uses the same values as the range engine
+    without repeating or hardcoding them.
+    """
+    return {
+        "sim_lo":     _adaptive_range_engine._med_avg_sim,   # below → no comp blending
+        "sim_hi":     _adaptive_range_engine._hi_avg_sim,    # above → max comp weight
+        "alpha_lo":   _adaptive_range_engine._cw_med,        # comp weight at sim_lo boundary
+        "alpha_hi":   _adaptive_range_engine._cw_hi,         # comp weight at sim_hi boundary
+    }
+
+
 # ── PUBLIC API ────────────────────────────────────────────────────────────────
 
 def generate_similar_cars(market_value, brand, model, year, fuel, city, segment,
@@ -1515,6 +1551,69 @@ def generate_similar_cars(market_value, brand, model, year, fuel, city, segment,
         year=year, odometer=float(odometer or 0), owner_count=owner_count,
     )
     return result.get("similar_cars", [])
+
+
+def get_comparable_anchor(*, brand, model, variant, fuel, transmission,
+                           year, odometer, owner_count=1,
+                           seller_type="unknown", locality="unknown") -> dict:
+    """
+    Finds similar cars in the dataset FIRST before ML model runs.
+    Returns comp_anchor (price), avg_similarity, n_comps, confidence_case, and search_result.
+    """
+    res = _adaptive_comparable_service.search(
+        brand=brand, model=model, variant=variant,
+        fuel=fuel, transmission=transmission,
+        year=year, odometer=float(odometer or 0), owner_count=owner_count,
+        seller_type=seller_type, locality=locality,
+    )
+    comps = res.get("comps", [])
+    sims  = res.get("sim_scores", [])
+    if not comps:
+        return {"comp_anchor": None, "avg_similarity": 0.0, "n_comps": 0, "confidence_case": "low", "search_result": res}
+
+    import numpy as _np
+    prices     = [float(c["selling_price"]) for c, s in zip(comps, sims) if c.get("selling_price")]
+    valid_sims = [float(s) for c, s in zip(comps, sims) if c.get("selling_price")]
+    n_valid    = len(prices)
+    avg_sim    = float(_np.mean(valid_sims)) if valid_sims else 0.0
+
+    _hi_min   = int(_vcfg("high_confidence_min_comps", 10))
+    _med_min  = int(_vcfg("medium_confidence_min_comps", 4))
+    _hi_sim   = float(_vcfg("high_confidence_avg_sim", 0.75))
+    _med_sim  = float(_vcfg("medium_confidence_avg_sim", 0.60))
+
+    if n_valid >= _hi_min and avg_sim >= _hi_sim:
+        case = "high"
+    elif n_valid >= _med_min and avg_sim >= _med_sim:
+        case = "medium"
+    else:
+        case = "low"
+
+    if n_valid > 0 and case in ("high", "medium"):
+        top_k          = min(5, n_valid)
+        top_prices     = prices[:top_k]
+        top_sims       = valid_sims[:top_k]
+        top_comps_list = comps[:top_k]
+        query_odo      = float(odometer or 0)
+        weights        = []
+        for c, s in zip(top_comps_list, top_sims):
+            oc    = c.get("owner_count", 1)
+            odo   = float(c.get("odometer_reading", query_odo) or query_odo)
+            w_oc  = 1.30 if str(oc) == "1" or oc == 1 else 0.80
+            w_odo = float(_np.exp(-0.5 * ((odo - query_odo) / 20_000.0) ** 2)) if (query_odo > 0 and odo > 0) else 1.0
+            weights.append((s ** 6) * w_oc * w_odo)
+        anchor = float(_np.average(top_prices, weights=_np.array(weights)))
+    else:
+        anchor = None
+
+    return {
+        "comp_anchor":     anchor,
+        "avg_similarity":  round(avg_sim, 4),
+        "n_comps":         n_valid,
+        "confidence_case": case,
+        "search_result":   res,
+    }
+
 
 
 def get_market_range_result(*, brand, model, variant, fuel, transmission,
@@ -1595,21 +1694,21 @@ def get_market_range_result(*, brand, model, variant, fuel, transmission,
 # INLINE BRAND → SEGMENT MAP
 
 _INLINE_BRAND_SEGMENT: dict[str, str] = {
-    **{b: "economy"  for b in {
+    **{b: "economy"  for b in (
         "maruti", "maruti suzuki", "datsun", "bajaj", "chevrolet", "fiat",
         "opel", "premier", "force", "ashok leyland", "ambassador",
         "hyundai", "honda", "tata", "renault", "nissan", "ford",
         "mahindra", "mitsubishi", "isuzu", "citroen", "dc", "hindustan motors",
-    }},
-    **{b: "premium"  for b in {
+    )},
+    **{b: "premium"  for b in (
         "volkswagen", "skoda", "toyota", "mg", "jeep", "kia",
         "mini", "volvo", "lexus",
-    }},
-    **{b: "luxury"   for b in {
+    )},
+    **{b: "luxury"   for b in (
         "bmw", "mercedes-benz", "audi", "jaguar", "land rover", "porsche",
         "maserati", "aston martin", "bentley", "rolls-royce",
         "ferrari", "lamborghini", "hummer",
-    }},
+    )},
 }
 
 
@@ -1639,7 +1738,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     owner_count        = max(1, int(_g("owner_count", 1)))
     condition          = str(_g("condition", "Good")).strip().lower()
     fuel               = str(_g("fuel_type", "Petrol")).strip().lower()
-    transmission       = str(_g("transmission", "Manual")).strip().lower()
+    str(_g("transmission", "Manual")).strip().lower()
     city               = str(_g("city", "")).strip().lower()
     locality           = str(_g("locality", "")).strip().lower()
     rto                = str(_g("rto", "")).strip()
@@ -1725,7 +1824,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     # Sell price — uses locality/RTO demand instead of old city_demand
     loc_key    = locality.strip().lower()
     rto_key    = rto.strip().upper()
-    geo_prem   = _LOCALITY_DEMAND.get(loc_key, _RTO_DEMAND.get(rto_key, 0.015))
+    geo_prem   = _LOCALITY_DEMAND.get(loc_key, _RTO_DEMAND.get(rto_key, 0.0))
     geo_prem   = float(geo_prem)
     recon_uplift_pct       = min((recon_cost / max(market_value, 1)) * 0.60, 0.08)
     recommended_sell_price = _round500(market_value * (1 + recon_uplift_pct + geo_prem * 0.5))
@@ -1828,7 +1927,7 @@ def calculate_decision(vehicle, market_value: float) -> dict:
     positive_factors.append(f"Market value predicted by CatBoost+LightGBM+XGBoost ensemble ({r2_str})")
 
     mape_frac    = float(_CONF_BASELINE.get("mape_frac", 0.065))
-    price_spread = int(round(market_value * mape_frac))
+    price_spread = round(market_value * mape_frac)
     seller_gap   = _round500(seller_asking - recommended_buy_price) if seller_asking > 0 else 0
 
     waterfall = [
@@ -1958,7 +2057,7 @@ def get_wheelr_risk_deductions(owner_count: int, odometer: int,
 def get_recon_cost(engine_grade: str = "good", tyre_grade: str = "good",
                    body_grade: str = "clean", interior_grade: str = "clean",
                    electrical_grade: str = "all_good",
-                   vendor_type: dict = None, rc_transfer_cost: int = 3_500) -> dict:
+                   vendor_type: dict | None = None, rc_transfer_cost: int = 3_500) -> dict:
     if vendor_type is None:
         vendor_type = {k: "vendor" for k in
                        ["engine", "tyre", "body", "interior", "electrical"]}

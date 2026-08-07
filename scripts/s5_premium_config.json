@@ -1,0 +1,114 @@
+{
+  "_comment": "S5 Quality Shop premium multipliers derived from S5 dataset vs Variant 1 baseline. Updated by compute_s5_premium.py",
+  "enabled": true,
+  "max_age": 7,
+  "default_multiplier": 1.1399,
+  "age_bracket_multipliers": {
+    "0_to_2": 1.2115,
+    "3_to_4": 1.1397,
+    "5_to_7": 1.1428
+  },
+  "brand_multipliers": {
+    "volkswagen": 1.5162,
+    "hyundai": 1.2807,
+    "mg": 1.275,
+    "ford": 1.2591,
+    "maruti suzuki": 1.1345,
+    "skoda": 1.1014,
+    "jeep": 1.0865,
+    "mahindra": 1.0624,
+    "tata": 1.0134,
+    "kia": 0.9987,
+    "toyota": 0.8708,
+    "honda": 0.837
+  },
+  "s5_catalog": {
+    "mg": [
+      "astor",
+      "gloster",
+      "hector"
+    ],
+    "skoda": [
+      "kushaq",
+      "kylaq",
+      "octavia",
+      "slavia",
+      "superb"
+    ],
+    "tata": [
+      "altroz",
+      "harrier",
+      "nexon",
+      "safari",
+      "tiago"
+    ],
+    "kia": [
+      "carens",
+      "carnival",
+      "seltos",
+      "sonet"
+    ],
+    "maruti suzuki": [
+      "baleno",
+      "brezza",
+      "celerio",
+      "ertiga",
+      "fronx",
+      "grand vitara",
+      "s-cross",
+      "xl6"
+    ],
+    "volkswagen": [
+      "polo",
+      "taigun",
+      "tiguan",
+      "virtus"
+    ],
+    "hyundai": [
+      "alcazar",
+      "aura",
+      "creta",
+      "creta n line",
+      "grand i10 nios",
+      "i20",
+      "i20 n line",
+      "santro",
+      "tucson",
+      "venue"
+    ],
+    "toyota": [
+      "glanza",
+      "innova hycross",
+      "urban cruiser hyryder"
+    ],
+    "jeep": [
+      "compass"
+    ],
+    "mahindra": [
+      "thar",
+      "xuv300",
+      "xuv700"
+    ],
+    "honda": [
+      "amaze",
+      "elevate"
+    ],
+    "ford": [
+      "ecosport",
+      "freestyle"
+    ],
+    "bmw": [
+      "x1"
+    ],
+    "mercedes-benz": [
+      "c class"
+    ],
+    "renault": [
+      "kwid"
+    ],
+    "audi": [
+      "q3 sportback",
+      "q5"
+    ]
+  }
+}
