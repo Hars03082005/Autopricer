@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { CITY_DEMAND, LOCALITIES } from '../utils/mockData.js';
+import { LOCALITIES } from '../utils/mockData.js';
 import { fetchBrands, fetchCatalog, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
-
-/* ─── Static Constants ──────────────────────────────────────────── */
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS        = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
-const CITIES       = Object.keys(CITY_DEMAND).sort();
 const FUELS        = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
 const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT', 'AMT', 'IMT'];
-const CONDITIONS   = ['Excellent', 'Good', 'Average', 'Poor'];
 const OWNERS       = ['1', '2', '3', '4+'];
 
 const COLORS = [
@@ -32,7 +28,6 @@ const COLORS = [
 const LUXURY_BRANDS  = new Set(['BMW','Mercedes-Benz','Audi','Lexus','Volvo','Land Rover','Jaguar','Porsche','Tesla']);
 const PREMIUM_BRANDS = new Set(['Toyota','Honda','Volkswagen','Skoda','Kia','MG','Jeep','Ford','Renault','Nissan']);
 
-/* ─── Helpers ───────────────────────────────────────────────────── */
 function getSegment(brand) {
   if (!brand) return null;
   if (LUXURY_BRANDS.has(brand))  return 'luxury';
@@ -71,25 +66,6 @@ function formatLakh(n) {
   return v >= 100000 ? `₹${(v / 100000).toFixed(2)}L` : v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '';
 }
 
-function getValidFuels(brand, model) {
-  const m = (model || '').toLowerCase();
-  if (m.includes('ev') || (brand || '').toLowerCase() === 'tesla') return ['Electric'];
-  return FUELS;
-}
-
-/* ─── Sub-components ────────────────────────────────────────────── */
-function SectionHeader({ n, title, sub }) {
-  return (
-    <div className="vws-head">
-      <div className="vws-num">{n}</div>
-      <div>
-        <div className="vws-title">{title}</div>
-        {sub && <div className="vws-sub">{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
 function FieldLabel({ children, required }) {
   return (
     <label className="vws-label">
@@ -119,9 +95,8 @@ function normalizeVariant(raw, modelName = '') {
     });
   }
 
-  // Remove engine sizes like 1.6, 1.5, 1.4, 2.0, 1.2, 1200cc
   text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, '');
-  text = text.replace(/[\(\)\[\]\/\-\,\_\.\+]/g, ' ');
+  text = text.replace(/[(\)[\]/\-,_.+]/g, ' ');
 
   const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
   if (tokens.length === 0) return '';
@@ -139,7 +114,6 @@ function normalizeVariant(raw, modelName = '') {
   return res;
 }
 
-/* ─── Main Component ────────────────────────────────────────────── */
 export default function InputScreen() {
   const {
     inputs, updateInput,
@@ -149,7 +123,6 @@ export default function InputScreen() {
   const [brandCatalog, setBrandCatalog]   = useState({});
   const [datasetCatalog, setDatasetCatalog] = useState({});
 
-  // ── Dataset-driven cascading options ──────────────────────────────────────
   const [availableFuels, setAvailableFuels]           = useState(FUELS);
   const [availableTransmissions, setAvailableTransmissions] = useState(TRANSMISSIONS);
   const [availableYears, setAvailableYears]           = useState(YEARS);
@@ -160,20 +133,18 @@ export default function InputScreen() {
   const [error, setError]         = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  /* Derived */
   const brandList   = useMemo(() => Object.keys(brandCatalog).sort(), [brandCatalog]);
   const modelList   = useMemo(() => brandCatalog[inputs.brand] || [], [brandCatalog, inputs.brand]);
   
   const variantList = useMemo(() => {
     if (!inputs.brand || !inputs.model) return [];
 
-    // 1. Try resolving variants directly from dataset_catalog.json
     const brandKey = inputs.brand.trim().toLowerCase();
     const modelKey = inputs.model.trim().toLowerCase();
 
     let brandModels = datasetCatalog[brandKey];
     if (!brandModels) {
-      // Find matching brand key
+      
       const foundB = Object.keys(datasetCatalog).find(k => k.includes(brandKey) || brandKey.includes(k));
       if (foundB) brandModels = datasetCatalog[foundB];
     }
@@ -206,7 +177,6 @@ export default function InputScreen() {
   const required = [inputs.brand, inputs.model, inputs.year, inputs.mileage, inputs.fuel, inputs.city].filter(Boolean).length;
   const isReady  = required === 6;
 
-  /* Load brands & dataset catalog on mount */
   useEffect(() => {
     let alive = true;
     fetchBrands()
@@ -219,7 +189,6 @@ export default function InputScreen() {
     return () => { alive = false; };
   }, []);
 
-  /* Cascade: refetch available options whenever brand/model/variant changes */
   useEffect(() => {
     if (!inputs.brand) {
       setAvailableFuels(FUELS);
@@ -227,7 +196,7 @@ export default function InputScreen() {
       setAvailableYears(YEARS);
       return;
     }
-    // Cancel any in-flight request
+    
     if (optionsAbort.current) optionsAbort.current = false;
     const token = {};
     optionsAbort.current = token;
@@ -235,12 +204,11 @@ export default function InputScreen() {
     setOptionsLoading(true);
     fetchOptions({ brand: inputs.brand, model: inputs.model || undefined, variant: inputs.variant || undefined })
       .then(opts => {
-        if (optionsAbort.current !== token) return; // stale
+        if (optionsAbort.current !== token) return; 
         setAvailableFuels(opts.fuel_types?.length   ? opts.fuel_types   : FUELS);
         setAvailableTransmissions(opts.transmissions?.length ? opts.transmissions : TRANSMISSIONS);
         setAvailableYears(opts.years?.length         ? opts.years        : YEARS);
 
-        // Auto-correct selected values if they're no longer in the allowed list
         if (inputs.fuel && !opts.fuel_types?.includes(inputs.fuel))
           updateInput('fuel', '');
         if (inputs.transmission && !opts.transmissions?.includes(inputs.transmission))
@@ -250,11 +218,9 @@ export default function InputScreen() {
       })
       .catch(() => {})
       .finally(() => { if (optionsAbort.current === token) setOptionsLoading(false); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  
   }, [inputs.brand, inputs.model, inputs.variant]);
 
-
-  /* Handlers — each resets all downstream fields */
   const onBrand = (b) => {
     updateInput('brand', b);
     updateInput('model', '');
@@ -274,8 +240,7 @@ export default function InputScreen() {
 
   const onVariant = (v) => {
     updateInput('variant', v);
-    // Fuel/transmission/year reset only if dataset constrains them differently;
-    // the useEffect above will auto-correct if needed after fetch completes.
+    
   };
 
   const onSubmit = async () => {
@@ -288,9 +253,7 @@ export default function InputScreen() {
     try {
       const payload = {
         ...inputs,
-        // Send model and variant as separate clean fields — do NOT concatenate.
-        // Concatenating "Swift" + "VXI" → "Swift VXI" causes an UNKNOWN category
-        // hit in the ML model because the dataset stores them separately.
+        
         model: inputs.model,
         variant: inputs.variant || 'unknown',
       };
@@ -307,20 +270,19 @@ export default function InputScreen() {
     }
   };
 
-  /* ── Render ─────────────────────────────────────────────────── */
   return (
     <div className="vws-root">
 
-      {/* ══════════════ LEFT: FORM ═══════════════════════════ */}
+      {}
       <div className="vws-form">
 
-        {/* Compact Form Header */}
+        {}
         <div style={{ marginBottom: 16 }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Vehicle Valuation Parameters</h2>
           <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Configure all inputs side-by-side to estimate buy and sell pricing bands.</p>
         </div>
 
-        {/* Row 1: Brand, Model, Year, Variant */}
+        {}
         <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel required>Brand</FieldLabel>
@@ -370,7 +332,7 @@ export default function InputScreen() {
           </div>
         </div>
 
-        {/* Row 2: Odometer, Fuel Type, Transmission, Owners */}
+        {}
         <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel required>Odometer Reading</FieldLabel>
@@ -430,7 +392,7 @@ export default function InputScreen() {
           </div>
         </div>
 
-        {/* Row 3: Color, Target Margin %, Repair Budget, Registration No. */}
+        {}
         <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel>Color</FieldLabel>
@@ -497,7 +459,7 @@ export default function InputScreen() {
           </div>
         </div>
 
-        {/* Error banner */}
+        {}
         {error && (
           <div className="vws-error" style={{ marginTop: 12 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -508,16 +470,16 @@ export default function InputScreen() {
           </div>
         )}
 
-      </div>{/* /vws-form */}
+      </div>{}
 
-      {/* ══════════════ RIGHT: SUMMARY PANEL ════════════════ */}
+      {}
       <div className="vws-panel">
         <div className="vws-panel-inner">
 
-          {/* Label */}
+          {}
           <div className="vwsp-heading">Valuation Summary</div>
 
-          {/* Vehicle identity card */}
+          {}
           <div className="vwsp-card">
             <div className="vwsp-vehicle-name">
               {inputs.brand && inputs.model
@@ -541,7 +503,7 @@ export default function InputScreen() {
             </div>
           </div>
 
-          {/* Health score */}
+          {}
           {inputs.brand && (
             <div className="vwsp-card">
               <div className="vwsp-stat-label">Deal Health Preview</div>
@@ -558,7 +520,7 @@ export default function InputScreen() {
             </div>
           )}
 
-          {/* Stats grid */}
+          {}
           {segment && (
             <div className="vwsp-grid">
               <div className="vwsp-stat">
@@ -586,7 +548,7 @@ export default function InputScreen() {
             </div>
           )}
 
-          {/* Required fields checklist (only when not ready) */}
+          {}
           {!isReady && inputs.brand && (
             <div className="vwsp-checklist">
               <div className="vwsp-check-head">Required fields</div>
@@ -615,9 +577,7 @@ export default function InputScreen() {
 
           <div style={{ flex: 1 }} />
 
-
-
-          {/* CTA */}
+          {}
           <div className="vwsp-cta">
 
             <button
@@ -625,7 +585,7 @@ export default function InputScreen() {
               onClick={onSubmit}
               disabled={!isReady || submitting}
             >
-              {/* ML lightning bolt icon */}
+              {}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>

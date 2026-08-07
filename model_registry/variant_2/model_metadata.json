@@ -1,8 +1,10 @@
 {
   "variant_id": "variant_2",
   "script": "train-2",
-  "dataset_name": "processed_s1_s4_owner.csv",
-  "rows_used": 29130,
+  "data_folder": "overall_plus_s5",
+  "split_source": "pre_split",
+  "train_rows": 17775,
+  "valid_rows": 3789,
   "features": [
     "brand",
     "model",
@@ -41,34 +43,34 @@
   ],
   "val_metrics": {
     "CatBoost": {
-      "MAE": 57966.68,
-      "RMSE": 122143.88,
-      "R2": 0.9587,
-      "MAPE": 9.02
+      "MAE": 61510.1,
+      "RMSE": 145728.55,
+      "R2": 0.9511,
+      "MAPE": 9.32
     },
     "LightGBM": {
-      "MAE": 39685.25,
-      "RMSE": 82301.45,
-      "R2": 0.9729,
-      "MAPE": 6.58
+      "MAE": 46945.79,
+      "RMSE": 134490.49,
+      "R2": 0.9535,
+      "MAPE": 7.62
     },
     "XGBoost": {
-      "MAE": 43103.13,
-      "RMSE": 88595.9,
-      "R2": 0.9705,
-      "MAPE": 7.12
+      "MAE": 49622.12,
+      "RMSE": 136074.24,
+      "R2": 0.9534,
+      "MAPE": 7.97
     },
     "Ensemble": {
-      "MAE": 40661.26,
-      "RMSE": 83618.21,
-      "R2": 0.9741,
-      "MAPE": 6.67
+      "MAE": 47112.55,
+      "RMSE": 132822.35,
+      "R2": 0.9564,
+      "MAPE": 7.54
     }
   },
   "ensemble_weights": {
-    "catboost": 0.21301105122885722,
-    "lightgbm": 0.7869889487711428,
-    "xgboost": 0.0
+    "catboost": 0.15965466063418382,
+    "lightgbm": 0.8403453393658162,
+    "xgboost": 2.9300872042725043e-18
   },
   "active_segment_models": [
     "0_6_lakh",
@@ -113,5 +115,6 @@
       "seed": 42,
       "num_boost_round": 3000
     }
-  }
+  },
+  "artifact_path": "model_registry/variant_2"
 }

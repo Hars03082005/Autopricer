@@ -1,18 +1,20 @@
-"""
-backend/model_registry.py
-Model Registry — loads, caches, and manages versioned model variants.
-"""
+"""Model Registry — loads, caches, and manages versioned model variants."""
 from __future__ import annotations
 
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
-import joblib
+try:
+    import joblib
+except ImportError:
+    joblib = None
 
-from backend.ensemble_predictor import EnsemblePredictor
+try:
+    from backend.ensemble_predictor import EnsemblePredictor
+except ImportError:
+    EnsemblePredictor = None
 
 log = logging.getLogger(__name__)
 
@@ -20,13 +22,12 @@ ROOT          = Path(__file__).resolve().parents[1]
 REGISTRY_DIR  = ROOT / "model_registry"
 REGISTRY_FILE = REGISTRY_DIR / "registry.json"
 
-# In-memory cache: variant_id → {predictor, segment_models, metadata}
 _CACHE: dict[str, dict] = {}
 
 
 def _read_registry() -> dict:
     if REGISTRY_FILE.exists():
-        with open(REGISTRY_FILE, "r", encoding="utf-8") as f:
+        with open(REGISTRY_FILE, encoding="utf-8") as f:
             return json.load(f)
     return {"default": None, "variants": {}}
 
@@ -50,15 +51,14 @@ def list_variants() -> list[dict]:
     return variants
 
 
-def get_default_variant_id() -> Optional[str]:
-    # Allow the environment to pin a specific variant (e.g. for memory-constrained deploys)
+def get_default_variant_id() -> str | None:
     env_pin = os.environ.get("ACTIVE_VARIANT_ID", "").strip()
     if env_pin:
         return env_pin
     return _read_registry().get("default")
 
 
-def get_variant_path(variant_id: str) -> Optional[Path]:
+def get_variant_path(variant_id: str) -> Path | None:
     reg = _read_registry()
     info = reg.get("variants", {}).get(variant_id)
     if not info:
@@ -67,7 +67,7 @@ def get_variant_path(variant_id: str) -> Optional[Path]:
     return p if p.exists() else None
 
 
-def _best_variant_id(reg: dict) -> Optional[str]:
+def _best_variant_id(reg: dict) -> str | None:
     """Pick variant with lowest test MAPE, break ties with RMSE then R² then newest trained_at."""
     best_id, best_mape, best_rmse, best_r2, best_ts = None, float("inf"), float("inf"), -float("inf"), ""
     for vid, info in reg.get("variants", {}).items():
@@ -75,7 +75,7 @@ def _best_variant_id(reg: dict) -> Optional[str]:
         mape    = m.get("mape", 9999)
         rmse    = m.get("rmse", 9999999)
         r2      = m.get("r2",   -9999)
-        trained = info.get("trained_at", "")  # ISO timestamp string — lexicographic comparison works
+        trained = info.get("trained_at", "")
         is_better = (
             mape < best_mape or
             (mape == best_mape and rmse < best_rmse) or
@@ -139,14 +139,11 @@ def _load_variant_data(variant_id: str) -> dict:
 
     predictor = EnsemblePredictor.from_artifact_dir(path)
 
-    # Issue 4 fix: load segment models from routing_table.json (actual filenames)
-    # Training saves: segment_6_12_lakh.cbm, segment_12_plus_lakh.cbm etc.
-    # Old code looked for: ensemble_economy.pkl — these never exist.
     segment_models: dict = {}
     routing_path = path / "routing_table.json"
     if routing_path.exists():
         from catboost import CatBoostRegressor
-        with open(routing_path, "r", encoding="utf-8") as f:
+        with open(routing_path, encoding="utf-8") as f:
             routing = json.load(f)
         for seg_name, info in routing.items():
             if info.get("active") and info.get("model_file"):
@@ -168,19 +165,18 @@ def _load_variant_data(variant_id: str) -> dict:
                     except Exception as e:
                         log.warning("Failed to load segment model '%s': %s", seg_name, e)
     else:
-        # Backward-compat: try old pkl names
         for seg in ["economy", "premium", "luxury"]:
             pkl = path / f"ensemble_{seg}.pkl"
             if pkl.exists():
                 segment_models[seg] = joblib.load(pkl)
 
-    with open(path / "model_metadata.json", "r", encoding="utf-8") as f:
+    with open(path / "model_metadata.json", encoding="utf-8") as f:
         metadata = json.load(f)
 
     catalog: dict = {}
     cat_path = path / "dataset_catalog.json"
     if cat_path.exists():
-        with open(cat_path, "r", encoding="utf-8") as f:
+        with open(cat_path, encoding="utf-8") as f:
             catalog = json.load(f)
 
     return {
@@ -196,7 +192,7 @@ def get_variant(variant_id: str) -> dict:
     """Return cached variant data, loading from disk on first access."""
     if variant_id not in _CACHE:
         log.info("Loading model variant '%s' from disk …", variant_id)
-        _CACHE.clear()  # Keep only 1 active variant in RAM to stay well under 512MB
+        _CACHE.clear()
         import gc
         gc.collect()
         _CACHE[variant_id] = _load_variant_data(variant_id)
@@ -205,7 +201,7 @@ def get_variant(variant_id: str) -> dict:
     return _CACHE[variant_id]
 
 
-def get_default_variant() -> Optional[dict]:
+def get_default_variant() -> dict | None:
     """Return the default variant data, or None if registry is empty."""
     vid = get_default_variant_id()
     if vid is None:

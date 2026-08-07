@@ -74,7 +74,6 @@ function generateResponse(question, context, result, inputs) {
     return `The price was calculated using the **${result?.segmentClass?.toUpperCase()}** segment model, which was trained on cars in a similar value range.\n\n**What's pushing the price up:**\n${(result?.positiveFactors||[]).slice(0,3).map(f=>`✓ ${f}`).join('\n') || '—'}\n\n**What's dragging it down:**\n${(result?.negativeFactors||[]).slice(0,3).map(f=>`✗ ${f}`).join('\n') || '—'}\n\nCheck the **Explain** tab for a full feature-by-feature breakdown.`;
   }
 
-  // Default helpful response
   return `Not sure what you're looking for — try asking about the offer price, risks, profit potential, or why the value came in where it did.\n\n${result ? `Quick summary for this **${inputs?.brand} ${inputs?.model}**: valued at **${fmtL(result?.predictedPrice)}**, call is **${result?.action}**.` : 'Run a valuation first and I can give you the full picture.'}`;
 }
 
@@ -116,7 +115,6 @@ export default function AssistantScreen() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // Format message with bold (**text**)
   const formatMsg = (text) => {
     const parts = text.split(/\*\*(.*?)\*\*/g);
     return parts.map((part, i) =>
@@ -139,7 +137,7 @@ export default function AssistantScreen() {
       </div>
 
       <div className="card" style={{ padding:0, overflow:'hidden' }}>
-        {/* Messages */}
+        {}
         <div
           className="chat-messages"
           style={{ padding:'16px 16px 0', maxHeight:'55vh', overflowY:'auto' }}
@@ -174,7 +172,7 @@ export default function AssistantScreen() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggestions */}
+        {}
         {messages.length === 1 && (
           <div className="chat-suggestions" style={{ padding:'12px 16px 0' }}>
             {SUGGESTIONS.slice(0, 4).map((s, i) => (
@@ -185,7 +183,7 @@ export default function AssistantScreen() {
           </div>
         )}
 
-        {/* Input row */}
+        {}
         <div className="chat-input-row" style={{ padding:'12px 16px 16px' }}>
           <input
             className="chat-input"

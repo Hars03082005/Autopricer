@@ -1,0 +1,41 @@
+# ruff.toml — AutoQuant lint configuration
+# Scope: backend/ and tests/ only.
+# ml_training/ and scripts/ are research/ops code; linting them is a separate
+# cleanup task, not part of the CI gate.
+include = ["backend/**/*.py", "tests/**/*.py"]
+
+line-length = 160
+target-version = "py311"
+
+[lint]
+# Rules that should be errors in CI
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (undefined names, unused imports)
+    "W",    # pycodestyle warnings
+    "UP",   # pyupgrade (modern Python syntax)
+    "I",    # isort
+]
+
+# Intentionally suppressed for this codebase
+ignore = [
+    "E501",   # line too long — handled separately
+    "E701",   # multiple statements on one line (colon) — intentional alignment tables
+    "E702",   # multiple statements on one line (semicolon) — debug blocks
+    "E741",   # ambiguous variable name (l, O, I)
+    "UP007",  # use X|Y instead of Optional (Python 3.9 compatibility)
+    "UP006",  # use list/dict over List/Dict — gradual migration
+    "UP045",  # X|None annotation style — gradual migration
+    "I001",   # import sort in inline-try blocks
+    "F401",   # imported but unused — kept for re-exports
+    "F841",   # local variable assigned but never used
+    "W291",   # trailing whitespace (cosmetic)
+    "W293",   # whitespace before colon (cosmetic)
+]
+
+# Per-file ignores
+[lint.per-file-ignores]
+"backend/main.py"    = ["F811", "E402"]
+"backend/decision_engine.py" = ["F811", "E402"]
+"ml_training/**" = ["E402", "F811"]
+"scripts/**" = ["E402"]

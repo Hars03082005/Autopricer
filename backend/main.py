@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -8,15 +9,14 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
+import gc
 import json
+import logging
 import math
 import re
-import gc
-import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import joblib
 import numpy as np
@@ -30,22 +30,48 @@ from backend.auth import require_admin_token
 from backend.config import get_settings
 from backend.routers import history as history_router
 
+from backend import model_registry
+from backend.brand_catalog import build_brand_catalog
 from backend.decision_engine import (
     calculate_decision,
     check_disqualifier,
+    get_blend_config,
+    get_comparable_anchor,
+    get_deal_health,
+    get_locality_demand,
+    get_market_range_result,
+    get_negotiation_trio,
+    get_recon_cost,
     get_seasonal_multiplier,
     get_wheelr_risk_deductions,
-    get_recon_cost,
-    get_negotiation_trio,
-    get_deal_health,
     shap_explanation,
-    generate_similar_cars,
-    get_market_range_result,
-    get_locality_demand,
 )
 from backend.ensemble_predictor import EnsemblePredictor
-from backend.brand_catalog import build_brand_catalog
-from backend import model_registry
+try:
+    from ml_training.clean_datasets import (
+        normalize_model as _norm_model,
+        normalize_variant as _norm_variant,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    import re as _re
+
+    def _norm_model(model: str, brand: str = "") -> str:  # type: ignore[misc]
+        """Lightweight fallback when ml_training is not installed."""
+        if not isinstance(model, str):
+            return "unknown"
+        m = model.strip().lower()
+        m = _re.sub(r"\s+\d+\.\d+[lL]?\s*$", "", m).strip()
+        m = _re.sub(r"\s+\d+[lL]\s*$", "", m).strip()
+        return m if m else "unknown"
+
+    def _norm_variant(variant: str) -> str:  # type: ignore[misc]
+        """Lightweight fallback when ml_training is not installed."""
+        if not isinstance(variant, str):
+            return "unknown"
+        v = variant.strip().lower()
+        return "unknown" if v in ("", "unknown", "nan", "none") else v
+
+
 
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
@@ -62,7 +88,7 @@ _BRAND_TIER_MAP: dict[str, int] = {
     "mini":          4, "lexus":   4, "jaguar": 4, "land rover": 4,
 }
 
-def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePredictor, dict, dict, dict, str]:
+def resolve_variant_data(variant_id: str | None = None) -> tuple[EnsemblePredictor, dict, dict, dict, str]:
     """
     Resolves the predictor, segment_models, metadata, dataset catalog, and active variant_id.
     Falls back to default variant or model_artifacts directory for backward compatibility.
@@ -79,16 +105,13 @@ def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePred
                 active_id,
             )
         except FileNotFoundError as exc:
-            # Variant explicitly requested but not found — return 404 instead of silently
-            # falling back to model_artifacts/ which would produce wrong/identical prices.
-            if variant_id:  # only raise when an explicit variant was requested
+            if variant_id:
                 log.error("Variant '%s' not found in registry: %s", variant_id, exc)
                 raise HTTPException(
                     status_code=404,
                     detail=f"Model variant '{variant_id}' not found in registry. "
                            f"Available variants: {[v['variant_id'] for v in model_registry.list_variants()]}"
                 )
-            # Default variant not found → fall through to model_artifacts/ backup
             log.warning("Default variant '%s' not found in registry — falling back to model_artifacts/", active_id)
         except Exception as exc:
             log.error("Failed to load variant '%s': %s", active_id, exc, exc_info=True)
@@ -98,10 +121,9 @@ def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePred
                     detail=f"Failed to load model variant '{variant_id}': {exc}"
                 )
 
-    # Fallback to local model_artifacts if registry lookup fails
     meta_path = ARTIFACT_DIR / "model_metadata.json"
     if meta_path.exists():
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
     else:
         meta = {"model_name": "CatBoostRegressor", "features": [], "categorical_features": []}
@@ -116,12 +138,11 @@ def resolve_variant_data(variant_id: Optional[str] = None) -> tuple[EnsemblePred
     cat_data = {}
     cat_p = ARTIFACT_DIR / "dataset_catalog.json"
     if cat_p.exists():
-        with open(cat_p, "r", encoding="utf-8") as f:
+        with open(cat_p, encoding="utf-8") as f:
             cat_data = json.load(f)
 
     return pred, seg_mods, meta, cat_data, active_id or "default"
 
-# ── Globals (populated during lifespan startup, NOT at import time) ──────────
 predictor       = None
 SEGMENT_MODELS  = {}
 METADATA        = {}
@@ -137,25 +158,18 @@ CONDITION_MULTIPLIERS = {
     "poor":      0.82,
 }
 BRAND_CATALOG   = {}
-# ── Brand → segment_class — must match training TIER_TO_SEGMENT exactly ────
-# Training: {0: "budget", 1: "economy", 2: "mid", 3: "premium", 4: "luxury"}
 BRAND_SEGMENT_MAP: dict = {
-    # Tier 0 → budget
     "datsun": "budget",
-    # Tier 1 → economy
     "maruti suzuki": "economy", "maruti": "economy",
     "renault": "economy", "tata": "economy", "chevrolet": "economy",
     "fiat": "economy", "bajaj": "economy",
     "opel": "economy", "premier": "economy", "force": "economy",
     "ashok leyland": "economy", "ambassador": "economy", "dc": "economy",
-    # Tier 2 → mid  ← this was the biggest bug (Hyundai/Honda/Kia sent as economy)
     "hyundai": "mid", "honda": "mid", "kia": "mid", "ford": "mid",
     "volkswagen": "mid", "skoda": "mid", "nissan": "mid",
     "mitsubishi": "mid", "mahindra": "mid", "citroen": "mid", "isuzu": "mid",
-    # Tier 3 → premium
     "toyota": "premium", "mg": "premium", "jeep": "premium",
     "mini": "premium", "volvo": "premium", "lexus": "premium",
-    # Tier 4 → luxury
     "bmw": "luxury", "mercedes-benz": "luxury", "audi": "luxury",
     "jaguar": "luxury", "land rover": "luxury", "porsche": "luxury",
     "maserati": "luxury", "aston martin": "luxury", "bentley": "luxury",
@@ -170,10 +184,6 @@ async def lifespan(app_instance: FastAPI):
     """Load ML models AFTER the port is bound (avoids OOM crash before port open)."""
     global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
     global FEATURES, CAT_FEATURES, CURRENT_YEAR, BRAND_CATALOG, BRAND_SEGMENT_MAP
-
-    get_settings().log_summary()
-    await db.startup()
-
     log.info("==> Loading ML models…")
     gc.collect()
     predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
@@ -184,39 +194,16 @@ async def lifespan(app_instance: FastAPI):
     BRAND_CATALOG = build_brand_catalog()
     BRAND_SEGMENT_MAP = METADATA.get("brand_segment_map", BRAND_SEGMENT_MAP)
     log.info("==> ML models loaded. Active variant: %s", ACTIVE_VARIANT_ID)
-
-    # A pinned variant that silently resolved to something else means this
-    # replica serves different prices than the deployment intended.
-    pinned = get_settings().active_variant_id
-    if pinned and ACTIVE_VARIANT_ID != pinned:
-        raise RuntimeError(
-            f"ACTIVE_VARIANT_ID={pinned!r} was requested but {ACTIVE_VARIANT_ID!r} "
-            f"loaded. Refusing to serve a model the deployment did not ask for."
-        )
-
-    yield  # Server is running
-
+    yield
     log.info("==> Shutting down.")
     await db.shutdown()
 
-# FastAPI app
 app = FastAPI(title="PriceRef ML API", version="1.0.0", lifespan=lifespan)
 
-# CORS is driven by configuration rather than allow_origins=["*"].
-#
-# The previous wildcard was combined with allow_credentials=True, which browsers
-# reject outright — so credentialed cross-origin requests never actually worked,
-# while every non-credentialed origin was allowed to call the API.
-#
-# In the deployed topology the frontend's nginx reverse-proxies these routes, so
-# browser traffic is same-origin and needs no CORS at all. This allowlist exists
-# for `npm run dev` and for the Flutter shell, which do call the API directly.
 _settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if _settings.cors_allow_all else list(_settings.cors_allowed_origins),
-    # Credentials cannot be combined with a wildcard origin; the bearer-token
-    # scheme does not need cookies, so this is off when the origin list is "*".
     allow_credentials=not _settings.cors_allow_all,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -225,11 +212,10 @@ app.add_middleware(
 
 app.include_router(history_router.router)
 
-# Pydantic models
 class VehicleInput(BaseModel):
     brand: str = "Honda"
     model: str = "City"
-    variant: str = "unknown"        # trim level — sent by frontend, used by all 3 segment models
+    variant: str = "unknown"
     year: int = 2021
     fuel_type: str = "Petrol"
     transmission: str = "Manual"
@@ -239,13 +225,13 @@ class VehicleInput(BaseModel):
     engine_cc: int = Field(1497, ge=0)
     city: str = "Bangalore"
     locality: str = "Indiranagar"
-    color: str = "unknown"          # car colour — from dataset schema; improves accuracy
-    inspected: bool = False         # inspection certificate present
+    color: str = "unknown"
+    inspected: bool = False
     condition: str = "Good"
     seller_asking_price: float = 0
     target_margin_pct: float = 10
     repair_buffer: float = 0
-    model_variant: Optional[str] = None
+    model_variant: str | None = None
 
 
 DEFAULT_VENDOR_TYPE = {
@@ -289,10 +275,9 @@ class ReverseCalculateRequest(BaseModel):
     vendor_type: dict = Field(default_factory=lambda: dict(DEFAULT_VENDOR_TYPE))
     owner_count: int = Field(1, ge=1)
     odometer: int = Field(0, ge=0)
-    target_margin_pct: float = Field(0.10, ge=0, le=1)
+    target_margin_pct: float = Field(10.0, ge=0, le=100)
 
 
-# Helper functions
 def clean_text(value: object, default: str = "unknown") -> str:
     if value is None:
         return default
@@ -301,43 +286,23 @@ def clean_text(value: object, default: str = "unknown") -> str:
     return text if text else default
 
 
-# Model-year alias map
-# When a user types a generic model name that maps to a more specific generation
-# depending on the year, resolve it here BEFORE building features and before
-# looking up the sanity-clamp band.
-# Format: { clean_model: [ (min_year, max_year, canonical_model), ... ] }
 MODEL_YEAR_ALIASES: dict[str, list[tuple[int, int, str]]] = {
-    # Innova Crysta launched in 2016 — anything from 2014 onwards is considered Crysta
     "innova":        [(2014, 9999, "innova crysta")],
-    # Creta gen-2 (2020+) has significantly higher resale vs gen-1
     "creta":         [(2020, 9999, "creta")],
-    # Nexon EV (2020+) is a separate product from ICE Nexon
     "nexon":         [(2020, 9999, "nexon")],
-    # Brezza (2022+ facelift has substantially higher value)
     "vitara brezza": [(2022, 9999, "brezza")],
     "brezza":        [(2022, 9999, "brezza")],
-    # Scorpio N (2022+) is a new platform, separate from old Scorpio Classic
     "scorpio":       [(2022, 9999, "scorpio n")],
-    # Safari (2021+ is monocoque premium crossover, pre-2021 is body-on-frame Storme/Dicor)
     "safari":        [(1900, 2020, "safari classic")],
-    # Thar (2020+ is lifestyle SUV, pre-2020 is old rugged off-roader)
     "thar":          [(1900, 2019, "thar gen1")],
-    # i10 generations:
-    #   Classic i10  (2007–2013): model = "i10"          → keep as-is (old dataset entries)
-    #   Grand i10    (2014–2019): user types "i10" but real product is "grand i10"
-    #   Grand i10 Nios (2020+):   user types "i10" but real product is "grand i10 nios"
     "i10":           [(2020, 9999, "grand i10 nios"),
                       (2014, 2019, "grand i10")],
-    # Grand i10 (non-Nios) — if user types full name for a 2020+ year, correct to Nios
     "grand i10":     [(2020, 9999, "grand i10 nios")],
 }
 
 
 def _resolve_model_alias(model: str, year: int) -> str:
-    """
-    Return the canonical model name for a given year.
-    Falls back to the original model string if no alias applies.
-    """
+    """Return the canonical model name for a given year."""
     model_key = clean_text(model)
     rules = MODEL_YEAR_ALIASES.get(model_key)
     if rules:
@@ -347,28 +312,21 @@ def _resolve_model_alias(model: str, year: int) -> str:
     return model_key
 
 
-# ── Comprehensive brand alias map — maps user-typed variants to dataset canonical names ──
-# Dataset training used these exact brand strings (from clean-4.py OEM_ALLOWLIST).
 _BRAND_ALIAS_MAP: dict[str, str] = {
-    # Maruti variants
     "maruti":               "maruti suzuki",
     "marutisuzuki":         "maruti suzuki",
     "maruti-suzuki":        "maruti suzuki",
     "suzuki":               "maruti suzuki",
-    # Mercedes variants
     "mercedes":             "mercedes-benz",
     "mercedes benz":        "mercedes-benz",
     "mercedesbenz":         "mercedes-benz",
     "merc":                 "mercedes-benz",
     "mercedes-benz":        "mercedes-benz",
-    # Land Rover
     "land-rover":           "land rover",
     "landrover":            "land rover",
-    "range rover":          "land rover",   # brand-level alias
-    # Volkswagen
+    "range rover":          "land rover",
     "vw":                   "volkswagen",
     "volkswagon":           "volkswagen",
-    # Others
     "hyundai motor":        "hyundai",
     "tata motors":          "tata",
     "honda cars":           "honda",
@@ -386,38 +344,17 @@ def _normalize_brand(brand: str) -> str:
 
 
 def normalize_model_name(brand: str, model_name: str, year: int = 0) -> str:
+    """Return the canonical model name, normalized for ML matching."""
     brand_clean = _normalize_brand(brand)
-    # Resolve generation alias first (e.g. Innova 2019 -> innova crysta)
     model_clean = _resolve_model_alias(model_name, year)
-    # Strip brand prefix if present — dataset stores model WITHOUT brand prefix
-    # e.g. "maruti suzuki swift" → "swift", "hyundai i20" → "i20"
+    # Strip brand prefix if present in model name
     for b in [brand_clean] + list(_BRAND_ALIAS_MAP.values()):
         prefix = f"{b} "
         if model_clean.startswith(prefix):
             model_clean = model_clean[len(prefix):].strip()
             break
-    # Strip known variant suffixes that may leak in from frontend
-    # e.g. "swift vxi" → "swift", "creta sx" → "creta"
-    # Only strip if the resulting base is at least 3 chars (avoid over-stripping)
-    _KNOWN_VARIANT_TOKENS = {
-        "lxi", "vxi", "zxi", "zxi+", "vxi+", "ldi", "vdi", "zdi", "zdi+",
-        "sx", "sx+", "sx(o)", "ex", "ex+", "s", "se", "sv", "sv+",
-        "base", "top", "plus", "amt", "ags", "cvt", "ivtec", "dtec",
-        "xm", "xz", "xz+", "xe", "xt", "xta",
-        "magna", "sportz", "asta", "era", "d-lite", "d lite",
-        "xl", "xls", "xxl",
-        "lx", "vx", "zx",
-        "g", "v", "z", "rs", "gt",
-        "prestige", "luxury", "prime",
-        "anniversary", "limited", "special", "edition",
-        "4wd", "awd", "4x4", "2wd",
-    }
-    parts = model_clean.split()
-    if len(parts) > 1 and parts[-1] in _KNOWN_VARIANT_TOKENS:
-        candidate = " ".join(parts[:-1])
-        if len(candidate) >= 3:
-            model_clean = candidate
-    return model_clean
+    # Apply dataset-level model normalization (generation aliases, engine size strip)
+    return _norm_model(model_clean, brand_clean)
 
 
 def condition_to_score(condition: str) -> int:
@@ -425,14 +362,10 @@ def condition_to_score(condition: str) -> int:
 
 
 
-# ── Lookup tables derived from training dataset (processed_widoutown-2.csv) ───
-# These allow build_features() to supply the 7 features that were computed
-# during data-cleaning but are unavailable at inference time.
 
-# city → (locality_tier, locality_density_norm, representative_rto, locality)
 _CITY_FEATURE_MAP: dict[str, tuple[int, float, str, str]] = {
-    "bangalore":  (2, 1.000, "ka-03", "bellahalli"),   # Issue 8 fix: city-level default = tier-2 (mid)
-    "bengaluru":  (2, 1.000, "ka-03", "bellahalli"),   # bellahalli locality is tier-1, but city default is tier-2
+    "bangalore":  (2, 1.000, "ka-03", "bellahalli"),
+    "bengaluru":  (2, 1.000, "ka-03", "bellahalli"),
     "mysuru":     (2, 0.071, "ka-09", "mysuru"),
     "mysore":     (2, 0.071, "ka-09", "mysuru"),
     "mumbai":     (1, 0.950, "mh-02", "andheri"),
@@ -463,7 +396,6 @@ _CITY_FEATURE_MAP: dict[str, tuple[int, float, str, str]] = {
     "varanasi":   (3, 0.160, "up-65", "varanasi"),
 }
 
-# Brand → mean popularity_score_log from training data
 _BRAND_POPULARITY_LOG: dict[str, float] = {
     "renault":       6.28, "hyundai":      6.13, "honda":        6.06,
     "maruti suzuki": 5.89, "maruti":       5.89, "kia":          5.85,
@@ -477,7 +409,6 @@ _BRAND_POPULARITY_LOG: dict[str, float] = {
     "lexus":         1.79, "mini":         1.78,
 }
 
-# km_per_year → usage_category_num bucket (0=very_low, 1=low, 2=moderate, 3=high)
 def _usage_category_num(km_per_year: float) -> float:
     if km_per_year < 8_000:  return 0.0
     if km_per_year < 15_000: return 1.0
@@ -486,20 +417,7 @@ def _usage_category_num(km_per_year: float) -> float:
 
 
 def build_features(vehicle: VehicleInput) -> pd.DataFrame:
-    """
-    Build the ML feature DataFrame for a single vehicle.
-
-    New feature set (matches redesigned preprocessing pipeline):
-      CAT:     brand, model, variant, locality, rto,
-               fuel_type, transmission, seller_type, color
-      NUMERIC: vehicle_age, odometer_reading, km_per_year,
-               owner_count, certified, pincode
-
-    Removed (no longer in training data):
-      - city           → redundant; locality + rto capture geography
-      - age_bucket     → discretised vehicle_age; tree models learn splits natively
-      - make_model_trim→ exact concat of brand+model+variant; redundant
-    """
+    """Build the ML feature DataFrame for a single vehicle."""
     vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
     km          = max(0, float(vehicle.odometer_reading or 0))
     owner       = max(1, int(vehicle.owner_count or 1))
@@ -514,7 +432,6 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     brand_clean = _normalize_brand(vehicle.brand)
     brand_tier  = _BRAND_TIER_MAP.get(brand_clean, 1)
 
-    # ── Location: derive locality + rto from city lookup ─────────────────────
     city_clean = clean_text(vehicle.city)
     city_info  = _CITY_FEATURE_MAP.get(city_clean)
     if city_info:
@@ -522,18 +439,18 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     else:
         locality_tier_val, density_norm, rto_val, locality_val = 2, 0.20, "unknown", city_clean
 
-    # ── Core identifiers ─────────────────────────────────────────────────────
-    variant_clean = clean_text(vehicle.variant or "unknown")
+    user_locality = clean_text(getattr(vehicle, "locality", "") or "")
+    if user_locality and user_locality not in ("", "unknown"):
+        locality_val = user_locality
+
+    variant_clean = _norm_variant(vehicle.variant or "unknown")
     model_clean   = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
 
-    # ── certified: 1 if inspected, else NaN (tree models handle NaN natively) ─
     certified_val = 1.0 if getattr(vehicle, "inspected", False) else 0.0
 
-    # ── pincode: NaN when missing (matches new preprocessing behaviour) ───────
     raw_pin = getattr(vehicle, "pincode", None)
     pincode_val = float(raw_pin) if raw_pin and 100_000 <= float(raw_pin) <= 999_999 else np.nan
 
-    # ── Legacy extras used by the decision engine (NOT model features) ───────
     ownership_trust_score = float({1: 100, 2: 75, 3: 50, 4: 25, 5: 10, 6: 10}.get(owner, 10))
     vehicle_health_score  = float(max(0.0, min(100.0,
         100.0 - (vehicle_age * 3) - (km / 10_000) - ((owner - 1) * 8))))
@@ -545,7 +462,6 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     usage_cat_num      = _usage_category_num(km_per_year)
 
     row = {
-        # ── Categorical — matches CAT_FEATURES in new training scripts ─────────
         "brand":        brand_clean,
         "model":        model_clean,
         "variant":      variant_clean,
@@ -553,17 +469,14 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "rto":          rto_val,
         "fuel_type":    clean_text(vehicle.fuel_type),
         "transmission": clean_text(vehicle.transmission),
-        "seller_type":  "dealer",   # majority class in training data
+        "seller_type":  "dealer",
         "color":        color,
-        # ── Numeric — matches NUMERIC_FEATURES in new training scripts ──────────
         "vehicle_age":      float(vehicle_age),
         "odometer_reading": float(km),
         "km_per_year":      float(km_per_year),
         "owner_count":      float(owner),
         "certified":        certified_val,
         "pincode":          pincode_val,
-        # ── Legacy / extra keys (ignored by new models via feature_names_) ──────
-        # Kept so older model variants loaded from registry still work correctly.
         "segment_class":         seg_class,
         "rto_state":             rto_val,
         "brand_tier":            float(brand_tier),
@@ -601,27 +514,16 @@ def condition_multiplier(condition: str) -> float:
     )
 
 
-# Segment routing helpers
 def get_segment_class(brand: str) -> str:
-    """Return the segment class (economy / premium / luxury) for a given brand.
-    Brand is always known at inference time — O(1) dict lookup.
-    Unknown brands default to 'economy' (safest prior).
-    """
+    """Return the segment class for a given brand."""
     return BRAND_SEGMENT_MAP.get(_normalize_brand(brand), "economy")
 
 
-# Median depreciation ratio from training data (used when list_price is unknown)
 _MEDIAN_DEP_RATIO = 0.75
 
 
 def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
-    """Run the three sub-models for a brand class and return the blended log-price.
-    Uses category_levels saved in the pkl to normalise unseen values to 'unknown'.
-    Correctly encodes categoricals per model type:
-      - CatBoost: string columns (handles internally)
-      - LightGBM: pd.Categorical dtype (required by lgb.Booster.predict)
-      - XGBoost:  integer-encoded columns
-    """
+    """Run sub-models for a brand class and return blended log-price."""
     cb_f  = features.copy()
     lgb_f = features.copy()
     xgb_f = features.copy()
@@ -631,34 +533,26 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
         cat_levels = artifact.get("category_levels", {}).get(col, [])
         raw = features[col].astype(str)
         if cat_levels:
-            # Normalise unseen values → "unknown" (must be in cat_levels)
             known_levels = cat_levels if "unknown" in cat_levels else cat_levels + ["unknown"]
             raw = raw.where(raw.isin(cat_levels), "unknown")
-            # CatBoost: plain string
             cb_f[col] = raw.astype(str)
-            # LightGBM: pd.Categorical with explicit categories
             lgb_f[col] = pd.Categorical(raw, categories=known_levels)
-            # XGBoost: integer label
             mapping = {cat: idx for idx, cat in enumerate(known_levels)}
             xgb_f[col] = raw.map(mapping).fillna(len(known_levels)).astype(int)
         else:
             cb_f[col]  = raw.astype(str)
             lgb_f[col] = raw.astype("category")
-            # XGBoost: encode by category code
             cat_series = raw.astype("category")
             xgb_f[col] = cat_series.cat.codes.astype(int)
     weights = artifact["weights"]
     preds = {}
     if weights.get("catboost", 0) > 0:
-        # Reindex to the model's own feature list to guard against extra/stale columns
         cb_model = artifact["catboost"]
         cb_cols   = cb_model.feature_names_
-        # Fill any missing expected columns
         for _col in cb_cols:
             if _col not in cb_f.columns:
                 cb_f[_col] = "unknown" if _col in artifact.get("cat_features", []) else 0.0
         cb_f_aligned = cb_f[cb_cols]
-        # Ensure all cat feature columns are strings (CatBoost requirement)
         for _col in artifact.get("cat_features", []):
             if _col in cb_f_aligned.columns:
                 cb_f_aligned = cb_f_aligned.copy()
@@ -669,7 +563,6 @@ def _run_class_model(features: pd.DataFrame, artifact: dict) -> float:
     if weights.get("xgboost", 0) > 0:
         preds["xgboost"]  = float(artifact["xgboost"].predict(xgb_f)[0])
     if not preds:
-        # Fallback: all weights zero — just use catboost (with same alignment guard)
         cb_model = artifact["catboost"]
         cb_cols   = cb_model.feature_names_
         for _col in cb_cols:
@@ -703,27 +596,13 @@ def _is_s5_model_known(brand: str, raw_model: str, year: int, cat_data: dict) ->
     return any(m_key in m or m in m_key for m in brand_models)
 
 
-# Core prediction
-def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> tuple[int, str, float]:
-    """
-    Returns (market_value_inr: int, routing_note: str, ensemble_variance: float).
-
-    Segment model routing — price-first approach:
-      1. Run the GLOBAL ensemble model to get a rough price estimate.
-      2. Use that estimate to select the correct price-band model.
-      3. Re-run with the band model for the final prediction.
-
-    This eliminates the brand-segment → band mismatch (e.g. Hyundai "mid" brand
-    routing Grand i10 Nios to 6_12_lakh even though it sells for ~Rs.5.5L).
-    """
+def predict_base_market_value(vehicle: VehicleInput, model_variant: str | None = None) -> tuple[int, str, float]:
+    """Returns (market_value_inr, routing_note, ensemble_variance) using price-first segment routing."""
     var_id = model_variant or vehicle.model_variant
-    pred_obj, seg_models, meta, cat_data, active_id = resolve_variant_data(var_id)
+    pred_obj, seg_models, _meta, cat_data, active_id = resolve_variant_data(var_id)
 
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
 
-    # S5 quality model fallback for models NOT present in S5 dataset
-    # Condition: vehicle_age <= 7 AND model known in S5 catalog
-    # variant_4 is the S5 specialist — falls back to variant_1 (+8%) if unknown model
     if active_id in ("variant_4", "variant_s5"):
         if not _is_s5_model_known(vehicle.brand, resolved_model, int(vehicle.year), cat_data):
             base_v1, _, _ = predict_base_market_value(vehicle, model_variant="variant_1")
@@ -733,7 +612,6 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     features  = build_features(vehicle)
     seg_class = get_segment_class(vehicle.brand)
 
-    # ── Step 1: Global model gives a rough price estimate ──────────────────────
     try:
         global_result = pred_obj.predict_with_variance(features)
         global_log    = global_result["log_price"]
@@ -745,18 +623,13 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
         rough_price = 0
         ensemble_variance = 0.0
 
-    # ── Step 2: Select price-band model by actual estimated price ───────────────
-    # Routing table bands from routing_table.json: 0_6_lakh, 6_12_lakh, 12_plus_lakh
-    # Use the rough price (from global model) to decide which band — not the brand tier.
-    # Overlap zone (±50k from band boundary): prefer the model with lower MAPE.
     def _pick_band(price: float) -> str:
         if price <= 0:
-            # No estimate — fall back to brand-tier heuristic
             if seg_class in ("budget", "economy"):
                 return "0_6_lakh"
             if seg_class == "luxury":
                 return "12_plus_lakh"
-            return "0_6_lakh"   # default
+            return "0_6_lakh"
         if price < 600_000:
             return "0_6_lakh"
         elif price < 1_200_000:
@@ -766,7 +639,6 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
 
     price_band = _pick_band(rough_price)
 
-    # Override band selection with dataset P50 when available (more reliable than global model)
     from backend.decision_engine import _MARKET_BANDS_CFG as _MB_ROUTING
     _resolved_for_routing = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
     _band_data_routing    = (_MB_ROUTING.get(_resolved_for_routing)
@@ -777,8 +649,7 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
 
     artifact   = seg_models.get(price_band)
 
-    # ── Step 3: Run the chosen band model ──────────────────────────────────────
-    log_price    = global_log if rough_price > 0 else 0.0  # default to global if band unavailable
+    log_price    = global_log if rough_price > 0 else 0.0
     routing_note = f"global model ({seg_class}) [{active_id}]"
 
     if artifact and isinstance(artifact, dict) and "model" in artifact:
@@ -787,11 +658,9 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
             cat_levels = artifact.get("cat_levels", {})
             cb_f = features.copy()
             cat_cols = [c for c in CAT_FEATURES if c in cb_f.columns]
-            # Normalise unseen categories
             for col in cat_cols:
                 known = set(cat_levels.get(col, ["unknown"]))
                 cb_f[col] = cb_f[col].astype(str).apply(lambda x: x if x in known else "unknown")
-            # Align columns to model's feature names
             for col in seg_m.feature_names_:
                 if col not in cb_f.columns:
                     cb_f[col] = "unknown" if col in artifact.get("cat_features", []) or col in CAT_FEATURES else 0.0
@@ -799,22 +668,17 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
                     cb_f[col] = cb_f[col].astype(str)
             band_log_price = float(seg_m.predict(cb_f[seg_m.feature_names_])[0])
 
-            # ── Three-way reconciliation ──────────────────────────────────────
-            # When global and band models disagree significantly, use the
-            # dataset P50 market band from engine_config.json as neutral anchor.
             band_price   = float(np.expm1(band_log_price))
             global_price = rough_price
 
             if global_price > 0:
                 deviation = abs(band_price - global_price) / max(global_price, 1)
                 if deviation > 0.35:
-                    # Both models disagree — find dataset anchor
                     from backend.decision_engine import _MARKET_BANDS_CFG as _MB
                     model_key = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year))
                     band_data  = _MB.get(model_key) or _MB.get(model_key.split()[0])
                     if band_data:
                         dataset_p50 = (float(band_data[0]) + float(band_data[1])) / 2.0
-                        # Pick whichever of global/band is closer to dataset P50
                         err_global = abs(global_price - dataset_p50)
                         err_band   = abs(band_price   - dataset_p50)
                         if err_band <= err_global:
@@ -824,10 +688,8 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
                                 f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
                             )
                         else:
-                            # Global is closer — but re-pick band by global price
                             corrected_band = _pick_band(global_price)
                             if corrected_band != price_band and seg_models.get(corrected_band):
-                                # Try re-routing with the corrected band
                                 price_band = corrected_band
                                 artifact2  = seg_models[corrected_band]
                                 seg_m2     = artifact2["model"]
@@ -864,14 +726,12 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
                                     f"(dataset anchor Rs.{dataset_p50/1e5:.1f}L) [{active_id}]"
                                 )
                     else:
-                        # No dataset anchor — trust band model (it's specialised for this price range)
                         log_price    = band_log_price
                         routing_note = (
                             f"segment model '{price_band}' used "
                             f"(no dataset anchor, dev={deviation*100:.0f}%) [{active_id}]"
                         )
                 else:
-                    # Models broadly agree — use band model (lower MAPE)
                     log_price    = band_log_price
                     routing_note = f"segment model '{price_band}' used [{active_id}]"
             else:
@@ -881,9 +741,7 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
         except Exception as e:
             log.warning("Segment model failed (%s), falling back to global: %s", price_band, e)
             routing_note = f"segment model error — global fallback [{active_id}]"
-            # log_price already set to global_log above
     elif rough_price > 0:
-        # No segment model for this band — global result is already stored
         routing_note = f"no segment model for '{price_band}' — global [{active_id}]"
 
     market_value = float(np.expm1(log_price))
@@ -893,39 +751,53 @@ def predict_base_market_value(vehicle: VehicleInput, model_variant: Optional[str
     return int(round(market_value / 500) * 500), routing_note, ensemble_variance
 
 
-def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
-    """
-    ML-first prediction pipeline.
+def predict_market_value(vehicle: VehicleInput, model_variant: str | None = None) -> dict:
+    """Comparable-first valuation: search dataset comps -> ML ensemble -> blend by match quality -> data-driven range."""
+    variant_clean = _norm_variant(getattr(vehicle, "variant", None) or "")
+    
+    # 1. Comparable search FIRST before ML inference
+    comp_data = get_comparable_anchor(
+        brand              = _normalize_brand(vehicle.brand),
+        model              = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
+        variant            = variant_clean,
+        fuel               = clean_text(vehicle.fuel_type),
+        transmission       = clean_text(vehicle.transmission),
+        year               = int(vehicle.year),
+        odometer           = float(vehicle.odometer_reading or 0),
+        owner_count        = int(vehicle.owner_count or 1),
+        seller_type        = clean_text(getattr(vehicle, "seller_type", "") or ""),
+        locality           = clean_text(getattr(vehicle, "locality", "") or getattr(vehicle, "city", "") or ""),
+    )
 
-    The market_value returned here equals the raw ML ensemble output with no
-    post-processing price modifications.  All hardcoded rule multipliers
-    (condition, sanity clamp, odometer penalty, fuel modifier) have been removed.
-
-    If condition, fuel, age, or odometer effects are needed in the price, they
-    should be trained into the model as features — not patched in post-hoc.
-
-    The pipeline is:
-        1. build_features() → ML ensemble → base_value
-        2. Soft bounds check (Rs.50k floor / Rs.2Cr cap — physical limits only)
-        3. AdaptiveComparableService → ML-anchored market range + similar_cars
-        4. ConfidenceEngine → composite confidence score
-        5. Statistical outlier flag (IQR method — display only, never modifies price)
-    """
+    # 2. ML Ensemble prediction
     resolved_model = _resolve_model_alias(vehicle.model, int(vehicle.year))
     base_value, routing_note, ensemble_variance = predict_base_market_value(vehicle, model_variant=model_variant)
-    seg_class = get_segment_class(vehicle.brand)
-    age       = max(0, CURRENT_YEAR - int(vehicle.year))
+    seg_class  = get_segment_class(vehicle.brand)
+    age        = max(0, CURRENT_YEAR - int(vehicle.year))
+    user_loc   = clean_text(getattr(vehicle, "locality", "") or vehicle.city or "")
+    loc_uplift = get_locality_demand(user_loc, segment=seg_class)
+    adj_base   = base_value * (1.0 + loc_uplift)
 
-    # ── Locality demand adjustment (realistic ±2–5% intracity factor) ────────
-    user_loc    = clean_text(getattr(vehicle, "locality", "") or vehicle.city or "")
-    loc_uplift  = get_locality_demand(user_loc, segment=seg_class)
-    adj_base    = base_value * (1.0 + loc_uplift)
+    # 3. Comparable-First Blending — continuous weight proportional to avg_sim
+    # All thresholds come from valuation_config.json via get_blend_config(), no hardcoding.
+    _bcfg       = get_blend_config()
+    _SIM_LO     = _bcfg["sim_lo"]    # from valuation_config: medium_confidence_avg_sim
+    _SIM_HI     = _bcfg["sim_hi"]    # from valuation_config: high_confidence_avg_sim
+    _ALPHA_LO   = _bcfg["alpha_lo"]  # from valuation_config: comp_weight_medium
+    _ALPHA_HI   = _bcfg["alpha_hi"]  # from valuation_config: comp_weight_high
+    comp_anchor = comp_data.get("comp_anchor")
+    avg_sim_val = comp_data.get("avg_similarity", 0.0)
+    if comp_anchor and avg_sim_val >= _SIM_HI:
+        _alpha = _ALPHA_HI
+    elif comp_anchor and avg_sim_val >= _SIM_LO:
+        _t     = (avg_sim_val - _SIM_LO) / (_SIM_HI - _SIM_LO)
+        _alpha = _ALPHA_LO + _t * (_ALPHA_HI - _ALPHA_LO)
+    else:
+        _alpha = 0.0
 
-    # ── Soft physical bounds (no business rule, just sanity) ──────────────────
-    final_value = int(round(max(50_000, min(adj_base, 20_000_000)) / 500) * 500)
+    final_raw = _alpha * comp_anchor + (1.0 - _alpha) * adj_base if _alpha > 0 else adj_base
+    final_value = int(round(max(50_000, min(final_raw, 20_000_000)) / 500) * 500)
 
-    # ── IRDAI note (informational only — no price effect) ────────────────────
-    variant_clean    = clean_text(getattr(vehicle, "variant", None) or "")
     variant_is_known = variant_clean not in ("", "unknown")
     irdai_note = ""
     if not variant_is_known:
@@ -941,9 +813,6 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             f"{_irdai_dep}% depreciation for {age}-yr vehicle (informational only)"
         )
 
-    # ── Adaptive market range + confidence engine ──────────────────────────────
-    # Weighted similarity search → ML-anchored range → composite confidence.
-    # Comp pool feeds both the market range and similar-cars UI card.
     _meta_mape = METADATA.get("metrics", {}).get("mape", 0.0628) / 100.0 \
                  if METADATA.get("metrics", {}).get("mape", 0.0628) > 1 \
                  else METADATA.get("metrics", {}).get("mape", 0.0628)
@@ -964,7 +833,7 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             locality           = clean_text(getattr(vehicle, "locality", "") or getattr(vehicle, "city", "") or ""),
         )
     except Exception as _mr_exc:
-        # BUG-03 fix: log the failure so it's visible — do not silently swallow exceptions
+        import traceback; traceback.print_exc()
         import logging as _logging
         _logging.getLogger("uvicorn.error").warning(
             f"[predict_market_value] market_range_result failed for "
@@ -994,13 +863,9 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
 
     similar_cars = mr_result.get("similar_cars", [])
 
-    # ── Statistical outlier flag (IQR method) ────────────────────────────────
-    # If ML prediction falls outside 1.5 × IQR fence of the comparable pool,
-    # flag it as unusual for display in the UI.  The price is NEVER modified.
     outlier_flagged = False
     outlier_note    = ""
     if mr_result["market_range_source"] == "dataset" and mr_result["market_range_comp_count"] >= 5:
-        # BUG-02 fix: use real comp quartiles (p25/p75) for IQR, not the display range min/max
         comp_p25    = mr_result.get("comp_p25", mr_result["price_min"])
         comp_p75    = mr_result.get("comp_p75", mr_result["price_max"])
         iqr         = max(comp_p75 - comp_p25, 1)
@@ -1016,30 +881,26 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
             )
 
     var_id = model_variant or vehicle.model_variant
-    _, seg_models, meta, _, active_id = resolve_variant_data(var_id)
+    _, seg_models, _meta, _, active_id = resolve_variant_data(var_id)
 
     return {
-        # ── ML prediction (pure, unmodified) ──
         "base_market_value":          int(base_value),
-        "market_value":               final_value,   # == base_value (no post-processing)
-        # ── Diagnostic / informational ──
-        "condition_multiplier":       1.0,           # removed — condition must be in training features
+        "market_value":               final_value,
+        "condition_multiplier":       1.0,
         "condition_adjustment":       0,
         "condition_score":            condition_to_score(vehicle.condition),
         "segment_class":              seg_class,
         "segment_model_used":         seg_class in seg_models,
         "routing_note":               routing_note,
-        "sanity_clamped":             False,         # clamp removed — price is raw ML output
+        "sanity_clamped":             False,
         "sanity_note":                "ML-first: no sanity clamp applied",
-        "similar_anchor_note":        "",            # 80/20 blend removed
+        "similar_anchor_note":        "",
         "irdai_note":                 irdai_note,
         "variant_is_known":           variant_is_known,
         "resolved_model":             resolved_model,
         "model_variant":              active_id,
-        # ── Outlier detection (display only, never changes price) ──
         "outlier_flagged":            outlier_flagged,
         "outlier_note":               outlier_note,
-        # ── Market range (ML-anchored adaptive range) ──
         "price_min":                  mr_result["price_min"],
         "price_max":                  mr_result["price_max"],
         "price_median":               mr_result["price_median"],
@@ -1048,7 +909,6 @@ def predict_market_value(vehicle: VehicleInput, model_variant: Optional[str] = N
         "market_range_stage_label":   mr_result["market_range_stage_label"],
         "market_range_source":        mr_result["market_range_source"],
         "similar_cars":               similar_cars,
-        # ── Confidence & enrichment (Phase 3/4) ──
         "confidence":                 mr_result.get("confidence", "Low"),
         "confidence_score":           mr_result.get("confidence_score", 0.0),
         "market_support":             mr_result.get("market_support", "Weak"),
@@ -1081,7 +941,7 @@ def shap_like_explanation(vehicle: VehicleInput, market_value: int) -> list[dict
     )
 
 
-def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict = None) -> list[str]:
+def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict | None = None) -> list[str]:
     warnings = []
     age = max(0, CURRENT_YEAR - int(vehicle.year))
     if vehicle.odometer_reading > 100000:
@@ -1095,7 +955,6 @@ def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict = None)
     if decision["confidence_score"] < 60:
         warnings.append("Lower confidence because of risk or missing data")
 
-    # Commercial / taxi variant detection
     variant_raw = str(getattr(vehicle, "variant", "") or "").lower().strip()
     _COMMERCIAL_KEYWORDS = {"tour", "tour s", "tour h", "taxi", "fleet", "cng fleet"}
     if any(kw in variant_raw for kw in _COMMERCIAL_KEYWORDS):
@@ -1105,7 +964,6 @@ def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict = None)
             "and a different buyer pool than personal variants. Verify plate type before acquiring."
         )
 
-    # Low similarity comp warning
     if prediction:
         avg_sim = prediction.get("average_similarity", 0)
         comp_count = prediction.get("market_range_comp_count", 0)
@@ -1114,7 +972,6 @@ def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict = None)
                 f"Comparable match quality is low ({avg_sim:.1f}% avg). "
                 f"Price range based mainly on ML model — fewer reliable market comps found."
             )
-        # Outlier warning from prediction
         if prediction.get("outlier_flagged"):
             warnings.append(f"ML Outlier: {prediction.get('outlier_note', 'Prediction outside comp IQR')}")
 
@@ -1122,7 +979,7 @@ def warnings_for(vehicle: VehicleInput, decision: dict, prediction: dict = None)
 
 
 
-def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None) -> dict:
+def evaluate_vehicle(vehicle: VehicleInput, model_variant: str | None = None) -> dict:
     prediction   = predict_market_value(vehicle, model_variant=model_variant)
     market_value = prediction["market_value"]
     decision     = calculate_decision(vehicle, market_value)
@@ -1130,21 +987,9 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
     var_id = model_variant or vehicle.model_variant
     _, _, meta, _, active_id = resolve_variant_data(var_id)
 
-    # ── Market-range price anchoring ─────────────────────────────────────────
-    # The ML model predicts the market value, but when real comparable dataset
-    # prices exist (price_min / price_max from ComparableVehicleService), those
-    # are the ground truth of what the market actually pays.
-    #
-    # Problem: the ML can over-predict (e.g. Rs.14L) while the market shows
-    # actual sales at Rs.5–8L. If we derive buy/sell from the ML value alone,
-    # we get a nonsensical inversion where buy > market selling range.
-    #
-    # Fix: when dataset comps exist, anchor the SELL price to price_median
-    # (what comparable cars actually sell for), then derive buy price from
-    # the sell side minus dealer cost waterfall.
 
     price_min    = prediction.get("price_min", 0)
-    price_max    = prediction.get("price_max", 0)
+    prediction.get("price_max", 0)
     price_median = prediction.get("price_median", 0)
     mrange_src   = prediction.get("market_range_source", "mape_fallback")
     comp_count   = prediction.get("market_range_comp_count", 0)
@@ -1155,9 +1000,6 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         doc_cost     = decision.get("doc_cost",      4_500)
         risk_buffer  = decision.get("risk_buffer",   3_000)
 
-        # ── Step 1: Real-world profit cap (computed FIRST — this is the authority) ──
-        # Indian used car dealers net ₹25k–₹80k on most cars regardless of range width.
-        # Cap is also limited to 4% of sell price so expensive cars can't spike.
         veh_cat = decision.get("vehicle_category", "economy")
         _REAL_PROFIT_CAPS = {
             "economy":       40_000,
@@ -1168,48 +1010,35 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
         }
         real_max_profit = _REAL_PROFIT_CAPS.get(veh_cat, 55_000)
 
-        # Sell: top of market range
-        anchored_sell = int(round(price_max / 500) * 500)
+        anchored_sell = int(round(price_median / 500) * 500)
 
-        # Also cap profit at 4% of sell price (prevents spike on ₹30L+ cars)
         real_max_profit = min(real_max_profit, int(anchored_sell * 0.04))
-        # Minimum realistic profit floor — don't go below ₹15,000
-        real_max_profit = max(real_max_profit, 15_000)
+        real_max_profit = max(real_max_profit, max(8_000, int(anchored_sell * 0.02)))
 
-        # ── Step 2: Buy price = sell − costs − capped profit (profit cap is authoritative) ──
         total_non_profit_costs = recon_cost + holding_cost + doc_cost + risk_buffer
         anchored_buy = int(round(
             (anchored_sell - total_non_profit_costs - real_max_profit) / 500
         ) * 500)
 
-        # ── Step 3: Apply market floor — buy cannot go below 75% of price_min ──
-        buy_floor    = int(round(price_min * 0.75 / 500) * 500)
+        buy_floor    = int(round(price_min * 0.90 / 500) * 500)
         anchored_buy = max(anchored_buy, buy_floor)
 
-        # ── Step 4: Soft market ceiling — buy should ideally be below price_min ──
-        # Only applied when it does NOT increase profit beyond the real-world cap.
         soft_ceil = int(round(price_min * 0.97 / 500) * 500)
         if anchored_buy > soft_ceil:
-            # Check if applying ceiling would restore an acceptable (not inflated) profit
             profit_at_ceil = anchored_sell - soft_ceil - recon_cost - holding_cost - doc_cost
             if profit_at_ceil <= real_max_profit:
-                anchored_buy = soft_ceil   # safe to apply ceiling
+                anchored_buy = soft_ceil
 
-        # ── Step 5: Final profit & margin ──
         anchored_profit = max(0, anchored_sell - anchored_buy - recon_cost - holding_cost - doc_cost)
         anchored_margin = round((anchored_profit / max(anchored_buy, 1)) * 100, 1)
 
-        # Negotiation offers relative to final buy price
         nego_room    = int(anchored_buy * 0.04)
         opening_off  = int(round(max(0, anchored_buy - nego_room) / 500) * 500)
         target_off   = int(round(max(0, anchored_buy - nego_room * 0.35) / 500) * 500)
         walk_away    = int(round((anchored_buy * 1.01) / 500) * 500)
         walk_away    = min(walk_away, int(round(anchored_sell * 0.97 / 500) * 500))
 
-    
 
-
-        # Patch decision dict with corrected values
         decision.update({
             "recommended_buy_price":  anchored_buy,
             "recommended_sell_price": anchored_sell,
@@ -1224,7 +1053,6 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
             "max_offer":              walk_away,
         })
 
-        # Update waterfall to reflect corrected prices
         for row in decision.get("waterfall", []):
             if row.get("label") == "Recommended Buy Price":
                 row["value"] = anchored_buy
@@ -1249,21 +1077,8 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: Optional[str] = None)
 
 
 
-# API routes
 @app.get("/health")
 def health():
-    """Liveness and readiness probe.
-
-    `model_loaded` reports whether the predictor is actually in memory, not
-    merely whether artifact files exist on disk. The container healthcheck and
-    the Container Apps probes both fail on a false value: a process that is
-    listening but has no model is not ready to take traffic, and letting it pass
-    the probe would put it into rotation returning errors.
-    """
-    # Reports the globals populated by lifespan rather than re-resolving from the
-    # registry: the question this endpoint answers is "did *this process* load a
-    # model", and re-reading the registry would answer "do the files exist",
-    # which stays true even when the in-process load failed.
     settings = get_settings()
     meta = METADATA or {}
     return {
@@ -1275,15 +1090,13 @@ def health():
         "segments_loaded":     list(SEGMENT_MODELS.keys()),
         "active_variant":      ACTIVE_VARIANT_ID,
         "environment":         settings.environment,
-        # Surfaced so a deployment can be spotted as "running but with history
-        # disabled" without having to read container logs.
         "database_configured": settings.database_enabled,
         "auth_configured":     settings.auth_enabled,
     }
 
 
 @app.get("/metadata")
-def metadata(model_variant: Optional[str] = None):
+def metadata(model_variant: str | None = None):
     _, _, meta, _, _ = resolve_variant_data(model_variant)
     return meta
 
@@ -1298,49 +1111,11 @@ def get_registry():
 
 @app.post("/api/registry/{variant_id}/activate", dependencies=[Depends(require_admin_token)])
 def activate_variant_endpoint(variant_id: str):
-    """Switch the model variant this replica serves.
-
-    Guarded by require_admin_token, which also refuses the call outright unless
-    ALLOW_RUNTIME_VARIANT_SWITCH is set. Three reasons this needed locking down:
-
-      * it was completely unauthenticated, so anyone who could reach the API
-        could change which model produced production valuations;
-      * model_registry.activate_variant() writes registry.json to disk, which in
-        a container is an ephemeral per-replica layer — replica A would serve
-        variant_4 while replica B kept serving variant_1, with no way to tell
-        from the outside which one answered a given request;
-      * the image ships exactly one variant directory, so switching to any other
-        variant would fail at load time anyway.
-
-    The supported way to change models is to deploy a new revision with a
-    different ACTIVE_VARIANT_ID.
-    """
-    if model_registry.get_variant_path(variant_id) is None:
-        # Checked before mutating the registry: activate_variant() would
-        # otherwise rewrite registry.json to point at artifacts that are not in
-        # this image, and the next load would fail.
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"Variant '{variant_id}' has no loadable artifacts in this image. "
-                f"Available: {[v['variant_id'] for v in model_registry.list_variants() if model_registry.get_variant_path(v['variant_id'])]}"
-            ),
-        )
-
-    if not model_registry.activate_variant(variant_id):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Variant '{variant_id}' not found in registry",
-        )
-
-    # Reload global variables for active default variant
+    success = model_registry.activate_variant(variant_id)
+    if not success:
+        return {"status": "error", "message": f"Variant '{variant_id}' not found in registry"}
     global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
     predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
-    log.warning(
-        "Model variant switched at runtime to %s — this replica now differs from "
-        "any peer that did not receive the same call.",
-        variant_id,
-    )
     return {"status": "success", "active_variant": variant_id}
 
 
@@ -1350,13 +1125,13 @@ def get_brands():
 
 
 @app.get("/api/catalog")
-def get_catalog(model_variant: Optional[str] = None):
+def get_catalog(model_variant: str | None = None):
     _, _, _, catalog, _ = resolve_variant_data(model_variant)
     return {"catalog": catalog or DATASET_CATALOG}
 
 
 @app.get("/api/catalog/{brand}")
-def get_catalog_brand(brand: str, model_variant: Optional[str] = None):
+def get_catalog_brand(brand: str, model_variant: str | None = None):
     _, _, _, catalog, _ = resolve_variant_data(model_variant)
     cat = catalog or DATASET_CATALOG
     key = brand.strip().lower()
@@ -1373,26 +1148,13 @@ def get_catalog_brand(brand: str, model_variant: Optional[str] = None):
 
 @app.get("/api/options")
 def get_vehicle_options(
-    brand: Optional[str] = None,
-    model: Optional[str] = None,
-    variant: Optional[str] = None,
+    brand: str | None = None,
+    model: str | None = None,
+    variant: str | None = None,
 ):
-    """
-    Return the available fuel types, transmissions, and manufacture years
-    that actually exist in the dataset for the given brand/model/variant.
-
-    Used by the frontend to power cascading dropdowns:
-      brand selected   → fetch available models (existing /api/brands)
-      model selected   → fetch fuel_types, transmissions, years
-      variant selected → narrow fuel_types, transmissions, years further
-    """
     from backend.decision_engine import _load_dataset_df
+    all_years = [str(y) for y in range(CURRENT_YEAR, CURRENT_YEAR - 25, -1)]
 
-    # Canonical year list (full range always available as UI option)
-    CURRENT = datetime.now().year
-    all_years = [str(y) for y in range(CURRENT, CURRENT - 25, -1)]
-
-    # Defaults when no dataset available
     default = {
         "fuel_types":     ["Petrol", "Diesel", "CNG", "Electric", "Hybrid"],
         "transmissions":  ["Manual", "Automatic", "AMT", "CVT", "DCT", "IMT"],
@@ -1406,24 +1168,19 @@ def get_vehicle_options(
     if df is None or df.empty:
         return default
 
-    # Normalise inputs
     bk = str(brand).strip().lower()
     mk = str(model).strip().lower() if model else None
     vk = str(variant).strip().lower() if variant else None
 
-    # Filter by brand
     mask = df["brand"].str.lower().str.strip().eq(bk)
     if not mask.any():
-        # Try partial match
         mask = df["brand"].str.lower().str.strip().str.contains(bk, na=False)
 
     sub = df[mask]
     if sub.empty:
         return default
 
-    # Filter by model
     if mk:
-        # Try exact, then resolve alias
         resolved_mk = normalize_model_name(brand, model, 0)
         m_mask = sub["model"].str.lower().str.strip().eq(mk)
         if not m_mask.any():
@@ -1433,10 +1190,8 @@ def get_vehicle_options(
         if m_mask.any():
             sub = sub[m_mask]
 
-    # Filter by variant (loose token match — variant strings in dataset are very verbose)
     if vk and vk not in ("", "unknown"):
         vk_tokens = set(vk.lower().split())
-        # Keep rows where at least one token from vk appears in the dataset variant
         def _variant_overlap(cell):
             cell_tokens = set(str(cell).lower().split())
             return bool(vk_tokens & cell_tokens)
@@ -1445,7 +1200,6 @@ def get_vehicle_options(
             if v_mask.any():
                 sub = sub[v_mask]
 
-    # ── Fuel types ────────────────────────────────────────────────────────────
     fuel_col = "fuel_type" if "fuel_type" in sub.columns else None
     if fuel_col:
         raw_fuels = sub[fuel_col].dropna().str.strip().str.lower().unique().tolist()
@@ -1457,7 +1211,6 @@ def get_vehicle_options(
     else:
         fuels = default["fuel_types"]
 
-    # ── Transmissions ─────────────────────────────────────────────────────────
     tx_col = "transmission" if "transmission" in sub.columns else None
     if tx_col:
         raw_tx = sub[tx_col].dropna().str.strip().str.lower().unique().tolist()
@@ -1469,15 +1222,8 @@ def get_vehicle_options(
     else:
         txs = default["transmissions"]
 
-    # ── Years ─────────────────────────────────────────────────────────────────
-    # Strategy: union of (a) dataset years + (b) known production range for this model.
-    # This ensures e.g. a 2020 XUV500 is selectable even if the dataset has no 2020 listing.
 
-    # ── Static production catalogue — (launch_year, last_production_year) ──────
-    # Format: key = lowercase model keyword (partial match), value = (first_yr, last_yr)
-    # "last_yr" uses 9999 for models still in production as of 2025.
     _PROD = {
-        # Maruti Suzuki
         "alto":            (2000, 9999), "alto k10":       (2010, 2022),
         "swift":           (2005, 9999), "swift dzire":    (2008, 9999),
         "dzire":           (2008, 9999), "baleno":         (2015, 9999),
@@ -1489,7 +1235,6 @@ def get_vehicle_options(
         "jimny":           (2023, 9999), "fronx":          (2023, 9999),
         "invicto":         (2023, 9999), "grand vitara":   (2022, 9999),
         "omni":            (1984, 2019), "eeco":           (2010, 9999),
-        # Hyundai
         "i10":             (2007, 9999), "grand i10":      (2013, 9999),
         "i20":             (2008, 9999), "aura":           (2020, 9999),
         "verna":           (2006, 9999), "creta":          (2015, 9999),
@@ -1498,7 +1243,6 @@ def get_vehicle_options(
         "santro":          (1998, 2022), "xcent":          (2014, 2022),
         "ioniq":           (2021, 9999), "alcazar":        (2021, 9999),
         "kona":            (2019, 9999),
-        # Tata
         "nexon":           (2017, 9999), "harrier":        (2019, 9999),
         "safari":          (2021, 9999), "punch":          (2021, 9999),
         "tiago":           (2016, 9999), "tigor":          (2017, 9999),
@@ -1508,7 +1252,6 @@ def get_vehicle_options(
         "sumo":            (1994, 2019), "safari dicor":   (2004, 2021),
         "hexa":            (2017, 2020), "aria":           (2010, 2017),
         "nano":            (2009, 2018), "curvv":          (2024, 9999),
-        # Mahindra
         "xuv500":          (2011, 2021), "xuv300":         (2019, 9999),
         "xuv400":          (2023, 9999), "xuv700":         (2021, 9999),
         "scorpio":         (2002, 9999), "scorpio n":      (2022, 9999),
@@ -1516,14 +1259,12 @@ def get_vehicle_options(
         "bolero neo":      (2021, 9999), "marazzo":        (2018, 9999),
         "alturas":         (2018, 2023), "kuv100":         (2016, 9999),
         "be 6":            (2024, 9999), "xuv 3xo":        (2024, 9999),
-        # Honda
         "city":            (1998, 9999), "amaze":          (2013, 9999),
         "jazz":            (2009, 2022), "wr-v":           (2017, 2023),
         "cr-v":            (2001, 9999), "hr-v":           (2022, 9999),
         "elevate":         (2023, 9999), "civic":          (2006, 2021),
         "accord":          (2001, 2017), "mobilio":        (2014, 2017),
         "br-v":            (2016, 2021), "brio":           (2011, 2019),
-        # Toyota
         "innova":          (2004, 9999), "innova crysta":  (2016, 9999),
         "fortuner":        (2009, 9999), "hilux":          (2021, 9999),
         "corolla":         (1999, 2022), "yaris":          (2018, 2022),
@@ -1531,66 +1272,52 @@ def get_vehicle_options(
         "rumion":          (2023, 9999), "hyryder":        (2022, 9999),
         "camry":           (2002, 9999), "vellfire":       (2020, 9999),
         "land cruiser":    (2003, 9999), "prius":          (2010, 9999),
-        # Kia
         "seltos":          (2019, 9999), "sonet":          (2020, 9999),
         "carnival":        (2020, 9999), "ev6":            (2022, 9999),
         "carens":          (2022, 9999), "clavis":         (2025, 9999),
-        # Volkswagen
         "polo":            (2010, 2022), "vento":          (2010, 2022),
         "taigun":          (2021, 9999), "virtus":         (2022, 9999),
         "tiguan":          (2017, 9999), "t-roc":          (2020, 9999),
-        # Skoda
         "rapid":           (2011, 2022), "octavia":        (2001, 9999),
         "superb":          (2009, 9999), "kushaq":         (2021, 9999),
         "slavia":          (2022, 9999), "kodiaq":         (2017, 9999),
         "karoq":           (2020, 9999),
-        # Jeep
         "compass":         (2017, 9999), "wrangler":       (2015, 9999),
         "meridian":        (2022, 9999), "grand cherokee": (2012, 9999),
-        # MG
         "hector":          (2019, 9999), "zs ev":          (2020, 9999),
         "gloster":         (2020, 9999), "astor":          (2021, 9999),
         "comet":           (2023, 9999), "windsor":        (2024, 9999),
-        # Renault
         "kwid":            (2015, 9999), "duster":         (2012, 9999),
         "triber":          (2019, 9999), "kiger":          (2021, 9999),
         "lodgy":           (2015, 2019), "captur":         (2017, 2020),
-        # Nissan / Datsun
         "magnite":         (2020, 9999), "kicks":          (2019, 2022),
         "terrano":         (2013, 2022), "micra":          (2010, 2020),
         "sunny":           (2011, 2019), "go":             (2014, 2020),
         "redi-go":         (2016, 2022),
-        # Ford (discontinued India 2021 but used cars still traded)
         "ecosport":        (2013, 2022), "endeavour":      (2003, 2022),
         "figo":            (2010, 2022), "aspire":         (2015, 2022),
         "freestyle":       (2018, 2022), "mustang":        (2016, 2022),
-        # Chevrolet (exited India 2017)
         "beat":            (2010, 2017), "cruze":          (2009, 2017),
         "tavera":          (2004, 2017), "spark":          (2007, 2015),
         "sail":            (2012, 2017), "enjoy":          (2013, 2017),
-        # BMW
         "3 series":        (2005, 9999), "5 series":       (2003, 9999),
         "7 series":        (2008, 9999), "x1":             (2011, 9999),
         "x3":              (2011, 9999), "x5":             (2014, 9999),
         "x7":              (2019, 9999), "2 series":       (2022, 9999),
         "m3":              (2014, 9999), "m5":             (2012, 9999),
         "i4":              (2022, 9999), "ix":             (2022, 9999),
-        # Mercedes-Benz
         "c class":         (2000, 9999), "e class":        (2002, 9999),
         "s class":         (2006, 9999), "glc":            (2016, 9999),
         "gle":             (2016, 9999), "gls":            (2016, 9999),
         "a class":         (2019, 9999), "cla":            (2020, 9999),
         "amg":             (2016, 9999), "eqb":            (2022, 9999),
-        # Audi
         "a4":              (2008, 9999), "a6":             (2011, 9999),
         "q3":              (2013, 9999), "q5":             (2009, 9999),
         "q7":              (2007, 9999), "a8":             (2012, 9999),
         "rs":              (2013, 9999), "e-tron":         (2021, 9999),
-        # Volvo
         "xc40":            (2019, 9999), "xc60":          (2010, 9999),
         "xc90":            (2015, 9999), "s60":           (2011, 9999),
         "s90":             (2017, 9999),
-        # Jaguar / Land Rover
         "xe":              (2016, 9999), "xf":            (2010, 9999),
         "xj":              (2010, 2019), "f-pace":        (2017, 9999),
         "defender":        (2020, 9999), "discovery":     (2010, 9999),
@@ -1598,46 +1325,38 @@ def get_vehicle_options(
         "evoque":          (2012, 9999), "velar":         (2018, 9999),
     }
 
-    # Helper: look up production range for a given model name (best substring match)
     def _get_prod_range(model_str: str) -> tuple[int, int] | None:
         m = (model_str or "").lower().strip()
-        # Try longest key match first so "grand i10" beats "i10"
         best_key, best_len = None, 0
         for key in _PROD:
             if key in m and len(key) > best_len:
                 best_key, best_len = key, len(key)
         if best_key:
             return _PROD[best_key]
-        # Fallback: try if any word of model matches a key
         for word in m.split():
             if word in _PROD and len(word) > best_len:
                 best_key, best_len = word, len(word)
         return _PROD[best_key] if best_key else None
 
-    # Years from dataset (from vehicle_age column)
     if "vehicle_age" in sub.columns:
         ages = sub["vehicle_age"].dropna().astype(int).unique().tolist()
-        years_from_data = {str(CURRENT - a) for a in ages if 0 <= a <= 30}
+        years_from_data = {str(CURRENT_YEAR - a) for a in ages if 0 <= a <= 30}
     elif "year" in sub.columns:
         years_from_data = {str(int(y)) for y in sub["year"].dropna().unique()
-                          if 1990 <= int(y) <= CURRENT}
+                          if 1990 <= int(y) <= CURRENT_YEAR}
     else:
         years_from_data = set()
 
-    # Fill gaps using production catalogue
     prod_range = _get_prod_range(model or "")
     if prod_range:
         first_yr, last_yr = prod_range
-        last_yr = min(last_yr, CURRENT)   # cap at current year
+        last_yr = min(last_yr, CURRENT_YEAR)
         catalogue_years = {str(y) for y in range(first_yr, last_yr + 1)}
-        # Only add years within the known production window (don't go beyond last_yr)
         years_from_data = years_from_data | catalogue_years
 
-    # Always include current year and last 2 years (dealer may enter brand-new cars)
-    for y in [str(CURRENT), str(CURRENT - 1), str(CURRENT - 2)]:
+    for y in [str(CURRENT_YEAR), str(CURRENT_YEAR - 1), str(CURRENT_YEAR - 2)]:
         years_from_data.add(y)
 
-    # Sort descending (newest first)
     years_from_data = sorted(years_from_data, reverse=True)
 
     return {
@@ -1649,7 +1368,7 @@ def get_vehicle_options(
 
 
 @app.post("/predict")
-def predict(vehicle: VehicleInput, model_variant: Optional[str] = None):
+def predict(vehicle: VehicleInput, model_variant: str | None = None):
     prediction = predict_market_value(vehicle, model_variant=model_variant)
     var_id = model_variant or vehicle.model_variant
     _, _, meta, _, _ = resolve_variant_data(var_id)
@@ -1661,7 +1380,7 @@ def predict(vehicle: VehicleInput, model_variant: Optional[str] = None):
 
 
 @app.post("/evaluate")
-def evaluate(vehicle: VehicleInput, model_variant: Optional[str] = None):
+def evaluate(vehicle: VehicleInput, model_variant: str | None = None):
     return evaluate_vehicle(vehicle, model_variant=model_variant)
 
 
@@ -1694,7 +1413,6 @@ def _wheelr_enrichment(
     recon              = get_recon_cost(engine_grade, tyre_grade, body_grade, interior_grade, electrical_grade, vendor_type, rc_transfer_cost)
     wheelr_risk        = get_wheelr_risk_deductions(owner_count, odometer, accident_history, registration_state, sale_state, loan_outstanding, seller_reason)
 
-    # IDV gap analysis
     idv_analysis = None
     idv_extra_risk_deduction = 0
     idv_confidence_boost = 0
@@ -1724,7 +1442,8 @@ def _wheelr_enrichment(
         }
 
     total_risk_deduction = wheelr_risk["total"] + idv_extra_risk_deduction
-    enhanced_max_buy_price = max(0, int(recommended_buy_price - recon["total"] - total_risk_deduction))
+
+    enhanced_max_buy_price = max(0, int(recommended_buy_price - total_risk_deduction))
     negotiation        = get_negotiation_trio(enhanced_max_buy_price, wheelr_risk["seller_reason_adj"])
     deal_health        = get_deal_health(market_value, recon["total"], profit_target, owner_count, odometer, accident_history)
     return {
@@ -1746,7 +1465,7 @@ def _wheelr_enrichment(
 
 
 @app.post("/evaluate-enhanced")
-def evaluate_enhanced(vehicle: EnhancedEvaluateRequest, model_variant: Optional[str] = None):
+def evaluate_enhanced(vehicle: EnhancedEvaluateRequest, model_variant: str | None = None):
     base        = evaluate_vehicle(vehicle, model_variant=model_variant)
     vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
     sale_state  = vehicle.sale_state or vehicle.registration_state or vehicle.city
@@ -1785,9 +1504,7 @@ def reverse_calculate(body: ReverseCalculateRequest):
     odometer          = int(body.odometer)
     owner_count       = int(body.owner_count)
     expected_sell     = int(body.expected_sell_price)
-    raw_pct           = float(body.target_margin_pct)
-    # Normalise: if caller sends 15 (percent) convert to 0.15 (fraction)
-    target_margin_pct = raw_pct / 100.0 if raw_pct > 1.0 else raw_pct
+    target_margin_pct = float(body.target_margin_pct) / 100.0
     profit_target     = int(expected_sell * target_margin_pct)
     recon = get_recon_cost(body.engine_grade, body.tyre_grade, body.body_grade, body.interior_grade, body.electrical_grade, body.vendor_type)
     wheelr_risk = get_wheelr_risk_deductions(owner_count, odometer, body.accident_history, body.registration_state, body.sale_state, body.loan_outstanding, body.seller_reason)
@@ -1796,7 +1513,7 @@ def reverse_calculate(body: ReverseCalculateRequest):
     deal_health = get_deal_health(expected_sell, recon["total"], profit_target, owner_count, odometer, body.accident_history)
     disqualifier  = check_disqualifier(vehicle_age, odometer, owner_count, body.accident_history)
     current_month = datetime.now().month
-    margin_label_pct = int(round(target_margin_pct * 100))
+    margin_label_pct = round(target_margin_pct * 100)
     return {
         "expected_sell_price": expected_sell,
         "recon":               {"total": recon["total"], "breakdown": recon["breakdown"]},
@@ -1822,7 +1539,10 @@ def reverse_calculate(body: ReverseCalculateRequest):
 
 
 @app.post("/bulk-evaluate")
-def bulk_evaluate(vehicles: List[VehicleInput]):
+def bulk_evaluate(vehicles: list[VehicleInput]):
+    if len(vehicles) > 50:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Maximum 50 vehicles per bulk request.")
     results = []
     for idx, vehicle in enumerate(vehicles, start=1):
         evaluation = evaluate_vehicle(vehicle)

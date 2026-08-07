@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { CAR_IMAGES } from '../utils/mockData.js';
-import { formatINR, getSeasonalContext } from '../utils/format.js';
+import { formatINR } from '../utils/format.js';
 import { DEAL_HEALTH_META, GRADE_OPTIONS } from '../utils/wheelrCosts.js';
 import { NegotiationPlaybook, ExpandableBreakdownTable } from '../components/WheelrPanels.jsx';
 import Icon from '../components/Icon.jsx';
@@ -18,7 +18,6 @@ function gradeLabel(category, value) {
   return GRADE_OPTIONS[category]?.find(o => o.value === value)?.label || value;
 }
 
-// IDV Comparison Banner
 function IDVBanner({ idvAnalysis }) {
   if (!idvAnalysis) return null;
   const { idv_value, ml_value, idv_gap_pct, flag, flag_type } = idvAnalysis;
@@ -57,7 +56,6 @@ function IDVBanner({ idvAnalysis }) {
   );
 }
 
-// Connector arrow between pipeline steps
 function PipelineArrow() {
   return (
     <div className="pipeline-connector">
@@ -66,7 +64,6 @@ function PipelineArrow() {
   );
 }
 
-// Single pipeline step
 function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, barPct, barClass, subRows }) {
   return (
     <div className="pipeline-step">
@@ -100,7 +97,6 @@ function PipelineStep({ icon, iconClass, bodyClass, label, amount, amountClass, 
   );
 }
 
-// Main Pricing Pipeline section
 function RuleBasedPricingPipeline({ result, inputs }) {
   const {
     predictedPrice,
@@ -125,7 +121,7 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   const rBuf = riskBuffer || Math.round(mlBasePrice * (riskScore / 100) * 0.08);
   const targetProfit = Math.round(mlBasePrice * ((targetMarginPct || 10) / 100));
   const finalBuyPrice = recommendedBuyPrice || 0;
-  // Sell price must always be above buy price — guard against inversion
+  
   const rawSellPrice = recommendedSellPrice || Math.round(mlBasePrice * 1.05);
   const sellPrice = rawSellPrice > finalBuyPrice ? rawSellPrice : Math.round(finalBuyPrice * 1.10 / 500) * 500;
   const marginPct = expectedMarginPct || 0;
@@ -239,7 +235,6 @@ function RuleBasedPricingPipeline({ result, inputs }) {
   );
 }
 
-// Main Enhanced Result Screen
 export default function EnhancedResultScreen() {
   const { enhancedResult, inputs, setActiveScreen, isLoading } = useApp();
   const [showNegotiation, setShowNegotiation] = useState(true);
@@ -307,10 +302,10 @@ export default function EnhancedResultScreen() {
         </button>
       </div>
 
-      {/* ── IDV Banner (only when IDV was provided) ── */}
+      {}
       <IDVBanner idvAnalysis={idvAnalysis} />
 
-      {/* ── Action + Key Numbers ── */}
+      {}
       <div className="card" style={{
         background: `linear-gradient(135deg, ${actionColor}0a 0%, ${actionColor}03 100%)`,
         border: `2px solid ${actionColor}30`,
@@ -344,15 +339,15 @@ export default function EnhancedResultScreen() {
           </div>
         </div>
 
-        {/* ML value row */}
+        {}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
           <div className="label-xs" style={{ marginBottom: 4 }}>ML Market Value</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--info)' }}>{formatINR(predictedPrice)}</div>
         </div>
 
-        {/* Buy & Sell Range Cards */}
+        {}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {/* Buy Range */}
+          {}
           <div style={{
             background: 'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.03) 100%)',
             border: '1.5px solid rgba(34,197,94,0.25)',
@@ -381,7 +376,7 @@ export default function EnhancedResultScreen() {
             <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: 'linear-gradient(90deg, var(--success), var(--warning))' }} />
           </div>
 
-          {/* Sell Range */}
+          {}
           <div style={{
             background: 'linear-gradient(135deg, rgba(14,165,233,0.08) 0%, rgba(14,165,233,0.03) 100%)',
             border: '1.5px solid rgba(14,165,233,0.25)',
@@ -412,7 +407,7 @@ export default function EnhancedResultScreen() {
         </div>
       </div>
 
-      {/* ── Inspection Deductions summary cards ── */}
+      {}
       <div className="enhanced-result-cards" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
         <div className="card" style={{ borderLeft: '3px solid var(--warning)' }}>
           <div className="label-xs" style={{ marginBottom: 8 }}>Reconditioning Cost</div>
@@ -424,7 +419,7 @@ export default function EnhancedResultScreen() {
         </div>
       </div>
 
-      {/* ── Negotiation Playbook (collapsible) ── */}
+      {}
       <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
         <div
           style={{
@@ -460,10 +455,10 @@ export default function EnhancedResultScreen() {
         )}
       </div>
 
-      {/* ── Rule-Based Pricing Pipeline ── */}
+      {}
       <RuleBasedPricingPipeline result={enhancedResult} inputs={inputs} />
 
-      {/* ── Expandable breakdown tables ── */}
+      {}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="label-xs" style={{ marginBottom: 12 }}>Detailed Breakdowns</div>
         <ExpandableBreakdownTable title="View reconditioning breakdown" rows={reconRows} totalLabel="Total" totalValue={recon?.total} />

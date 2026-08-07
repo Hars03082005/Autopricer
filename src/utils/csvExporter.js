@@ -1,6 +1,4 @@
-/**
- * Export evaluations array or single evaluation object as a formatted CSV file download.
- */
+
 export function exportEvaluationsToCSV(evaluations = [], filename = 'vehicle_evaluations.csv') {
   const records = Array.isArray(evaluations) ? evaluations : [evaluations];
   if (records.length === 0) {

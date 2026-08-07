@@ -4,7 +4,6 @@ import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
 import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
 
-/* ─── Helpers ──────────────────────────────────────────────── */
 const fmt = (n) => {
   const v = Number(n || 0);
   if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
@@ -31,18 +30,15 @@ const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
   { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
 
-/* ─── S5_MAX_AGE — must match train-s5.py ───────────────────── */
 const S5_MAX_AGE = 7;
 
-/* ─── Variant config ────────────────────────────────────────── */
 const MAIN_VARIANTS = [
   { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
   { id: 'variant_2', label: 'Variant 2', mape: '6.67%', emoji: '🥈' },
   { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
 ];
 
-/* ─── Variant Switcher Bar ──────────────────────────────────── */
-function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Active, onS5Toggle, s5Switching }) {
+function VariantSwitcher({ activeVariant, onSwitch, switching }) {
   return (
     <div style={{
       background: 'var(--surface-1)',
@@ -51,19 +47,18 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
       padding: '14px 18px',
       marginBottom: 12,
     }}>
-      {/* Main model switcher */}
-      <div style={{ marginBottom: s5Eligible ? 12 : 0 }}>
+      <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
           ML MODEL ENGINE
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {MAIN_VARIANTS.map(v => {
-            const active = activeVariant === v.id && !s5Active;
+            const active = activeVariant === v.id;
             return (
               <button
                 key={v.id}
                 onClick={() => onSwitch(v.id)}
-                disabled={switching || s5Switching}
+                disabled={switching}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '7px 14px',
@@ -73,8 +68,8 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
                   color: active ? '#1d4ed8' : 'var(--text-2)',
                   fontWeight: active ? 700 : 500,
                   fontSize: 13,
-                  cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
-                  opacity: (switching || s5Switching) ? 0.6 : 1,
+                  cursor: switching ? 'not-allowed' : 'pointer',
+                  opacity: switching ? 0.6 : 1,
                   transition: 'all 0.15s',
                 }}
               >
@@ -99,58 +94,10 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
           )}
         </div>
       </div>
-
-      {/* S5 Quality Toggle — only shown when vehicle qualifies */}
-      {s5Eligible && (
-        <div style={{
-          paddingTop: 12,
-          borderTop: '1px solid var(--border)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 2 }}>
-                S5 QUALITY SHOP MODEL
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                Specialized benchmark from quality dealer dataset (age ≤ 7 yrs)
-              </div>
-            </div>
-            <button
-              onClick={onS5Toggle}
-              disabled={switching || s5Switching}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 16px',
-                borderRadius: 8,
-                border: s5Active ? '2px solid #7c3aed' : '1.5px solid var(--border)',
-                background: s5Active ? '#f5f3ff' : 'var(--surface-2)',
-                color: s5Active ? '#7c3aed' : 'var(--text-2)',
-                fontWeight: s5Active ? 700 : 500,
-                fontSize: 13,
-                cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
-                opacity: (switching || s5Switching) ? 0.6 : 1,
-                transition: 'all 0.15s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span>✨</span>
-              <span>{s5Active ? 'S5 Active' : 'View S5 Prediction'}</span>
-              {s5Switching && <span style={{ fontSize: 11, color: '#64748b' }}>Loading…</span>}
-              {s5Active && (
-                <span style={{
-                  fontSize: 9, background: '#7c3aed', color: 'white',
-                  borderRadius: 4, padding: '1px 5px', fontWeight: 700,
-                }}>ACTIVE</span>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-/* ─── Loading State ────────────────────────────────────────── */
 function LoadingState() {
   return (
     <div className="rs2-loading">
@@ -167,7 +114,6 @@ function LoadingState() {
   );
 }
 
-/* ─── Empty State ──────────────────────────────────────────── */
 function EmptyState({ setActiveScreen }) {
   return (
     <div className="rs2-empty">
@@ -183,7 +129,6 @@ function EmptyState({ setActiveScreen }) {
   );
 }
 
-/* ─── Car Placeholder SVG ──────────────────────────────────── */
 function CarImage() {
   return (
     <div className="rs2-car-img-placeholder">
@@ -205,7 +150,6 @@ function CarImage() {
   );
 }
 
-/* ─── Pricing Confidence Band card ───────────────────────────── */
 function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
   return (
     <div className="rs2-card rs2-range-card" style={{ padding: '18px 24px' }}>
@@ -232,7 +176,6 @@ function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
   );
 }
 
-/* ─── Negotiation Strategy ──────────────────────────────────── */
 function NegotiationSection({ opening, ideal, walkAway }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -283,10 +226,8 @@ function NegotiationSection({ opening, ideal, walkAway }) {
   );
 }
 
-/* ─── Similar Cars Section ──────────────────────────────────── */
 function SimilarCarsSection({ cars, predictedPrice }) {
-  // Only display cars that came from the real dataset (source === 'dataset').
-  // Never fall back to the local evaluations history or fabricate entries.
+  
   const rows = (cars || []).filter(c => c && (c.source === 'dataset' || c.market_value > 0));
 
   if (rows.length === 0) return null;
@@ -317,7 +258,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
         </div>
       </div>
 
-      {/* Table header */}
+      {}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
@@ -347,7 +288,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
               borderBottom: '1px solid var(--border)',
               alignItems: 'center',
             }}>
-              {/* Vehicle */}
+              {}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
                   {car.brand} {car.model}{car.variant && car.variant !== 'Unknown' && car.variant !== 'unknown' ? ` · ${car.variant}` : ''}
@@ -356,19 +297,19 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   {car.year}{car.condition ? ` · ${car.condition}` : ''}{car.segment ? ` · ${car.segment.toUpperCase()}` : ''}
                 </div>
               </div>
-              {/* Fuel / Trans */}
+              {}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.fuel || '—'}{car.transmission ? ` / ${car.transmission}` : ''}
               </div>
-              {/* Odometer */}
+              {}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.odometer > 0 ? `${(car.odometer / 1000).toFixed(0)}k km` : '—'}
               </div>
-              {/* Owners */}
+              {}
               <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 {car.ownerCount ? `${car.ownerCount} owner${car.ownerCount > 1 ? 's' : ''}` : '—'}
               </div>
-              {/* Price + diff */}
+              {}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{fmtFull(car.marketValue)}</div>
                 <span style={{
@@ -376,7 +317,7 @@ function SimilarCarsSection({ cars, predictedPrice }) {
                   color: isPos ? '#16a34a' : '#dc2626',
                 }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
               </div>
-              {/* Similarity badge */}
+              {}
               {car.similarity > 0 ? (
                 <div style={{
                   textAlign: 'center',
@@ -398,12 +339,9 @@ function SimilarCarsSection({ cars, predictedPrice }) {
   );
 }
 
-
-/* ─── Main Component ────────────────────────────────────────── */
 export default function ResultScreen() {
   const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
 
-  // Variant switcher state
   const [activeVariant, setActiveVariant] = useState('variant_1');
   const [displayResult, setDisplayResult] = useState(null);
   const [switching, setSwitching] = useState(false);
@@ -411,23 +349,20 @@ export default function ResultScreen() {
   const [s5Switching, setS5Switching] = useState(false);
   const [s5Catalog, setS5Catalog] = useState(null);
 
-  // Fetch S5 dataset catalog on mount (variant_4 = S5 specialist model, vehicle_age <= 7)
   useEffect(() => {
     let alive = true;
-    fetchCatalog('variant_4')
+    fetchCatalog()
       .then(cat => { if (alive && cat) setS5Catalog(cat); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
 
-  // Use displayResult if set (from switcher), otherwise use valuationResult from context
   const result = displayResult || valuationResult;
 
-  // Determine vehicle age & dataset model match for S5 eligibility
   const s5Eligible = useMemo(() => {
     const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
     if (vehicleAge > S5_MAX_AGE) return false;
-    if (!s5Catalog) return true; // fallback to age-only while catalog is loading
+    if (!s5Catalog) return true; 
 
     const bKey = String(inputs?.brand || '').trim().toLowerCase();
     const mKey = String(inputs?.model || '').trim().toLowerCase();
@@ -460,9 +395,9 @@ export default function ResultScreen() {
 
   const handleS5Toggle = useCallback(async () => {
     if (s5Active) {
-      // Switch back to main active variant
+      
       setS5Active(false);
-      setDisplayResult(null); // Revert to original result
+      setDisplayResult(null); 
       return;
     }
     setS5Switching(true);
@@ -497,7 +432,7 @@ export default function ResultScreen() {
     similarCars = [],
     marketRangeCompCount = 0,
     marketRangeSource = 'mape_fallback',
-    // Adaptive valuation engine enrichment
+    
     valuationConfidence = 'Low',
     marketSupport = 'Weak',
     comparablesUsed = 0,
@@ -506,7 +441,6 @@ export default function ResultScreen() {
     confidenceCase = 'low',
   } = result;
 
-  // Confidence badge colour for the adaptive valuation confidence
   const confColor = {
     'Very High': { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
     'High':      { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
@@ -517,8 +451,7 @@ export default function ResultScreen() {
 
   const ac = getAction(action);
   const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
-  // Sell price: use backend recommendedSellPrice (which is above market_value + recon uplift).
-  // Fallback: predictedPrice * 1.08 only when backend value is missing or illogical.
+  
   const rawSellPrice = Number(recommendedSellPrice || 0);
   const sellPrice = rawSellPrice > buyPrice ? rawSellPrice : Math.round(buyPrice * 1.10 / 500) * 500;
   const profit    = Number(expectedProfit || sellPrice - buyPrice);
@@ -534,7 +467,6 @@ export default function ResultScreen() {
   const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
   const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
 
-  // Dynamic market range sub-label
   const rangeSub = comparablesUsed > 0
     ? `${comparablesUsed} comps · ${averageSimilarity.toFixed(1)}% avg match · ${marketSupport} support`
     : `ML model uncertainty band · ±${expectedModelError.toFixed(1)}% MAPE`;
@@ -544,18 +476,14 @@ export default function ResultScreen() {
   return (
     <div className="rs2-root">
 
-      {/* ── VARIANT SWITCHER BAR ─────────────────────────── */}
+      {}
       <VariantSwitcher
         activeVariant={activeVariant}
         onSwitch={handleVariantSwitch}
         switching={switching}
-        s5Eligible={s5Eligible}
-        s5Active={s5Active}
-        onS5Toggle={handleS5Toggle}
-        s5Switching={s5Switching}
       />
 
-      {/* S5 active banner */}
+      {}
       {s5Active && (
         <div style={{
           background: '#f5f3ff',
@@ -578,9 +506,9 @@ export default function ResultScreen() {
         </div>
       )}
 
-      {/* ── VEHICLE HEADER CARD ─────────────────────────── */}
+      {}
       <div className="rs2-card rs2-hero-card">
-        {/* Top Row: Info and Decision */}
+        {}
         <div className="rs2-hero-top">
           <div className="rs2-hero-top-left">
             <CarImage />
@@ -646,7 +574,7 @@ export default function ResultScreen() {
           </div>
         </div>
 
-        {/* Bottom Row: Stats grid */}
+        {}
         <div className="rs2-hero-stats-new">
           <div className="rs2-hero-stat-new-item">
             <div className="rs2-hero-stat-label">Market Selling Range</div>
@@ -690,7 +618,7 @@ export default function ResultScreen() {
         </div>
       </div>
 
-      {/* ── MARKET SELLING RANGE ─────────────────────────── */}
+      {}
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
@@ -700,7 +628,7 @@ export default function ResultScreen() {
         confidenceScore={confidenceScore}
       />
 
-      {/* ── RECOMMENDED BUY RANGE ────────────────────────── */}
+      {}
       <PricingBandCard
         title="Recommended Purchase Range"
         icon="coins"
@@ -710,17 +638,16 @@ export default function ResultScreen() {
         confidenceScore={confidenceScore}
       />
 
-      {/* ── NEGOTIATION COLLAPSIBLE ──────────────────────── */}
+      {}
       <NegotiationSection opening={opening} ideal={ideal} walkAway={walkAway} />
 
-      {/* ── SIMILAR CARS ──────────────────────────────────── */}
+      {}
       <SimilarCarsSection
         cars={similarCars}
         predictedPrice={predictedPrice}
       />
 
-
-      {/* ── BOTTOM ACTIONS ───────────────────────────────── */}
+      {}
       <div className="rs2-actions" style={{ justifyContent: 'center', marginTop: '16px' }}>
         <button className="rs2-btn-primary" onClick={() => setActiveScreen('pricing')}>
           <Icon name="coins" size={15} color="white" strokeWidth={2} />
@@ -747,7 +674,6 @@ export default function ResultScreen() {
           </button>
         )}
       </div>
-
 
     </div>
   );

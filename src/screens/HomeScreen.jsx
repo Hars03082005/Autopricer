@@ -113,7 +113,7 @@ export default function HomeScreen() {
 
   return (
     <div className="screen screen-wide home-screen">
-      {/* Greeting */}
+      {}
       <div className="home-greeting page-header">
         <div>
           <div className="home-greeting-name">
@@ -147,7 +147,7 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      {/* KPI tiles */}
+      {}
       <div className="kpi-grid">
         <div className="kpi-tile">
           <div className="kpi-tile-header">
@@ -202,7 +202,7 @@ export default function HomeScreen() {
         </div>
       ) : (
         <div className="home-main-grid">
-          {/* Left column: Recent evaluations table */}
+          {}
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -248,9 +248,9 @@ export default function HomeScreen() {
             </div>
           </div>
 
-          {/* Right column: Top opportunities + chart */}
+          {}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Top opportunities */}
+            {}
             <div className="card">
               <div className="card-header">
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Top Opportunities</div>
@@ -276,7 +276,7 @@ export default function HomeScreen() {
               </div>
             </div>
 
-            {/* Market pulse chart */}
+            {}
             {data.marketPulse.length > 0 && (
               <div className="card">
                 <div className="card-header">
