@@ -96,7 +96,7 @@ function normalizeVariant(raw, modelName = '') {
   }
 
   text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, '');
-  text = text.replace(/[(\)[\]/\-,_.+]/g, ' ');
+  text = text.replace(/[()[\]/\-,_.+]/g, ' ');
 
   const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
   if (tokens.length === 0) return '';

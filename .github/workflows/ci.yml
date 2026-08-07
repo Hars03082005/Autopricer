@@ -138,7 +138,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 1.192.5
 
       - name: Apply migrations to a throwaway local Postgres
         # Proves the SQL actually executes before it is ever pointed at a real
@@ -463,16 +463,6 @@ jobs:
                   print(f"- `{rule['id']}` ({sev}) — {rule.get('shortDescription', {}).get('text', '')}")
           PY
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        # Advanced Security is not available for private repositories on the
-        # Free plan, where this returns 403. The scan is informational either
-        # way, so a failed upload must not fail the build.
-        continue-on-error: true
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy-backend
 
   ci-passed:
     # Single required status check for branch protection, so the list of jobs can
