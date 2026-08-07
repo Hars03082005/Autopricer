@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 import { fetchProfile, saveProfile, ApiError } from '../lib/apiClient.js';

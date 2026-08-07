@@ -190,21 +190,17 @@ export default function InputScreen() {
   }, []);
 
   useEffect(() => {
-    if (!inputs.brand) {
-      setAvailableFuels(FUELS);
-      setAvailableTransmissions(TRANSMISSIONS);
-      setAvailableYears(YEARS);
-      return;
-    }
-    
+    if (!inputs.brand) return;
+
+    let alive = true;
     if (optionsAbort.current) optionsAbort.current = false;
     const token = {};
-    optionsAbort.current = token;
-
-    setOptionsLoading(true);
+    Promise.resolve().then(() => {
+      if (alive) setOptionsLoading(true);
+    });
     fetchOptions({ brand: inputs.brand, model: inputs.model || undefined, variant: inputs.variant || undefined })
       .then(opts => {
-        if (optionsAbort.current !== token) return; 
+        if (!alive || optionsAbort.current !== token) return; 
         setAvailableFuels(opts.fuel_types?.length   ? opts.fuel_types   : FUELS);
         setAvailableTransmissions(opts.transmissions?.length ? opts.transmissions : TRANSMISSIONS);
         setAvailableYears(opts.years?.length         ? opts.years        : YEARS);
@@ -217,11 +213,18 @@ export default function InputScreen() {
           updateInput('year', '');
       })
       .catch(() => {})
-      .finally(() => { if (optionsAbort.current === token) setOptionsLoading(false); });
-  
+      .finally(() => { if (alive && optionsAbort.current === token) setOptionsLoading(false); });
+
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs.brand, inputs.model, inputs.variant]);
 
   const onBrand = (b) => {
+    if (!b) {
+      setAvailableFuels(FUELS);
+      setAvailableTransmissions(TRANSMISSIONS);
+      setAvailableYears(YEARS);
+    }
     updateInput('brand', b);
     updateInput('model', '');
     updateInput('variant', '');

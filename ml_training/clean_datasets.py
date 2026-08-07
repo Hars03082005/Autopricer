@@ -334,9 +334,9 @@ def process_dataset_folder(dataset_name: str) -> None:
         print(f"Skipping {dataset_name}: Folder not found.")
         return
 
-    print(f"\n==================================================")
+    print("\n==================================================")
     print(f" PROCESSING DATASET: {dataset_name}")
-    print(f"==================================================")
+    print("==================================================")
 
     # Load train, valid, test if present
     parts = []
@@ -371,7 +371,7 @@ def process_dataset_folder(dataset_name: str) -> None:
 
     # Deduplicate
     clean_df, dedup_stats = deduplicate_dataframe(combined_df)
-    print(f"Deduplication summary:")
+    print("Deduplication summary:")
     print(f"  Exact duplicates removed : {dedup_stats['exact_duplicates_dropped']:,}")
     print(f"  Near duplicates removed  : {dedup_stats['near_duplicates_dropped']:,}")
     print(f"  Total duplicates removed : {dedup_stats['total_duplicates_dropped']:,}")
@@ -380,11 +380,11 @@ def process_dataset_folder(dataset_name: str) -> None:
     # Split
     df_train, df_valid, df_test, split_info = leak_free_stratified_split(clean_df, dataset_name)
     leakage = split_info["leakage_stats"]
-    print(f"Stratified leak-free split results:")
+    print("Stratified leak-free split results:")
     print(f"  Train : {len(df_train):,} rows")
     print(f"  Valid : {len(df_valid):,} rows")
     print(f"  Test  : {len(df_test):,} rows")
-    print(f"Leakage validation:")
+    print("Leakage validation:")
     print(f"  train & valid overlap : {leakage['train_valid_overlap']}")
     print(f"  train & test overlap  : {leakage['train_test_overlap']}")
     print(f"  valid & test overlap  : {leakage['valid_test_overlap']}")

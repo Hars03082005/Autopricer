@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function SearchableDropdown({
   options = [],
@@ -30,12 +30,20 @@ export default function SearchableDropdown({
   }, [open]);
 
   useEffect(() => {
-    if (!open) { setQuery(''); setHovered(-1); }
-    else setTimeout(() => searchRef.current?.focus(), 40);
+    if (open) {
+      const timer = setTimeout(() => searchRef.current?.focus(), 40);
+      return () => clearTimeout(timer);
+    }
   }, [open]);
 
+  const closeDropdown = () => {
+    setOpen(false);
+    setQuery('');
+    setHovered(-1);
+  };
+
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape')    { setOpen(false); return; }
+    if (e.key === 'Escape')    { closeDropdown(); return; }
     if (e.key === 'ArrowDown') { e.preventDefault(); setHovered(h => Math.min(h + 1, filtered.length - 1)); }
     if (e.key === 'ArrowUp')   { e.preventDefault(); setHovered(h => Math.max(h - 1, 0)); }
     if (e.key === 'Enter' && hovered >= 0) { e.preventDefault(); select(filtered[hovered]); }
@@ -43,7 +51,7 @@ export default function SearchableDropdown({
 
   const select = (opt) => {
     onChange(opt);
-    setOpen(false);
+    closeDropdown();
   };
 
   return (

@@ -657,7 +657,7 @@ def _print_summary(df_train, df_valid, cat_sc, lgb_sc, xgb_sc, val_scores,
 
     if holdout_results:
         print(f"\n  {'─' * 60}")
-        print(f"  VALIDATION vs HOLDOUT TEST  (Ensemble)")
+        print("  VALIDATION vs HOLDOUT TEST  (Ensemble)")
         print(f"  {'─' * 60}")
         ho_ens = holdout_results["overall"]["Ensemble"]
         gap_mape = ho_ens["MAPE"] - val_scores["MAPE"]
@@ -669,7 +669,7 @@ def _print_summary(df_train, df_valid, cat_sc, lgb_sc, xgb_sc, val_scores,
         if abs(gap_mape) > 2.0:
             print(f"\n  ⚠  MAPE gap {gap_mape:+.2f}% — check for distribution shift in test set")
 
-        print(f"\n  Holdout Test — Segment Breakdown (Ensemble)")
+        print("\n  Holdout Test — Segment Breakdown (Ensemble)")
         print(f"  {'Segment':<16}  {'N':>6}  {'MAPE (%)':>9}  {'R²':>7}")
         for seg, data in holdout_results["per_segment"].items():
             if "note" in data:
@@ -679,7 +679,7 @@ def _print_summary(df_train, df_valid, cat_sc, lgb_sc, xgb_sc, val_scores,
                 print(f"  {seg:<16}  {data['n']:>6}  {ens_sc['MAPE']:>8.2f}%  {ens_sc['R2']:>7.4f}")
         print(f"  {'─' * 60}")
 
-    print(f"\n  Ensemble Weights")
+    print("\n  Ensemble Weights")
     print(f"    CatBoost  {weights[0]*100:5.1f}%")
     print(f"    LightGBM  {weights[1]*100:5.1f}%")
     print(f"    XGBoost   {weights[2]*100:5.1f}%")
@@ -690,7 +690,7 @@ def _print_summary(df_train, df_valid, cat_sc, lgb_sc, xgb_sc, val_scores,
     if cb_top:
         top5 = list(cb_top.items())[:5]
         max_score = max(v for _, v in top5)
-        print(f"\n  Top Features (CatBoost importance)")
+        print("\n  Top Features (CatBoost importance)")
         for feat, score in top5:
             bar_len = int(score / max_score * 20)
             print(f"    {feat:<25}  {'█' * bar_len}  {score:,.0f}")
