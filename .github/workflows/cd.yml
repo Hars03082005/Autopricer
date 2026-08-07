@@ -115,6 +115,7 @@ jobs:
   build:
     name: Build and push images
     runs-on: ubuntu-latest
+    if: ${{ secrets.AZURE_CLIENT_ID != '' || vars.AZURE_CLIENT_ID != '' }}
     environment: staging
     outputs:
       image_tag: ${{ env.IMAGE_TAG }}
@@ -126,9 +127,9 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure the registry exists
         id: acr
@@ -197,6 +198,7 @@ jobs:
     name: Deploy to staging
     runs-on: ubuntu-latest
     needs: [build]
+    if: ${{ secrets.AZURE_CLIENT_ID != '' || vars.AZURE_CLIENT_ID != '' }}
     environment:
       name: staging
       url: ${{ steps.deploy.outputs.url }}
@@ -206,9 +208,9 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
 
       - uses: supabase/setup-cli@v1
         with:
@@ -274,7 +276,7 @@ jobs:
     # smoke-tested first in the same run, and IMAGE_TAG is threaded through, so
     # the artifact reaching production is the one that just passed staging — not
     # a rebuild.
-    if: github.event_name == 'workflow_dispatch' && inputs.promote_to_production
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_to_production && (secrets.AZURE_CLIENT_ID != '' || vars.AZURE_CLIENT_ID != '')
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
@@ -284,9 +286,9 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
 
       - uses: supabase/setup-cli@v1
         with:
