@@ -21,9 +21,14 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from backend import db
+from backend.auth import require_admin_token
+from backend.config import get_settings
+from backend.routers import history as history_router
 
 from backend import model_registry
 from backend.brand_catalog import build_brand_catalog
@@ -42,12 +47,31 @@ from backend.decision_engine import (
     shap_explanation,
 )
 from backend.ensemble_predictor import EnsemblePredictor
-from ml_training.clean_datasets import (
-    normalize_model as _norm_model,
-)
-from ml_training.clean_datasets import (
-    normalize_variant as _norm_variant,
-)
+try:
+    from ml_training.clean_datasets import (
+        normalize_model as _norm_model,
+        normalize_variant as _norm_variant,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    import re as _re
+
+    def _norm_model(model: str, brand: str = "") -> str:  # type: ignore[misc]
+        """Lightweight fallback when ml_training is not installed."""
+        if not isinstance(model, str):
+            return "unknown"
+        m = model.strip().lower()
+        m = _re.sub(r"\s+\d+\.\d+[lL]?\s*$", "", m).strip()
+        m = _re.sub(r"\s+\d+[lL]\s*$", "", m).strip()
+        return m if m else "unknown"
+
+    def _norm_variant(variant: str) -> str:  # type: ignore[misc]
+        """Lightweight fallback when ml_training is not installed."""
+        if not isinstance(variant, str):
+            return "unknown"
+        v = variant.strip().lower()
+        return "unknown" if v in ("", "unknown", "nan", "none") else v
+
+
 
 ROOT         = Path(__file__).resolve().parents[1]
 ARTIFACT_DIR = ROOT / "model_artifacts"
@@ -172,15 +196,21 @@ async def lifespan(app_instance: FastAPI):
     log.info("==> ML models loaded. Active variant: %s", ACTIVE_VARIANT_ID)
     yield
     log.info("==> Shutting down.")
+    await db.shutdown()
 
 app = FastAPI(title="PriceRef ML API", version="1.0.0", lifespan=lifespan)
+
+_settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"] if _settings.cors_allow_all else list(_settings.cors_allowed_origins),
+    allow_credentials=not _settings.cors_allow_all,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=600,
 )
+
+app.include_router(history_router.router)
 
 class VehicleInput(BaseModel):
     brand: str = "Honda"
@@ -1049,16 +1079,19 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: str | None = None) ->
 
 @app.get("/health")
 def health():
-    _pred, seg_mods, meta, _, active_id = resolve_variant_data()
-    cbm_exists = (ARTIFACT_DIR / "vehicle_price_catboost.cbm").exists() or (model_registry.get_variant_path(active_id) is not None)
+    settings = get_settings()
+    meta = METADATA or {}
     return {
         "status":              "ok",
-        "model_loaded":        cbm_exists,
+        "model_loaded":        predictor is not None,
         "ensemble_enabled":    meta.get("ensemble", {}).get("enabled", False),
         "model_name":          meta.get("model_name", "CatBoostRegressor"),
         "segmentation":        "segment_class",
-        "segments_loaded":     list(seg_mods.keys()),
-        "active_variant":      active_id,
+        "segments_loaded":     list(SEGMENT_MODELS.keys()),
+        "active_variant":      ACTIVE_VARIANT_ID,
+        "environment":         settings.environment,
+        "database_configured": settings.database_enabled,
+        "auth_configured":     settings.auth_enabled,
     }
 
 
@@ -1076,7 +1109,7 @@ def get_registry():
     }
 
 
-@app.post("/api/registry/{variant_id}/activate")
+@app.post("/api/registry/{variant_id}/activate", dependencies=[Depends(require_admin_token)])
 def activate_variant_endpoint(variant_id: str):
     success = model_registry.activate_variant(variant_id)
     if not success:
