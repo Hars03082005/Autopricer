@@ -91,33 +91,63 @@ async function request(path, { method = 'GET', body, auth = true, signal } = {})
 // ── Valuation history ───────────────────────────────────────────────────────
 
 export async function fetchHistory({ limit = 200, signal } = {}) {
-  const payload = await request(`/api/history?limit=${encodeURIComponent(limit)}`, { signal });
-  return payload?.evaluations ?? [];
+  try {
+    const payload = await request(`/api/history?limit=${encodeURIComponent(limit)}`, { signal });
+    return payload?.evaluations ?? [];
+  } catch (err) {
+    if (err instanceof ApiError && err.isUnavailable) return [];
+    throw err;
+  }
 }
 
 export async function createHistoryEntry(record, { signal } = {}) {
-  return request('/api/history', { method: 'POST', body: record, signal });
+  try {
+    return await request('/api/history', { method: 'POST', body: record, signal });
+  } catch (err) {
+    if (err instanceof ApiError && err.isUnavailable) return null;
+    throw err;
+  }
 }
 
 export async function clearHistory({ signal } = {}) {
-  const payload = await request('/api/history', { method: 'DELETE', signal });
-  return payload?.deleted ?? 0;
+  try {
+    const payload = await request('/api/history', { method: 'DELETE', signal });
+    return payload?.deleted ?? 0;
+  } catch (err) {
+    if (err instanceof ApiError && err.isUnavailable) return 0;
+    throw err;
+  }
 }
 
 export async function deleteHistoryEntry(id, { signal } = {}) {
-  const payload = await request(`/api/history/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    signal,
-  });
-  return payload?.deleted ?? 0;
+  try {
+    const payload = await request(`/api/history/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      signal,
+    });
+    return payload?.deleted ?? 0;
+  } catch (err) {
+    if (err instanceof ApiError && err.isUnavailable) return 0;
+    throw err;
+  }
 }
 
 // ── Dealer profile ──────────────────────────────────────────────────────────
 
 export async function fetchProfile({ signal } = {}) {
-  return request('/api/profile', { signal });
+  try {
+    return await request('/api/profile', { signal });
+  } catch (err) {
+    if (err instanceof ApiError && err.isUnavailable) return null;
+    throw err;
+  }
 }
 
 export async function saveProfile(profile, { signal } = {}) {
-  return request('/api/profile', { method: 'PUT', body: profile, signal });
+  try {
+    return await request('/api/profile', { method: 'PUT', body: profile, signal });
+  } catch (err) {
+    if (err instanceof ApiError && err.isUnavailable) return null;
+    throw err;
+  }
 }
