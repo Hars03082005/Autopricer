@@ -1,46 +1,38 @@
-/* ═══════════════════════════════════════════════════════════════
-   PriceRef — Enterprise Design System v6.0
-   Linear × Stripe × Ramp × Vercel inspired
-   "Software a dealership would pay ₹2,00,000/year for"
-   ═══════════════════════════════════════════════════════════════ */
 
-/* ─── 1. Design Tokens ────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Brand / Action (orange = action ONLY) */
+  
   --accent:        #f75d34;
   --accent-hover:  #e04f28;
   --accent-light:  #fff4f0;
   --accent-border: #ffd4c4;
 
-  /* Specific Visual Identities */
-  --prediction:        #2563eb; /* Blue -> ML Prediction */
+  --prediction:        #2563eb; 
   --prediction-light:  #eff6ff;
   --prediction-bg:     #dbeafe;
   --prediction-border: #bfdbfe;
 
-  --profit:            #10b981; /* Green -> Recommended Buy / Profit */
+  --profit:            #10b981; 
   --profit-light:      #ecfdf5;
   --profit-bg:         #d1fae5;
   --profit-border:     #a7f3d0;
 
-  --negotiation:       #ea580c; /* Orange -> Negotiation */
+  --negotiation:       #ea580c; 
   --negotiation-light: #fff7ed;
   --negotiation-bg:    #ffedd5;
   --negotiation-border:#fed7aa;
 
-  --analytics:         #8b5cf6; /* Purple -> Analytics */
+  --analytics:         #8b5cf6; 
   --analytics-light:   #f5f3ff;
   --analytics-bg:      #ede9fe;
   --analytics-border:  #ddd6fe;
 
-  --risk:              #ef4444; /* Red -> Risk */
+  --risk:              #ef4444; 
   --risk-light:        #fef2f2;
   --risk-bg:           #fee2e2;
   --risk-border:       #fca5a5;
 
-  /* Semantic */
   --success:       #16a34a;
   --success-light: #f0fdf4;
   --success-bg:    #dcfce7;
@@ -54,31 +46,26 @@
   --info-light:    #eff6ff;
   --info-bg:       #dbeafe;
 
-  /* Surfaces */
-  --bg:            #f8fafc; /* Soft background */
+  --bg:            #f8fafc; 
   --surface:       #ffffff;
   --surface-2:     #f1f5f9;
   --surface-3:     #e2e8f0;
 
-  /* Borders */
   --border:        #e2e8f0;
   --border-2:      #f1f5f9;
   --border-focus:  #94a3b8;
 
-  /* Text */
   --text-1:        #000000;
   --text-2:        #1e293b;
   --text-3:        #334155;
   --text-4:        #475569;
 
-  /* Shadows */
   --shadow-xs:  0 1px 2px rgba(0,0,0,0.02);
   --shadow-sm:  0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
   --shadow-md:  0 4px 12px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.02);
   --shadow-lg:  0 10px 30px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
   --shadow-xl:  0 20px 50px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
 
-  /* Radius */
   --r-xs:  4px;
   --r-sm:  6px;
   --r-md:  10px;
@@ -86,18 +73,14 @@
   --r-xl:  18px;
   --r-2xl: 24px;
 
-  /* Sidebar */
   --sidebar-w: 240px;
 
-  /* Font */
   --font: 'Inter', system-ui, -apple-system, sans-serif;
 
-  /* Transitions */
   --transition: 150ms cubic-bezier(0.4,0,0.2,1);
   --transition-slow: 300ms cubic-bezier(0.4,0,0.2,1);
 }
 
-/* ─── 2. Reset & Base ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
@@ -126,7 +109,6 @@ input, select, textarea {
 img { max-width: 100%; display: block; }
 a { text-decoration: none; color: inherit; }
 
-/* ─── 3. App Layout ───────────────────────────────────────────── */
 #root { min-height: 100dvh; background: var(--bg); }
 
 .app-root {
@@ -135,7 +117,6 @@ a { text-decoration: none; color: inherit; }
   background: var(--bg);
 }
 
-/* Sidebar — hidden on mobile, visible on desktop */
 .app-sidebar {
   display: none;
   width: var(--sidebar-w);
@@ -164,7 +145,6 @@ a { text-decoration: none; color: inherit; }
   padding: 0;
 }
 
-/* ─── 4. Sidebar ──────────────────────────────────────────────── */
 .sidebar-brand {
   padding: 20px 16px 16px;
   border-bottom: 1px solid var(--border);
@@ -299,7 +279,6 @@ a { text-decoration: none; color: inherit; }
   color: var(--text-3);
 }
 
-/* ─── 5. Header ───────────────────────────────────────────────── */
 .app-header {
   position: sticky;
   top: 0;
@@ -393,7 +372,6 @@ a { text-decoration: none; color: inherit; }
 
 .header-icon-btn:hover { background: var(--surface-2); }
 
-/* ─── 6. Mobile Nav (bottom tabs) ────────────────────────────── */
 .top-nav {
   display: flex;
   background: var(--surface);
@@ -429,7 +407,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 0.3px;
 }
 
-/* ─── 7. Content Wrapper ──────────────────────────────────────── */
 .screen-wrapper {
   animation: screenIn 0.18s ease both;
 }
@@ -451,7 +428,6 @@ a { text-decoration: none; color: inherit; }
   margin: 0 auto;
 }
 
-/* ─── 8. Typography ───────────────────────────────────────────── */
 .page-title {
   font-size: 24px;
   font-weight: 700;
@@ -508,7 +484,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: -0.4px;
 }
 
-/* ─── 9. Card System ──────────────────────────────────────────── */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -524,7 +499,6 @@ a { text-decoration: none; color: inherit; }
   border-color: var(--border-focus);
 }
 
-/* Themed card identity classes for visual segmentation */
 .card-prediction {
   background: linear-gradient(135deg, var(--prediction-light) 0%, var(--surface) 100%);
   border: 1px solid var(--prediction-border);
@@ -612,7 +586,6 @@ a { text-decoration: none; color: inherit; }
   border-color: var(--risk);
 }
 
-/* Card header */
 .card-header {
   display: flex;
   align-items: center;
@@ -628,7 +601,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 0.5px;
 }
 
-/* ─── 10. KPI Tiles ───────────────────────────────────────────── */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -700,7 +672,6 @@ a { text-decoration: none; color: inherit; }
 .kpi-tile-delta.up   { color: var(--success); }
 .kpi-tile-delta.down { color: var(--danger); }
 
-/* ─── 11. Button System ───────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -779,7 +750,6 @@ a { text-decoration: none; color: inherit; }
 
 .btn-full { width: 100%; }
 
-/* Legacy compat */
 .cd-btn-orange {
   display: inline-flex;
   align-items: center;
@@ -802,8 +772,6 @@ a { text-decoration: none; color: inherit; }
   transform: translateY(-1px);
 }
 
-
-/* ─── 12. Input System ────────────────────────────────────────── */
 .field-group { margin-bottom: 16px; }
 
 .field-label {
@@ -850,7 +818,6 @@ a { text-decoration: none; color: inherit; }
   padding-right: 36px;
 }
 
-/* Toggle switch */
 .toggle-wrap {
   display: flex;
   align-items: center;
@@ -896,7 +863,6 @@ a { text-decoration: none; color: inherit; }
   color: var(--text-2);
 }
 
-/* Segmented control */
 .seg-control {
   display: flex;
   background: var(--surface-2);
@@ -927,7 +893,6 @@ a { text-decoration: none; color: inherit; }
 
 .seg-btn:hover:not(.active) { color: var(--text-2); }
 
-/* ─── Grade Pills (Enhanced Valuation & Reverse Calc) ─────────── */
 .grade-grid {
   display: flex;
   flex-direction: column;
@@ -1021,7 +986,6 @@ a { text-decoration: none; color: inherit; }
   display: block;
 }
 
-/* ─── 13. Badge & Pill System ─────────────────────────────────── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1069,7 +1033,6 @@ a { text-decoration: none; color: inherit; }
   border: 1px solid var(--accent-border);
 }
 
-/* Action badges */
 .action-badge {
   display: inline-flex;
   align-items: center;
@@ -1086,7 +1049,6 @@ a { text-decoration: none; color: inherit; }
 .action-badge.reject   { background: var(--danger-light); color: var(--danger); border: 2px solid #fecaca; }
 .action-badge.review   { background: var(--surface-2); color: var(--text-2); border: 2px solid var(--border); }
 
-/* Confidence pill */
 .conf-pill {
   display: inline-flex;
   align-items: center;
@@ -1101,7 +1063,6 @@ a { text-decoration: none; color: inherit; }
 .conf-pill.medium { background: var(--warning-light); color: var(--warning); }
 .conf-pill.low    { background: var(--danger-light);  color: var(--danger);  }
 
-/* Segment badge */
 .segment-badge {
   display: inline-flex;
   align-items: center;
@@ -1118,7 +1079,6 @@ a { text-decoration: none; color: inherit; }
 .segment-badge.premium { background: var(--warning-bg); color: var(--warning); }
 .segment-badge.luxury  { background: #f3e8ff; color: #7c3aed; }
 
-/* ─── 14. Skeleton Loaders ────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
@@ -1135,7 +1095,6 @@ a { text-decoration: none; color: inherit; }
 .skeleton-title { height: 24px; }
 .skeleton-number { height: 36px; width: 50%; }
 
-/* ─── 15. Page Headers ────────────────────────────────────────── */
 .page-header {
   display: flex;
   align-items: flex-start;
@@ -1150,7 +1109,6 @@ a { text-decoration: none; color: inherit; }
   flex-shrink: 0;
 }
 
-/* ─── 16. Data Tables ─────────────────────────────────────────── */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1190,7 +1148,6 @@ a { text-decoration: none; color: inherit; }
   font-size: 14px;
 }
 
-/* ─── 17. AUTH SCREEN ─────────────────────────────────────────── */
 .auth-root {
   min-height: 100dvh;
   display: flex;
@@ -1427,7 +1384,6 @@ a { text-decoration: none; color: inherit; }
   margin-top: 20px;
 }
 
-/* ─── 18. HOME SCREEN ─────────────────────────────────────────── */
 .home-screen { }
 
 .home-greeting {
@@ -1551,12 +1507,10 @@ a { text-decoration: none; color: inherit; }
   margin: 0 auto 24px;
 }
 
-/* ─── 19. INPUT WIZARD ────────────────────────────────────────── */
 .wizard-header {
   margin-bottom: 28px;
 }
 
-/* Step progress */
 .wizard-steps {
   display: flex;
   align-items: center;
@@ -1626,7 +1580,6 @@ a { text-decoration: none; color: inherit; }
 
 .wizard-step-line.done { background: var(--success); }
 
-/* Brand grid */
 .brand-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1666,7 +1619,6 @@ a { text-decoration: none; color: inherit; }
 
 .brand-pill-icon { font-size: 14px; }
 
-/* Fuel type cards */
 .fuel-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1701,7 +1653,6 @@ a { text-decoration: none; color: inherit; }
   color: var(--text-1);
 }
 
-/* Color swatches */
 .color-grid {
   display: flex;
   flex-wrap: wrap;
@@ -1735,7 +1686,6 @@ a { text-decoration: none; color: inherit; }
   font-weight: 500;
 }
 
-/* Condition toggle */
 .condition-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1765,7 +1715,6 @@ a { text-decoration: none; color: inherit; }
 .condition-btn.selected.average   { border-color: var(--warning); background: var(--warning-light); color: var(--warning); }
 .condition-btn.selected.poor      { border-color: var(--danger); background: var(--danger-light); color: var(--danger); }
 
-/* Step navigation */
 .wizard-nav {
   display: flex;
   align-items: center;
@@ -1806,7 +1755,6 @@ a { text-decoration: none; color: inherit; }
   cursor: not-allowed;
 }
 
-/* Error banner */
 .error-banner {
   display: flex;
   align-items: flex-start;
@@ -1820,8 +1768,6 @@ a { text-decoration: none; color: inherit; }
   margin-bottom: 16px;
 }
 
-/* ─── 20. RESULT SCREEN ───────────────────────────────────────── */
-/* Hero Card */
 .result-hero-card {
   background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
   border-radius: var(--r-xl);
@@ -1917,7 +1863,6 @@ a { text-decoration: none; color: inherit; }
   flex-wrap: wrap;
 }
 
-/* Decision Row */
 .decision-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1945,7 +1890,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 0.5px;
 }
 
-/* Acquisition Strategy Timeline */
 .acq-timeline {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2019,7 +1963,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: -0.4px;
 }
 
-/* ROI Summary */
 .roi-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2055,7 +1998,6 @@ a { text-decoration: none; color: inherit; }
 .roi-item-value.green { color: var(--success); }
 .roi-item-value.red   { color: var(--danger); }
 
-/* Risk Grid */
 .risk-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2100,7 +2042,6 @@ a { text-decoration: none; color: inherit; }
 .risk-score-badge.mid  { background: var(--warning-bg); color: var(--warning); }
 .risk-score-badge.high { background: var(--danger-bg);  color: var(--danger);  }
 
-/* Waterfall bars */
 .waterfall {
   display: flex;
   flex-direction: column;
@@ -2151,7 +2092,6 @@ a { text-decoration: none; color: inherit; }
   flex-shrink: 0;
 }
 
-/* Factor lists */
 .factor-list {
   display: flex;
   flex-direction: column;
@@ -2188,7 +2128,6 @@ a { text-decoration: none; color: inherit; }
 .factor-item.positive .factor-dot { background: var(--success); }
 .factor-item.negative .factor-dot { background: var(--danger); }
 
-/* ─── 21. EXPLAIN SCREEN ──────────────────────────────────────── */
 .shap-bar-track {
   flex: 1;
   background: var(--surface-2);
@@ -2251,7 +2190,6 @@ a { text-decoration: none; color: inherit; }
   text-overflow: ellipsis;
 }
 
-/* Confidence arc (CSS gauge) */
 .gauge-wrap {
   display: flex;
   flex-direction: column;
@@ -2268,7 +2206,6 @@ a { text-decoration: none; color: inherit; }
 
 .gauge-arc svg { display: block; }
 
-/* ─── 22. PRICING SCREEN ──────────────────────────────────────── */
 .pricing-cost-rows {
   display: flex;
   flex-direction: column;
@@ -2395,7 +2332,6 @@ a { text-decoration: none; color: inherit; }
   font-style: italic;
 }
 
-/* ─── 23. ANALYTICS SCREEN ────────────────────────────────────── */
 .analytics-tabs {
   display: flex;
   gap: 4px;
@@ -2485,7 +2421,6 @@ a { text-decoration: none; color: inherit; }
   padding-bottom: 5px;
 }
 
-/* ─── 24. ASSISTANT SCREEN ────────────────────────────────────── */
 .chat-container {
   display: flex;
   flex-direction: column;
@@ -2607,7 +2542,6 @@ a { text-decoration: none; color: inherit; }
   transform: scale(1.05);
 }
 
-/* ─── 25. ENHANCED SCREENS ────────────────────────────────────── */
 .pipeline-step {
   display: flex;
   align-items: flex-start;
@@ -2785,7 +2719,6 @@ a { text-decoration: none; color: inherit; }
 
 .pricing-pipeline { margin-top: 8px; }
 
-/* ─── 26. SearchableSelect Component ──────────────────────────── */
 .ss-wrap { position: relative; width: 100%; }
 
 .ss-input-btn {
@@ -2869,7 +2802,6 @@ a { text-decoration: none; color: inherit; }
 .ss-placeholder { color: var(--text-4); }
 .ss-chevron { color: var(--text-3); flex-shrink: 0; }
 
-/* ─── 27. Loading Screen ──────────────────────────────────────── */
 .loading-screen {
   min-height: 400px;
   display: flex;
@@ -2914,7 +2846,6 @@ a { text-decoration: none; color: inherit; }
   animation: fadeIn 0.5s ease both;
 }
 
-/* ─── 28. Empty State ─────────────────────────────────────────── */
 .empty-screen {
   min-height: 400px;
   display: flex;
@@ -2940,7 +2871,6 @@ a { text-decoration: none; color: inherit; }
   margin: 0 auto 24px;
 }
 
-/* ─── 29. Splash ──────────────────────────────────────────────── */
 .splash-screen {
   min-height: 100dvh;
   display: flex;
@@ -2995,7 +2925,6 @@ a { text-decoration: none; color: inherit; }
   50% { opacity: 1; }
 }
 
-/* ─── 30. User Menu ───────────────────────────────────────────── */
 .user-menu-wrap { position: relative; }
 
 .user-avatar-btn {
@@ -3080,7 +3009,6 @@ a { text-decoration: none; color: inherit; }
 
 .user-menu-item:hover { background: var(--surface-2); }
 
-/* ─── 31. IDV Banner ──────────────────────────────────────────── */
 .idv-banner {
   padding: 14px 16px;
   border-radius: var(--r-lg);
@@ -3092,7 +3020,6 @@ a { text-decoration: none; color: inherit; }
 .idv-banner.positive { background: var(--success-light); border-color: var(--success); }
 .idv-banner.neutral { background: var(--surface-2); border-color: var(--border); }
 
-/* ─── 32. Enhanced Card helpers ────────────────────────────────── */
 .enhanced-screen {}
 
 .result-metric-row {
@@ -3163,7 +3090,6 @@ a { text-decoration: none; color: inherit; }
 .shap-bar-label.pos { color: var(--success); }
 .shap-bar-label.neg { color: var(--danger); }
 
-/* Comp items */
 .comp-list { display: flex; flex-direction: column; gap: 10px; }
 .comp-item { display: flex; align-items: center; gap: 12px; }
 .comp-item-img { width: 44px; height: 30px; object-fit: cover; border-radius: var(--r-sm); }
@@ -3177,28 +3103,24 @@ a { text-decoration: none; color: inherit; }
 .comp-cond.cond-poor      { background: var(--danger-bg); color: var(--danger); }
 .comp-item-price { font-size: 15px; font-weight: 700; color: var(--text-1); }
 
-/* CI row */
 .ci-row { display: flex; align-items: center; gap: 10px; justify-content: center; }
 .ci-box { text-align: center; padding: 12px 16px; background: var(--surface-2); border-radius: var(--r-md); }
 .ci-box-label { font-size: 11.5px; color: var(--text-2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
 .ci-box-val { font-size: 17px; font-weight: 800; color: var(--text-1); }
 .ci-box-val.orange { color: var(--accent); }
 
-/* Negotiation grid */
 .negotiation-grid { display: grid; gap: 10px; }
 .negotiation-grid-trio { grid-template-columns: repeat(3, 1fr); }
 .negotiation-grid div { background: var(--surface-2); padding: 12px 14px; border-radius: var(--r-md); }
 .negotiation-grid span { display: block; font-size: 11.5px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
 .negotiation-grid strong { font-size: 16px; font-weight: 800; color: var(--text-1); }
 
-/* Margin visual */
 .margin-visual { margin-top: 14px; }
 .margin-vis-track { height: 8px; background: var(--success-bg); border-radius: 4px; overflow: hidden; }
 .margin-vis-fill { height: 100%; background: var(--danger-light); border-radius: 4px; }
 .margin-vis-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-top: 5px; }
 .margin-pill { background: var(--success-bg); color: var(--success); padding: 2px 8px; border-radius: var(--r-xl); font-weight: 700; }
 
-/* ─── 33. Responsive ──────────────────────────────────────────── */
 @media (min-width: 768px) {
   .app-sidebar { display: flex; }
   .top-nav { display: none; }
@@ -3219,12 +3141,6 @@ a { text-decoration: none; color: inherit; }
   .brand-grid { grid-template-columns: repeat(5, 1fr); }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   VALUATION WORKSPACE  (vws-*)
-   Single-page layout · Linear × Stripe × Vercel aesthetic
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── Root layout ──────────────────────────────────────────────── */
 .vws-root {
   display: grid;
   grid-template-columns: 1fr;
@@ -3244,7 +3160,6 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-/* ── Left: Form column ──────────────────────────────────────────── */
 .vws-form {
   padding: 16px 20px 30px;
   border-right: 1px solid var(--border);
@@ -3258,7 +3173,6 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-/* ── Sections ──────────────────────────────────────────────────── */
 .vws-section {
   margin-bottom: 8px;
 }
@@ -3305,7 +3219,6 @@ a { text-decoration: none; color: inherit; }
   margin: 28px 0;
 }
 
-/* ── Field layout ─────────────────────────────────────────────── */
 .vws-field {
   display: flex;
   flex-direction: column;
@@ -3364,7 +3277,6 @@ a { text-decoration: none; color: inherit; }
   margin-top: 3px;
 }
 
-/* ── Premium Text Input ─────────────────────────────────────────── */
 .vws-input {
   width: 100%;
   height: 38px;
@@ -3398,7 +3310,6 @@ a { text-decoration: none; color: inherit; }
   font-size: 13px;
 }
 
-/* ── Odometer (prominent large input) ───────────────────────────── */
 .vws-odo-wrap {
   position: relative;
 }
@@ -3444,7 +3355,6 @@ a { text-decoration: none; color: inherit; }
   user-select: none;
 }
 
-/* ── Money input ──────────────────────────────────────────────── */
 .vws-money-wrap { position: relative; }
 
 .vws-money-pfx {
@@ -3460,7 +3370,6 @@ a { text-decoration: none; color: inherit; }
 
 .vws-money { padding-left: 26px; }
 
-/* ── Chip selectors ──────────────────────────────────────────── */
 .vws-chips {
   display: flex;
   flex-wrap: wrap;
@@ -3488,7 +3397,6 @@ a { text-decoration: none; color: inherit; }
   color: var(--text-1);
 }
 
-/* Generic active (blue — fuel, transmission) */
 .vws-chip-on {
   background: #eff6ff !important;
   border-color: #93c5fd !important;
@@ -3496,7 +3404,6 @@ a { text-decoration: none; color: inherit; }
   font-weight: 600 !important;
 }
 
-/* Square chips for owner count */
 .vws-chip-sq {
   width: 40px;
   padding: 0;
@@ -3507,7 +3414,6 @@ a { text-decoration: none; color: inherit; }
   font-size: 14px;
 }
 
-/* Condition chips — semantic colors */
 .vws-chip-cond-excellent { }
 .vws-chip-cond-good      { }
 .vws-chip-cond-average   { }
@@ -3538,7 +3444,6 @@ a { text-decoration: none; color: inherit; }
   font-weight: 600 !important;
 }
 
-/* ── Color swatch ──────────────────────────────────────────────── */
 .vws-color-row {
   display: flex;
   flex-wrap: wrap;
@@ -3566,7 +3471,6 @@ a { text-decoration: none; color: inherit; }
   transform: scale(1.1);
 }
 
-/* ── Inspection toggle ──────────────────────────────────────────── */
 .vws-inspect {
   display: flex;
   align-items: center;
@@ -3645,7 +3549,6 @@ a { text-decoration: none; color: inherit; }
   white-space: nowrap;
 }
 
-/* ── Margin slider ──────────────────────────────────────────────── */
 .vws-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -3701,7 +3604,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: -0.3px;
 }
 
-/* ── Error banner ───────────────────────────────────────────────── */
 .vws-error {
   display: flex;
   align-items: flex-start;
@@ -3716,7 +3618,6 @@ a { text-decoration: none; color: inherit; }
   line-height: 1.4;
 }
 
-/* ── Skeleton ───────────────────────────────────────────────────── */
 .vws-skeleton {
   border-radius: 8px;
   background: linear-gradient(90deg, #f1f5f9 25%, #e8ecf2 50%, #f1f5f9 75%);
@@ -3728,10 +3629,6 @@ a { text-decoration: none; color: inherit; }
   0%   { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   RIGHT: SUMMARY PANEL  (vwsp-*)
-   ═══════════════════════════════════════════════════════════════ */
 
 .vws-panel {
   background: #f8fafc;
@@ -3773,7 +3670,6 @@ a { text-decoration: none; color: inherit; }
   margin-bottom: 4px;
 }
 
-/* Vehicle name card */
 .vwsp-card {
   background: white;
   border: 1px solid var(--border);
@@ -3811,7 +3707,6 @@ a { text-decoration: none; color: inherit; }
   border-radius: 4px;
 }
 
-/* Health bar */
 .vwsp-health-bar {
   height: 6px;
   border-radius: 3px;
@@ -3835,7 +3730,6 @@ a { text-decoration: none; color: inherit; }
   margin-bottom: 5px;
 }
 
-/* Stats grid */
 .vwsp-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3856,7 +3750,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: -0.3px;
 }
 
-/* Required fields checklist */
 .vwsp-checklist {
   background: white;
   border: 1px solid var(--border);
@@ -3889,7 +3782,6 @@ a { text-decoration: none; color: inherit; }
 
 .vwsp-check-icon { display: flex; align-items: center; flex-shrink: 0; }
 
-/* CTA section */
 .vwsp-cta {
   padding-top: 4px;
 }
@@ -3940,13 +3832,8 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 0.1px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   SEARCHABLE DROPDOWN  (sdd-*)
-   ═══════════════════════════════════════════════════════════════ */
-
 .sdd { position: relative; }
 
-/* Trigger button */
 .sdd-trigger {
   display: flex;
   align-items: center;
@@ -4001,7 +3888,6 @@ a { text-decoration: none; color: inherit; }
 
 .sdd-chevron-open { transform: rotate(180deg); }
 
-/* Dropdown panel */
 .sdd-panel {
   position: absolute;
   top: calc(100% + 4px);
@@ -4021,7 +3907,6 @@ a { text-decoration: none; color: inherit; }
   to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
 
-/* Search row */
 .sdd-search-row {
   display: flex;
   align-items: center;
@@ -4057,7 +3942,6 @@ a { text-decoration: none; color: inherit; }
 
 .sdd-clear:hover { background: var(--surface-2); color: var(--text-1); }
 
-/* Options list */
 .sdd-list {
   max-height: 232px;
   overflow-y: auto;
@@ -4105,10 +3989,6 @@ a { text-decoration: none; color: inherit; }
   font-style: italic;
 }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   SIDEBAR — Dark Charcoal + Orange Accent  (Premium SaaS)
-   ═══════════════════════════════════════════════════════════════ */
 @media (min-width: 768px) {
   .app-sidebar {
     display: flex;
@@ -4198,12 +4078,6 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   RESULT SCREEN — Premium Widget Layout
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Root */
 .rs-root {
   padding: 20px 24px 100px;
   max-width: 920px;
@@ -4213,7 +4087,6 @@ a { text-decoration: none; color: inherit; }
   gap: 14px;
 }
 
-/* Loading */
 .rs-loading {
   display: flex;
   flex-direction: column;
@@ -4255,7 +4128,6 @@ a { text-decoration: none; color: inherit; }
   animation: fadeInUp 0.4s ease forwards;
 }
 
-/* Empty */
 .rs-empty {
   display: flex;
   flex-direction: column;
@@ -4288,7 +4160,6 @@ a { text-decoration: none; color: inherit; }
   max-width: 320px;
 }
 
-/* ── HERO ───────────────────────────────────────────────────── */
 .rs-hero {
   background: #fafafa;
   border: 1px solid #e2e8f0;
@@ -4369,7 +4240,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 1.5px;
 }
 
-/* ── METRICS STRIP ─────────────────────────────────────────── */
 .rs-metrics {
   background: white;
   border: 1px solid #e2e8f0;
@@ -4419,7 +4289,6 @@ a { text-decoration: none; color: inherit; }
   margin-top: 3px;
 }
 
-/* ── SECTIONS ──────────────────────────────────────────────── */
 .rs-section {
   background: white;
   border: 1px solid #e2e8f0;
@@ -4439,7 +4308,6 @@ a { text-decoration: none; color: inherit; }
   gap: 7px;
 }
 
-/* ── PRICE BAR ─────────────────────────────────────────────── */
 .rs-pricebar {
   padding: 28px 8px 8px;
 }
@@ -4514,7 +4382,6 @@ a { text-decoration: none; color: inherit; }
   font-weight: 500;
 }
 
-/* ── NEGOTIATION CARDS ─────────────────────────────────────── */
 .rs-negcards {
   display: flex;
   gap: 10px;
@@ -4561,7 +4428,6 @@ a { text-decoration: none; color: inherit; }
   z-index: 1;
 }
 
-/* ── RISK + CONFIDENCE ROW ─────────────────────────────────── */
 .rs-row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4581,7 +4447,6 @@ a { text-decoration: none; color: inherit; }
   gap: 16px;
 }
 
-/* Ring */
 .rs-ring-wrap {
   position: relative;
   width: 72px;
@@ -4612,7 +4477,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 0.5px;
 }
 
-/* Risk grid */
 .rs-riskgrid {
   flex: 1;
   display: flex;
@@ -4652,14 +4516,12 @@ a { text-decoration: none; color: inherit; }
   text-align: right;
 }
 
-/* Summary grid */
 .rs-summary-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px 10px;
 }
 
-/* ── BADGES ────────────────────────────────────────────────── */
 .rs-badges {
   display: flex;
   flex-wrap: wrap;
@@ -4685,7 +4547,6 @@ a { text-decoration: none; color: inherit; }
   border: 1px solid #fde68a;
 }
 
-/* ── WARNINGS ──────────────────────────────────────────────── */
 .rs-warnings {
   background: #fffbeb;
   border: 1px solid #fde68a;
@@ -4704,7 +4565,6 @@ a { text-decoration: none; color: inherit; }
   color: #92400e;
 }
 
-/* ── ACCORDION ─────────────────────────────────────────────── */
 .rs-accordion {
   background: white;
   border: 1px solid #e2e8f0;
@@ -4785,14 +4645,12 @@ a { text-decoration: none; color: inherit; }
   color: #0f172a;
 }
 
-/* ── ACTIONS ───────────────────────────────────────────────── */
 .rs-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-/* Mobile responsive */
 @media (max-width: 640px) {
   .rs-root {
     padding: 14px 14px 90px;
@@ -4838,16 +4696,9 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   GLOBAL PREMIUM UPGRADES
-   ═══════════════════════════════════════════════════════════════ */
-
-/* App background — very subtle cool tint */
 .app-body { background: #f7f9fc; }
 .app-main  { background: #f7f9fc; }
 
-/* Header — cleaner, taller */
 .app-header {
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(12px);
@@ -4857,7 +4708,6 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 1px 0 rgba(0,0,0,0.04);
 }
 
-/* Search bar — more premium */
 .header-search {
   background: #f1f5f9;
   border-color: transparent;
@@ -4870,7 +4720,6 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 0 0 3px rgba(148,163,184,0.12);
 }
 
-/* Buttons — polished */
 .btn-primary {
   background: linear-gradient(135deg, #f75d34 0%, #e04f28 100%);
   box-shadow: 0 1px 3px rgba(247,93,52,0.35), 0 4px 10px rgba(247,93,52,0.15);
@@ -4887,31 +4736,26 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 1px 3px rgba(247,93,52,0.3);
 }
 
-/* Cards — premium borders */
 .card {
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
 }
 
-/* Scrollbars — thin and elegant */
 ::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Auth left panel — premium gradient */
 .auth-left {
   background: linear-gradient(150deg, #0f1117 0%, #1a1f2e 50%, #141926 100%);
   border-right: 1px solid rgba(255,255,255,0.04);
 }
 
-/* Sidebar logo accent ring */
 .sidebar-logo {
   background: linear-gradient(135deg, #f75d34, #e04f28);
   box-shadow: 0 0 0 3px rgba(247,93,52,0.2), 0 3px 8px rgba(247,93,52,0.3);
 }
 
-/* Input fields — consistent */
 .field-input {
   background: #fafafa;
   border-color: #e2e8f0;
@@ -4924,13 +4768,6 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 0 0 3px rgba(148,163,184,0.12);
 }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   ResultScreen v2 — rs2 prefix
-   White + Blue premium dealer UI (CarDekho/Cars24/Spinny style)
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ─── Root ─────────────────────────────────────────────────── */
 .rs2-root {
   display: flex;
   flex-direction: column;
@@ -4941,7 +4778,6 @@ a { text-decoration: none; color: inherit; }
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ─── Shared Card ─────────────────────────────────────────── */
 .rs2-card {
   background: #ffffff;
   border: 1px solid #e5eaf0;
@@ -4973,7 +4809,6 @@ a { text-decoration: none; color: inherit; }
   cursor: help;
 }
 
-/* ─── Hero Card ────────────────────────────────────────────── */
 .rs2-hero-card {
   display: flex;
   gap: 24px;
@@ -5052,7 +4887,6 @@ a { text-decoration: none; color: inherit; }
   margin-top: 2px;
 }
 
-/* Segment & status badges */
 .rs2-badge {
   font-size: 11.5px;
   font-weight: 700;
@@ -5081,7 +4915,6 @@ a { text-decoration: none; color: inherit; }
   border-color: #bae6fd;
 }
 
-/* Decision badge inline */
 .rs2-decision-badge {
   display: inline-flex;
   flex-direction: column;
@@ -5103,7 +4936,6 @@ a { text-decoration: none; color: inherit; }
   letter-spacing: 0.03em;
 }
 
-/* ─── Hero Right Stats ──────────────────────────────────────── */
 .rs2-hero-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5152,7 +4984,6 @@ a { text-decoration: none; color: inherit; }
 .rs2-blue  { color: #1d4ed8 !important; }
 .rs2-orange { color: #ea580c !important; }
 
-/* ─── Bold Range Display ────────────────────────────────────── */
 .rs2-range-card {
   padding: 24px;
 }
@@ -5173,7 +5004,6 @@ a { text-decoration: none; color: inherit; }
   font-weight: 500;
 }
 
-/* ─── Visual Range Slider Display ─────────────────────────── */
 .rs2-prd-wrap {
   width: 100%;
   padding: 12px 10px;
@@ -5183,7 +5013,7 @@ a { text-decoration: none; color: inherit; }
   position: relative;
   width: 90%;
   margin: 0 auto;
-  padding: 50px 0 25px 0; /* space for tooltip above and label below */
+  padding: 50px 0 25px 0; 
 }
 
 .rs2-slider-track {
@@ -5216,7 +5046,7 @@ a { text-decoration: none; color: inherit; }
 .rs2-slider-tooltip {
   position: absolute;
   bottom: 24px;
-  left: 0; /* will be set dynamically via style.left */
+  left: 0; 
   transform: translateX(-50%);
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -5288,7 +5118,6 @@ a { text-decoration: none; color: inherit; }
   margin-top: 2px;
 }
 
-/* ─── Negotiation Collapsible ───────────────────────────────── */
 .rs2-neg-header {
   display: flex;
   align-items: center;
@@ -5384,7 +5213,6 @@ a { text-decoration: none; color: inherit; }
   padding: 10px 14px;
 }
 
-/* ─── Similar Cars ──────────────────────────────────────────── */
 .rs2-similar-header {
   display: flex;
   align-items: flex-start;
@@ -5526,7 +5354,6 @@ a { text-decoration: none; color: inherit; }
   color: #dc2626;
 }
 
-/* ─── Warnings ──────────────────────────────────────────────── */
 .rs2-warnings {
   display: flex;
   flex-direction: column;
@@ -5545,7 +5372,6 @@ a { text-decoration: none; color: inherit; }
   padding: 9px 14px;
 }
 
-/* ─── Bottom Actions ────────────────────────────────────────── */
 .rs2-actions {
   display: flex;
   gap: 12px;
@@ -5597,7 +5423,6 @@ a { text-decoration: none; color: inherit; }
   border-color: #cbd5e1;
 }
 
-/* ─── Loading ─────────────────────────────────────────────── */
 .rs2-loading {
   display: flex;
   flex-direction: column;
@@ -5647,7 +5472,6 @@ a { text-decoration: none; color: inherit; }
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ─── Empty State ─────────────────────────────────────────── */
 .rs2-empty {
   display: flex;
   flex-direction: column;
@@ -5680,7 +5504,6 @@ a { text-decoration: none; color: inherit; }
   max-width: 340px;
 }
 
-/* ─── Responsive tweaks ─────────────────────────────────────── */
 @media (max-width: 700px) {
   .rs2-root { padding: 14px 12px 90px; gap: 12px; }
   .rs2-hero-card { flex-direction: column; gap: 16px; }
@@ -5699,7 +5522,7 @@ a { text-decoration: none; color: inherit; }
   .rs2-actions { flex-direction: column; }
   .rs2-btn-primary, .rs2-btn-ghost { justify-content: center; }
 }
-/* ─── Similar Cars Vertical Table ──────────────────────────────── */
+
 .rs2-similar-table-card {
   padding: 22px 24px 20px;
 }
@@ -5751,7 +5574,6 @@ a { text-decoration: none; color: inherit; }
   background: #f8fafc;
 }
 
-/* Most Similar row — highlighted */
 .rs2-similar-table tbody tr.rs2-tr-featured td {
   background: #eff6ff;
 }
@@ -5760,7 +5582,6 @@ a { text-decoration: none; color: inherit; }
   background: #dbeafe;
 }
 
-/* Table cell typography */
 .rs2-table-name {
   font-size: 14.5px;
   font-weight: 700;
@@ -5842,7 +5663,6 @@ a { text-decoration: none; color: inherit; }
   border-color: #15803d;
 }
 
-/* Responsive: stack table on mobile */
 @media (max-width: 700px) {
   .rs2-similar-table-wrap { border-radius: 8px; }
   .rs2-similar-table th,
@@ -5851,7 +5671,6 @@ a { text-decoration: none; color: inherit; }
   .rs2-similar-table td:nth-child(n+5) { display: none; }
 }
 
-/* Restructured Result Screen Hero Card Layout */
 .rs2-hero-card {
   flex-direction: column !important;
   gap: 22px !important;

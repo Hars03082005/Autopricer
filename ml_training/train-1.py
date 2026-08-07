@@ -1,22 +1,3 @@
-"""
-ml_training/train-1.py
-AutoPricer ML Training Pipeline — Variant (overall.csv)
-
-Outputs (local artifacts only):
-  vehicle_price_catboost.cbm
-  vehicle_price_lightgbm.txt
-  vehicle_price_xgboost.json
-  ensemble_bundle.pkl
-  routing_table.json
-  model_metadata.json        ← single compact metadata file
-  model_comparison.csv       ← primary local performance report
-  feature_importance_*.csv   ← one per model (CSV only)
-  dataset_catalog.json
-  training.log               ← full debug log
-
-All experiment history, comparisons, visualisations, artifact versioning
-and hyperparameter tracking are delegated to Weights & Biases.
-"""
 from __future__ import annotations
 
 import importlib
@@ -42,7 +23,6 @@ import lightgbm as lgb
 import xgboost as xgb
 from scipy.optimize import minimize
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 warnings.filterwarnings("ignore")
@@ -56,25 +36,62 @@ import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1]))
 from ml_training import registry_helper
 
-# ── CONFIG ─────────────────────────────────────────────────────────────────────
-ROOT         = Path(__file__).resolve().parents[1]
-DATASET      = Path(__file__).resolve().parent / "data" / "processed_overall.csv"
-IS_OFFICIAL  = False
-SCRIPT_NAME  = "train-1"
+ROOT        = Path(__file__).resolve().parents[1]
+DATASET_DIR = Path(__file__).resolve().parent / "data" / "overall_only"
+TRAIN_FILE  = DATASET_DIR / "train.csv"
+VALID_FILE  = DATASET_DIR / "valid.csv"
+
+# HELD-OUT TEST SET — never pass this to fit(), train(), optimise_weights(),
+# or train_segment_model(). Only used once at the very end for final honest metrics.
+TEST_FILE   = DATASET_DIR / "test.csv"
+
+IS_OFFICIAL = False
+SCRIPT_NAME = "train-1"
 
 VARIANT_ID   = registry_helper.next_variant_id()
 ARTIFACT_DIR = registry_helper.get_variant_dir(VARIANT_ID)
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 
-RANDOM_STATE     = 42
-TARGET           = "selling_price"
-MIN_SEGMENT_ROWS = 200
+RANDOM_STATE            = 42
+TARGET                  = "selling_price"
+MIN_SEGMENT_ROWS        = 200
+MIN_SEGMENT_IMPROVEMENT_PCT = 5.0   # segment model must beat global by >= 5% relative MAPE
 
 SEGMENTS: dict[str, tuple[int, int]] = {
     "0_6_lakh":     (0,           600_000),
     "6_12_lakh":    (600_000,   1_200_000),
     "12_plus_lakh": (1_200_000, 20_000_000),
 }
+
+# Features used by this training script (15 total).
+#
+# FEATURE GAP vs backend/main.py build_features() — DECISION POINT:
+# The following engineered columns produced by build_features() are NOT used here.
+# Adding any of them requires full retraining + re-validation of all model variants.
+# Do NOT add silently — confirm feature set change before touching FEATURES below.
+#
+#   brand_tier            — ordinal brand quality score (1-5)
+#   age_km_interaction    — vehicle_age * odometer_reading (interaction term)
+#   ownership_trust_score — owner_count mapped to trust index {1:100, 2:75, ...}
+#   vehicle_health_score  — composite decay formula (age, km, owners)
+#   is_high_mileage       — binary flag: km_per_year > 15,000
+#   locality_tier         — numeric locality quality tier from city map
+#   usage_category_num    — binned km_per_year (light/moderate/heavy/etc.)
+#   locality_density_norm — normalised city density from city map
+#   popularity_score_log  — log brand popularity score
+#   brand_age_penalty     — brand_tier * vehicle_age
+#   brand_km_penalty      — brand_tier * (km / 10,000)
+#   inspected             — alias of certified flag
+#   high_mileage          — alias of is_high_mileage
+#   luxury_brand          — binary: seg_class == "luxury"
+#   has_list_price        — intentionally omitted in backend (no inference-time source)
+#
+# PINCODE NOTE: pincode is currently encoded as a raw NUMERIC feature, which is
+# questionable — pincode magnitude has no ordinal relationship to price (600001 is
+# not "higher value" than 110001). Additionally, backend/main.py never supplies a
+# real pincode at inference time (always NaN). Do NOT remove it yet — check its
+# feature importance rank in the generated CSVs with real training data before
+# deciding to drop or re-encode as a categorical / regional bucket.
 
 CAT_FEATURES: list[str] = [
     "brand", "model", "variant",
@@ -115,9 +132,7 @@ SEG_CB_PARAMS: dict[str, Any] = {
     "min_data_in_leaf": 10, "early_stopping_rounds": 100,
 }
 
-# ── LOGGER ─────────────────────────────────────────────────────────────────────
-# Console → INFO-only, concise.
-# File (training.log) → DEBUG, full detail.
+
 def _setup_logger(artifact_dir: Path) -> logging.Logger:
     log_path = artifact_dir / "training.log"
     fmt_file    = logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -140,7 +155,7 @@ def _setup_logger(artifact_dir: Path) -> logging.Logger:
 
 log = _setup_logger(ARTIFACT_DIR)
 
-# ── RANDOM SEEDS ───────────────────────────────────────────────────────────────
+
 def _set_seeds(seed: int = RANDOM_STATE) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -149,7 +164,7 @@ def _set_seeds(seed: int = RANDOM_STATE) -> None:
 
 _set_seeds()
 
-# ── WEIGHTS & BIASES ───────────────────────────────────────────────────────────
+
 _wandb_mod = None
 try:
     _wandb_mod = importlib.import_module("wandb")
@@ -198,7 +213,7 @@ def _finish_wandb() -> None:
         except Exception:
             pass
 
-# ── METRICS ───────────────────────────────────────────────────────────────────
+
 def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     y_true_price = np.expm1(y_true)
     y_pred_price = np.expm1(y_pred)
@@ -208,15 +223,57 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     mape = np.mean(np.abs((y_true_price - y_pred_price) / (y_true_price + 1e-8))) * 100
     return {"MAE": round(mae, 2), "RMSE": round(rmse, 2), "R2": round(r2, 4), "MAPE": round(mape, 2)}
 
-# ── DATASET ────────────────────────────────────────────────────────────────────
-def load_dataset() -> pd.DataFrame:
-    if not DATASET.exists():
-        raise FileNotFoundError(f"Dataset not found: {DATASET}")
-    df = pd.read_csv(DATASET, low_memory=False)
-    log.debug(f"Loaded {len(df):,} rows from {DATASET.name}")
+
+def load_splits() -> tuple[pd.DataFrame, pd.DataFrame]:
+    for f in (TRAIN_FILE, VALID_FILE):
+        if not f.exists():
+            raise FileNotFoundError(f"Split file not found: {f}")
+    df_train = pd.read_csv(TRAIN_FILE, low_memory=False)
+    df_valid  = pd.read_csv(VALID_FILE, low_memory=False)
+    log.debug(f"Loaded train={len(df_train):,} rows, valid={len(df_valid):,} rows from {DATASET_DIR.name}/")
+    return df_train, df_valid
+
+def load_test_holdout() -> pd.DataFrame:
+    """
+    Load the held-out test set. Call this ONLY after all training, early-stopping,
+    weight optimisation, and segment-activation decisions are fully complete.
+    Never pass the returned DataFrame to fit(), train(), optimise_weights(),
+    or train_segment_model().
+    """
+    if not TEST_FILE.exists():
+        raise FileNotFoundError(f"Test holdout file not found: {TEST_FILE}")
+    df = pd.read_csv(TEST_FILE, low_memory=False)
+    log.debug(f"Loaded test holdout: {len(df):,} rows from {TEST_FILE.name}")
     return df
 
-def clean_training_data(df: pd.DataFrame) -> pd.DataFrame:
+def check_test_leakage(df_train: pd.DataFrame, df_valid: pd.DataFrame,
+                       df_test: pd.DataFrame) -> None:
+    """
+    One-time duplicate check: compares test.csv rows against train.csv and valid.csv
+    on key identity columns. Logs a warning if overlap is found.
+    Does NOT block training if the files are already confirmed clean.
+    """
+    key_cols = [c for c in ["brand", "model", "variant", "vehicle_age",
+                             "odometer_reading", TARGET]
+                if c in df_train.columns and c in df_test.columns]
+    if not key_cols:
+        log.warning("Leakage check skipped — no shared key columns found")
+        return
+
+    tr_keys    = set(df_train[key_cols].dropna().apply(tuple, axis=1))
+    val_keys   = set(df_valid[key_cols].dropna().apply(tuple, axis=1))
+    test_keys  = set(df_test[key_cols].dropna().apply(tuple, axis=1))
+
+    train_overlap = test_keys & tr_keys
+    valid_overlap = test_keys & val_keys
+    if train_overlap:
+        log.warning(f"LEAKAGE WARNING: {len(train_overlap)} test rows appear in train.csv!")
+    if valid_overlap:
+        log.warning(f"LEAKAGE WARNING: {len(valid_overlap)} test rows appear in valid.csv!")
+    if not train_overlap and not valid_overlap:
+        log.debug("Leakage check passed — test set has zero overlap with train and valid")
+
+def clean_data(df: pd.DataFrame, split_name: str) -> pd.DataFrame:
     before = len(df)
     df[TARGET] = pd.to_numeric(df[TARGET], errors="coerce")
     df = df.dropna(subset=[TARGET])
@@ -230,28 +287,33 @@ def clean_training_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in CAT_FEATURES:
         if col in df.columns:
             df[col] = df[col].fillna("unknown").astype(str).str.strip().str.lower()
-    log.debug(f"Clean: {before:,} → {len(df):,} rows (dropped {before - len(df):,})")
+    log.debug(f"Clean [{split_name}]: {before:,} → {len(df):,} rows (dropped {before - len(df):,})")
     return df
 
-# ── SPLIT & FRAMES ─────────────────────────────────────────────────────────────
-def split_dataset(df: pd.DataFrame):
-    X = df[[f for f in FEATURES if f in df.columns]]
-    y = np.log1p(df[TARGET])
-    return train_test_split(X, y, test_size=0.30, random_state=RANDOM_STATE, shuffle=True)
 
-def build_category_levels(df: pd.DataFrame) -> dict:
+def build_category_levels(df_train: pd.DataFrame) -> dict:
     levels = {}
     for col in CAT_FEATURES:
-        if col not in df.columns:
+        if col not in df_train.columns:
             levels[col] = ["unknown"]
             continue
-        vals = df[col].astype(str).fillna("unknown").unique().tolist()
+        vals = df_train[col].astype(str).fillna("unknown").unique().tolist()
         if "unknown" not in vals:
             vals.append("unknown")
         levels[col] = sorted(vals)
     return levels
 
-def prepare_frames(df: pd.DataFrame, category_levels: dict, encoders: dict | None = None):
+def _compute_train_medians(df_train: pd.DataFrame) -> dict[str, float]:
+    medians: dict[str, float] = {}
+    for col in NUMERIC_FEATURES:
+        if col in df_train.columns:
+            med = df_train[col].median()
+            medians[col] = 0.0 if pd.isna(med) else float(med)
+    return medians
+
+def prepare_frames(df: pd.DataFrame, category_levels: dict,
+                   train_medians: dict[str, float],
+                   encoders: dict | None = None):
     available = [f for f in FEATURES if f in df.columns]
     frame = df[available].copy()
     for f in FEATURES:
@@ -262,8 +324,7 @@ def prepare_frames(df: pd.DataFrame, category_levels: dict, encoders: dict | Non
         frame[col] = frame[col].astype(str).apply(lambda x: x if x in known else "unknown")
     for col in NUMERIC_FEATURES:
         if col in frame.columns:
-            med = frame[col].median()
-            frame[col] = frame[col].fillna(0 if pd.isna(med) else med)
+            frame[col] = frame[col].fillna(train_medians.get(col, 0.0))
     cb_frame  = frame.copy()
     lgb_frame = frame.copy()
     active_encoders: dict = {}
@@ -278,18 +339,21 @@ def prepare_frames(df: pd.DataFrame, category_levels: dict, encoders: dict | Non
     xgb_frame = lgb_frame.copy()
     return cb_frame, lgb_frame, xgb_frame, active_encoders
 
-def prepare_training_frames(X_train: pd.DataFrame, X_val: pd.DataFrame) -> dict:
-    cat_levels = build_category_levels(X_train)
-    cb_tr, lgb_tr, xgb_tr, encoders = prepare_frames(X_train, cat_levels)
-    cb_v,  lgb_v,  xgb_v,  _        = prepare_frames(X_val,   cat_levels, encoders)
+def prepare_training_frames(df_train: pd.DataFrame, df_valid: pd.DataFrame) -> dict:
+    cat_levels    = build_category_levels(df_train)
+    train_medians = _compute_train_medians(df_train)
+    cb_tr, lgb_tr, xgb_tr, encoders = prepare_frames(df_train, cat_levels, train_medians)
+    cb_v,  lgb_v,  xgb_v,  _        = prepare_frames(df_valid,  cat_levels, train_medians, encoders)
     return {
-        "category_levels": cat_levels, "encoders": encoders,
+        "category_levels": cat_levels,
+        "train_medians":   train_medians,
+        "encoders":        encoders,
         "catboost": {"train": cb_tr, "val": cb_v},
         "lightgbm": {"train": lgb_tr, "val": lgb_v},
         "xgboost":  {"train": xgb_tr, "val": xgb_v},
     }
 
-# ── MODEL TRAINING ─────────────────────────────────────────────────────────────
+
 def train_catboost(X_tr, y_tr, X_v, y_v) -> CatBoostRegressor:
     log.debug(f"CatBoost params: {CB_PARAMS}")
     cat_cols = [c for c in CAT_FEATURES if c in X_tr.columns]
@@ -312,7 +376,7 @@ def train_xgboost(X_tr, y_tr, X_v, y_v) -> xgb.Booster:
                       early_stopping_rounds=150, verbose_eval=200)
     return model
 
-# ── EVALUATION ─────────────────────────────────────────────────────────────────
+
 def predict(model, model_name: str, X: pd.DataFrame) -> np.ndarray:
     if model_name == "CatBoost": return model.predict(X)
     if model_name == "LightGBM": return model.predict(X)
@@ -325,30 +389,41 @@ def evaluate_model(model, model_name: str, X, y) -> tuple[dict, np.ndarray]:
     log.debug(f"{model_name} MAE=₹{scores['MAE']:,.0f} MAPE={scores['MAPE']:.2f}% R2={scores['R2']:.4f}")
     return scores, preds
 
+# TODO: Investigate inverse-density sample weighting and Yeo-Johnson power
+# transforms as potential improvements for the right-skewed price distribution.
+# Both were discussed as future work — not yet implemented.
 def optimise_weights(cb_p, lgb_p, xgb_p, y_true) -> np.ndarray:
-    def neg_r2(w):
-        w = np.array(w) / np.sum(w)
-        ens = w[0]*cb_p + w[1]*lgb_p + w[2]*xgb_p
-        return -r2_score(np.log1p(np.expm1(y_true)), np.log1p(np.expm1(ens)))
-    res = minimize(neg_r2, x0=[1/3, 1/3, 1/3], method="SLSQP",
+    """Minimise MAPE on the real rupee scale (expm1 of log-space predictions).
+    This matches the primary reported metric in calculate_metrics()."""
+    def mape_loss(w):
+        w = np.abs(w) / np.sum(np.abs(w))
+        ens_price   = np.expm1(w[0]*cb_p + w[1]*lgb_p + w[2]*xgb_p)
+        true_price  = np.expm1(y_true)
+        return np.mean(np.abs((true_price - ens_price) / (true_price + 1e-8))) * 100
+
+    res = minimize(mape_loss, x0=[1/3, 1/3, 1/3], method="SLSQP",
                    bounds=[(0, 1)]*3, constraints={"type": "eq", "fun": lambda w: sum(w)-1})
-    return res.x / res.x.sum()
+    w = np.abs(res.x) / np.sum(np.abs(res.x))
+    return w
 
 def evaluate_ensemble(w, cb, lgb_p, xgb_p, y) -> dict:
     ens = w[0]*cb + w[1]*lgb_p + w[2]*xgb_p
     return calculate_metrics(y, ens)
 
-# ── FEATURE IMPORTANCE ─────────────────────────────────────────────────────────
+
 def _save_feature_importance(importance: dict[str, float], model_name: str) -> None:
-    """Save feature importance as CSV only (no JSON)."""
     sorted_imp = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True))
     csv_path   = ARTIFACT_DIR / f"feature_importance_{model_name.lower()}.csv"
-    pd.DataFrame(sorted_imp.items(), columns=["feature", "importance"]).to_csv(csv_path, index=False)
+    df_imp = pd.DataFrame(sorted_imp.items(), columns=["feature", "importance"])
+    df_imp.to_csv(csv_path, index=False)
+    pincode_row = df_imp[df_imp["feature"] == "pincode"]
+    if not pincode_row.empty:
+        rank = int(pincode_row.index[0]) + 1
+        log.debug(f"[{model_name}] pincode importance rank: {rank}/{len(df_imp)}")
     log.debug(f"Saved feature importance: {csv_path.name}")
     _wandb_log_artifact(csv_path, artifact_type="importance")
 
 def generate_feature_importances(cb_model, lgb_model, xgb_model, features: list[str]) -> dict:
-    """Generate and save per-model importances; return top-10 per model for summary."""
     importances: dict = {}
     try:
         cb_imp = dict(zip(features, cb_model.get_feature_importance()))
@@ -370,15 +445,10 @@ def generate_feature_importances(cb_model, lgb_model, xgb_model, features: list[
         log.warning(f"XGBoost feature importance failed: {e}")
     return importances
 
-# ── ARTIFACTS ──────────────────────────────────────────────────────────────────
+
 def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoders,
-                   rows_used: int, val_metrics: dict, seg_active: list[str]) -> None:
-    """
-    Save production-ready artifacts only:
-      - 3 model files + ensemble bundle
-      - model_metadata.json  (compact, deployment-relevant)
-      - model_comparison.csv (primary local performance report)
-    """
+                   train_rows: int, valid_rows: int, val_metrics: dict,
+                   seg_active: list[str]) -> None:
     cat_model.save_model(str(ARTIFACT_DIR / "vehicle_price_catboost.cbm"))
     lgb_model.save_model(str(ARTIFACT_DIR / "vehicle_price_lightgbm.txt"))
     xgb_model.save_model(str(ARTIFACT_DIR / "vehicle_price_xgboost.json"))
@@ -392,16 +462,17 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
     }
     joblib.dump(bundle, ARTIFACT_DIR / "ensemble_bundle.pkl")
 
-    # Single compact metadata file — no OS/env/hash/timing noise
     model_metadata = {
-        "variant_id":       VARIANT_ID,
-        "script":           SCRIPT_NAME,
-        "dataset_name":     DATASET.name,
-        "rows_used":        rows_used,
-        "features":         FEATURES,
-        "cat_features":     CAT_FEATURES,
-        "numeric_features": NUMERIC_FEATURES,
-        "val_metrics":      val_metrics,
+        "variant_id":            VARIANT_ID,
+        "script":                SCRIPT_NAME,
+        "data_folder":           DATASET_DIR.name,
+        "split_source":          "pre_split",
+        "train_rows":            train_rows,
+        "valid_rows":            valid_rows,
+        "features":              FEATURES,
+        "cat_features":          CAT_FEATURES,
+        "numeric_features":      NUMERIC_FEATURES,
+        "val_metrics":           val_metrics,
         "ensemble_weights": {
             "catboost": float(weights[0]),
             "lightgbm": float(weights[1]),
@@ -419,45 +490,74 @@ def save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels, encoder
 
     log.debug("Artifacts saved")
 
-# ── SEGMENTED TRAINING ─────────────────────────────────────────────────────────
-def train_segment_model(seg_name, seg_df, global_model, global_cat_levels) -> tuple:
-    log.debug(f"Segment: {seg_name} ({len(seg_df):,} rows)")
-    if len(seg_df) < MIN_SEGMENT_ROWS:
-        log.debug(f"Skip {seg_name} — only {len(seg_df)} rows")
+
+def train_segment_model(seg_name: str,
+                        seg_train_df: pd.DataFrame,
+                        seg_valid_df: pd.DataFrame,
+                        global_model: CatBoostRegressor,
+                        global_cat_levels: dict) -> tuple:
+    log.debug(f"Segment: {seg_name} (train {len(seg_train_df):,} rows, valid {len(seg_valid_df):,} rows)")
+    if len(seg_train_df) < MIN_SEGMENT_ROWS:
+        log.debug(f"Skip {seg_name} — only {len(seg_train_df)} train rows")
         return None, None, None
-    X = seg_df[[f for f in FEATURES if f in seg_df.columns]]
-    y = np.log1p(seg_df[TARGET])
-    X_tr, X_v, y_tr, y_v = train_test_split(X, y, test_size=0.30, random_state=RANDOM_STATE)
-    seg_levels     = build_category_levels(X_tr)
-    cb_tr, _, _, _ = prepare_frames(X_tr, seg_levels)
-    cb_v,  _, _, _ = prepare_frames(X_v,  seg_levels)
-    cat_cols = [c for c in CAT_FEATURES if c in cb_tr.columns]
+
+    X_tr = seg_train_df[[f for f in FEATURES if f in seg_train_df.columns]]
+    y_tr = np.log1p(seg_train_df[TARGET])
+    X_v  = seg_valid_df[[f for f in FEATURES if f in seg_valid_df.columns]]
+    y_v  = np.log1p(seg_valid_df[TARGET])
+
+    if len(X_v) == 0:
+        log.debug(f"Skip {seg_name} — no valid rows in this price band")
+        return None, None, None
+
+    seg_levels  = build_category_levels(X_tr)
+    seg_medians = _compute_train_medians(X_tr)
+    cb_tr, _, _, _ = prepare_frames(X_tr, seg_levels, seg_medians)
+    cb_v,  _, _, _ = prepare_frames(X_v,  seg_levels, seg_medians)
+
+    cat_cols  = [c for c in CAT_FEATURES if c in cb_tr.columns]
     seg_model = CatBoostRegressor(**SEG_CB_PARAMS, verbose=0)
     seg_model.fit(Pool(cb_tr, y_tr, cat_features=cat_cols),
                   eval_set=Pool(cb_v, y_v, cat_features=cat_cols), use_best_model=True)
-    seg_scores    = calculate_metrics(y_v, seg_model.predict(cb_v))
-    cb_v_g, _, _, _ = prepare_frames(X_v, global_cat_levels)
-    global_scores   = calculate_metrics(y_v, global_model.predict(cb_v_g))
-    if seg_scores["MAPE"] < global_scores["MAPE"]:
-        log.debug(f"Segment {seg_name} ACTIVE (MAPE {seg_scores['MAPE']:.2f}% < {global_scores['MAPE']:.2f}%)")
+    seg_scores = calculate_metrics(y_v, seg_model.predict(cb_v))
+
+    cb_v_g, _, _, _ = prepare_frames(X_v, global_cat_levels,
+                                      _compute_train_medians(pd.DataFrame(columns=NUMERIC_FEATURES)))
+    global_scores = calculate_metrics(y_v, global_model.predict(cb_v_g))
+
+    rel_improvement = (global_scores["MAPE"] - seg_scores["MAPE"]) / (global_scores["MAPE"] + 1e-8) * 100
+    log.debug(
+        f"Segment {seg_name}: seg MAPE={seg_scores['MAPE']:.2f}%, "
+        f"global MAPE={global_scores['MAPE']:.2f}%, "
+        f"relative improvement={rel_improvement:.1f}% "
+        f"(threshold={MIN_SEGMENT_IMPROVEMENT_PCT}%)"
+    )
+
+    if rel_improvement >= MIN_SEGMENT_IMPROVEMENT_PCT:
+        log.debug(f"Segment {seg_name} ACTIVE")
         return seg_model, seg_levels, seg_scores
-    log.debug(f"Segment {seg_name} inactive (global MAPE {global_scores['MAPE']:.2f}% ≤ {seg_scores['MAPE']:.2f}%)")
+    log.debug(f"Segment {seg_name} inactive — improvement below threshold")
     return None, None, global_scores
 
-def train_segmented_models(df, global_model, global_cat_levels) -> dict:
+def train_segmented_models(df_train: pd.DataFrame, df_valid: pd.DataFrame,
+                           global_model: CatBoostRegressor,
+                           global_cat_levels: dict) -> dict:
     results = {}
     for seg_name, (pmin, pmax) in SEGMENTS.items():
-        mask   = df[TARGET].between(pmin, pmax)
-        seg_df = df[mask].copy()
-        m, lv, sc = train_segment_model(seg_name, seg_df, global_model, global_cat_levels)
+        tr_mask = df_train[TARGET].between(pmin, pmax)
+        v_mask  = df_valid[TARGET].between(pmin, pmax)
+        seg_tr  = df_train[tr_mask].copy()
+        seg_v   = df_valid[v_mask].copy()
+        m, lv, sc = train_segment_model(seg_name, seg_tr, seg_v, global_model, global_cat_levels)
         results[seg_name] = {
             "model": m, "cat_levels": lv, "scores": sc,
-            "active": m is not None, "price_range": (pmin, pmax), "row_count": int(mask.sum()),
+            "active": m is not None, "price_range": (pmin, pmax),
+            "row_count": int(tr_mask.sum()),
         }
     return results
 
 def save_segment_artifacts(segment_results) -> tuple[dict, list[str]]:
-    routing: dict   = {}
+    routing: dict     = {}
     active: list[str] = []
     for seg_name, r in segment_results.items():
         if r["active"]:
@@ -485,46 +585,137 @@ def save_segment_artifacts(segment_results) -> tuple[dict, list[str]]:
         json.dump(routing, f, indent=2)
     return routing, active
 
-# ── CONSOLE SUMMARY ────────────────────────────────────────────────────────────
-def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
-                   weights, comparison, active_segs, top_features, total_sec) -> None:
+
+def evaluate_holdout_test(cat_model, lgb_model, xgb_model, weights,
+                          cat_levels, train_medians, encoders,
+                          df_train: pd.DataFrame, df_valid: pd.DataFrame) -> dict:
+    """
+    Load test.csv fresh and evaluate all frozen models. No refitting occurs.
+    Produces holdout_test_results.json and holdout_test_comparison.csv.
+    """
+    print("\nLoading held-out test set ...")
+    df_test_raw = load_test_holdout()
+
+    check_test_leakage(df_train, df_valid, df_test_raw)
+
+    df_test = clean_data(df_test_raw, "test")
+    X_test  = df_test[[f for f in FEATURES if f in df_test.columns]]
+    y_test  = np.log1p(df_test[TARGET])
+
+    cb_te, lgb_te, xgb_te, _ = prepare_frames(X_test, cat_levels, train_medians, encoders)
+
+    cat_te_sc, cat_te_p = evaluate_model(cat_model, "CatBoost", cb_te,  y_test)
+    lgb_te_sc, lgb_te_p = evaluate_model(lgb_model, "LightGBM", lgb_te, y_test)
+    xgb_te_sc, xgb_te_p = evaluate_model(xgb_model, "XGBoost",  xgb_te, y_test)
+
+    ens_te_sc = evaluate_ensemble(weights, cat_te_p, lgb_te_p, xgb_te_p, y_test)
+
+    per_segment: dict = {}
+    for seg_name, (pmin, pmax) in SEGMENTS.items():
+        mask = df_test[TARGET].between(pmin, pmax)
+        seg_df = df_test[mask]
+        if len(seg_df) < 5:
+            per_segment[seg_name] = {"n": int(mask.sum()), "note": "too few samples"}
+            continue
+        seg_X   = seg_df[[f for f in FEATURES if f in seg_df.columns]]
+        seg_y   = np.log1p(seg_df[TARGET])
+        cb_s, lgb_s, xgb_s, _ = prepare_frames(seg_X, cat_levels, train_medians, encoders)
+        cb_sp  = cat_model.predict(cb_s)
+        lgb_sp = lgb_model.predict(lgb_s)
+        xgb_sp = xgb_model.predict(xgb.DMatrix(xgb_s))
+        ens_sp = weights[0]*cb_sp + weights[1]*lgb_sp + weights[2]*xgb_sp
+        per_segment[seg_name] = {
+            "n":        int(mask.sum()),
+            "CatBoost": calculate_metrics(seg_y, cb_sp),
+            "LightGBM": calculate_metrics(seg_y, lgb_sp),
+            "XGBoost":  calculate_metrics(seg_y, xgb_sp),
+            "Ensemble": calculate_metrics(seg_y, ens_sp),
+        }
+
+    results = {
+        "variant_id":   VARIANT_ID,
+        "script":       SCRIPT_NAME,
+        "test_rows":    len(df_test),
+        "overall": {
+            "CatBoost": cat_te_sc,
+            "LightGBM": lgb_te_sc,
+            "XGBoost":  xgb_te_sc,
+            "Ensemble": ens_te_sc,
+        },
+        "per_segment": per_segment,
+    }
+
+    with open(ARTIFACT_DIR / "holdout_test_results.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+
+    test_comparison = pd.DataFrame([
+        {"Model": "CatBoost",  **cat_te_sc},
+        {"Model": "LightGBM",  **lgb_te_sc},
+        {"Model": "XGBoost",   **xgb_te_sc},
+        {"Model": "Ensemble",  **ens_te_sc},
+    ]).sort_values("R2", ascending=False)
+    test_comparison.to_csv(ARTIFACT_DIR / "holdout_test_comparison.csv", index=False)
+    log.debug("Saved holdout_test_results.json and holdout_test_comparison.csv")
+
+    return results
+
+
+def _print_summary(df_train, df_valid, cat_sc, lgb_sc, xgb_sc, val_scores,
+                   weights, active_segs, top_features, total_sec,
+                   holdout_results: dict | None = None) -> None:
     W = 72
     line = "─" * W
-    header = f"  AutoPricer  ·  {SCRIPT_NAME}  ·  Variant {VARIANT_ID}"
 
     print(f"\n{'━' * W}")
-    print(header)
+    print(f"  AutoPricer  ·  {SCRIPT_NAME}  ·  Variant {VARIANT_ID}")
     print(f"{'━' * W}")
 
-    # Dataset
-    print(f"\n  Dataset  : {DATASET.name}  ({len(df_train) + len(df_val):,} rows  →  train {len(df_train):,} / val {len(df_val):,})")
+    print(f"\n  Dataset  : {DATASET_DIR.name}/  (train {len(df_train):,} / val {len(df_valid):,}  |  pre-split, no leakage)")
     print(f"  Features : {len(FEATURES)} total  ({len(CAT_FEATURES)} categorical, {len(NUMERIC_FEATURES)} numeric)\n")
 
-    # Model metrics table
     print(f"  {line}")
     print(f"  {'Model':<14}  {'MAE (₹)':>12}  {'RMSE (₹)':>12}  {'MAPE (%)':>9}  {'R²':>7}")
     print(f"  {line}")
-    for row in [
-        ("CatBoost",  cat_sc),
-        ("LightGBM",  lgb_sc),
-        ("XGBoost",   xgb_sc),
+    for name, sc in [
+        ("CatBoost",   cat_sc),
+        ("LightGBM",   lgb_sc),
+        ("XGBoost",    xgb_sc),
         ("Ensemble ★", val_scores),
     ]:
-        name, sc = row
-        marker = "★" if "★" in name else " "
         print(f"  {name:<14}  {sc['MAE']:>12,.0f}  {sc['RMSE']:>12,.0f}  {sc['MAPE']:>8.2f}%  {sc['R2']:>7.4f}")
     print(f"  {line}")
 
-    # Ensemble weights
+    if holdout_results:
+        print(f"\n  {'─' * 60}")
+        print(f"  VALIDATION vs HOLDOUT TEST  (Ensemble)")
+        print(f"  {'─' * 60}")
+        ho_ens = holdout_results["overall"]["Ensemble"]
+        gap_mape = ho_ens["MAPE"] - val_scores["MAPE"]
+        gap_r2   = val_scores["R2"] - ho_ens["R2"]
+        print(f"  {'Metric':<10}  {'Validation':>14}  {'Holdout Test':>14}  {'Gap':>10}")
+        print(f"  {'MAPE %':<10}  {val_scores['MAPE']:>13.2f}%  {ho_ens['MAPE']:>13.2f}%  {gap_mape:>+9.2f}%")
+        print(f"  {'MAE ₹':<10}  {val_scores['MAE']:>14,.0f}  {ho_ens['MAE']:>14,.0f}  {ho_ens['MAE'] - val_scores['MAE']:>+10,.0f}")
+        print(f"  {'R²':<10}  {val_scores['R2']:>14.4f}  {ho_ens['R2']:>14.4f}  {-gap_r2:>+10.4f}")
+        if abs(gap_mape) > 2.0:
+            print(f"\n  ⚠  MAPE gap {gap_mape:+.2f}% — check for distribution shift in test set")
+
+        print(f"\n  Holdout Test — Segment Breakdown (Ensemble)")
+        print(f"  {'Segment':<16}  {'N':>6}  {'MAPE (%)':>9}  {'R²':>7}")
+        for seg, data in holdout_results["per_segment"].items():
+            if "note" in data:
+                print(f"  {seg:<16}  {data['n']:>6}  (skipped — {data['note']})")
+            else:
+                ens_sc = data["Ensemble"]
+                print(f"  {seg:<16}  {data['n']:>6}  {ens_sc['MAPE']:>8.2f}%  {ens_sc['R2']:>7.4f}")
+        print(f"  {'─' * 60}")
+
     print(f"\n  Ensemble Weights")
     print(f"    CatBoost  {weights[0]*100:5.1f}%")
     print(f"    LightGBM  {weights[1]*100:5.1f}%")
     print(f"    XGBoost   {weights[2]*100:5.1f}%")
 
-    # Segments
     print(f"\n  Segment Models  →  {'  '.join(active_segs) if active_segs else 'None (global only)'}")
 
-    # Top features (CatBoost by default)
     cb_top = top_features.get("catboost", {})
     if cb_top:
         top5 = list(cb_top.items())[:5]
@@ -534,7 +725,6 @@ def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
             bar_len = int(score / max_score * 20)
             print(f"    {feat:<25}  {'█' * bar_len}  {score:,.0f}")
 
-    # Artifacts
     artifacts = [
         "vehicle_price_catboost.cbm",
         "vehicle_price_lightgbm.txt",
@@ -543,6 +733,8 @@ def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
         "routing_table.json",
         "model_metadata.json",
         "model_comparison.csv",
+        "holdout_test_results.json",
+        "holdout_test_comparison.csv",
         "feature_importance_catboost.csv",
         "feature_importance_lightgbm.csv",
         "feature_importance_xgboost.csv",
@@ -556,57 +748,63 @@ def _print_summary(df_train, df_val, cat_sc, lgb_sc, xgb_sc, val_scores,
     print(f"\n  Total training time  :  {total_sec:.1f}s")
     print(f"{'━' * W}\n")
 
-# ── MAIN PIPELINE ──────────────────────────────────────────────────────────────
+
 def train_all_models() -> dict:
     t0 = time.perf_counter()
     log.info(f"AutoPricer ML Training [{SCRIPT_NAME}]  Variant {VARIANT_ID}")
-    print(f"\nLoading {DATASET.name} ...")
+    print(f"\nLoading pre-split data from {DATASET_DIR.name}/ ...")
 
-    df = load_dataset()
-    df = clean_training_data(df)
+    df_train_raw, df_valid_raw = load_splits()
+    df_train = clean_data(df_train_raw, "train")
+    df_valid  = clean_data(df_valid_raw,  "valid")
 
-    X_train, X_val, y_train, y_val = split_dataset(df)
-    frames     = prepare_training_frames(X_train, X_val)
-    cat_levels = frames["category_levels"]
+    X_train = df_train[[f for f in FEATURES if f in df_train.columns]]
+    y_train = np.log1p(df_train[TARGET])
+    X_valid  = df_valid[[f for f in FEATURES if f in df_valid.columns]]
+    y_valid  = np.log1p(df_valid[TARGET])
+
+    frames        = prepare_training_frames(X_train, X_valid)
+    cat_levels    = frames["category_levels"]
+    train_medians = frames["train_medians"]
 
     _init_wandb({
-        "script": SCRIPT_NAME, "dataset": DATASET.name, "variant_id": VARIANT_ID,
-        "rows": len(df), "features": len(FEATURES), "random_seed": RANDOM_STATE,
+        "script": SCRIPT_NAME, "data_folder": DATASET_DIR.name, "variant_id": VARIANT_ID,
+        "split_source": "pre_split",
+        "train_rows": len(df_train), "valid_rows": len(df_valid),
+        "features": len(FEATURES), "random_seed": RANDOM_STATE,
         "catboost": CB_PARAMS,
         "lightgbm": {**LGB_PARAMS, "num_boost_round": LGB_ROUNDS},
         "xgboost":  {**XGB_PARAMS, "num_boost_round": XGB_ROUNDS},
     })
 
-    # Train
     print("Training CatBoost ...")
     try:
-        cat_model = train_catboost(frames["catboost"]["train"], y_train, frames["catboost"]["val"], y_val)
+        cat_model = train_catboost(frames["catboost"]["train"], y_train, frames["catboost"]["val"], y_valid)
     except Exception:
         log.error("CatBoost training failed\n" + traceback.format_exc())
         raise
 
     print("Training LightGBM ...")
     try:
-        lgb_model = train_lightgbm(frames["lightgbm"]["train"], y_train, frames["lightgbm"]["val"], y_val)
+        lgb_model = train_lightgbm(frames["lightgbm"]["train"], y_train, frames["lightgbm"]["val"], y_valid)
     except Exception:
         log.error("LightGBM training failed\n" + traceback.format_exc())
         raise
 
     print("Training XGBoost ...")
     try:
-        xgb_model = train_xgboost(frames["xgboost"]["train"], y_train, frames["xgboost"]["val"], y_val)
+        xgb_model = train_xgboost(frames["xgboost"]["train"], y_train, frames["xgboost"]["val"], y_valid)
     except Exception:
         log.error("XGBoost training failed\n" + traceback.format_exc())
         raise
 
-    # Evaluate
-    print("Evaluating ...")
-    cat_sc, cat_p = evaluate_model(cat_model, "CatBoost", frames["catboost"]["val"], y_val)
-    lgb_sc, lgb_p = evaluate_model(lgb_model, "LightGBM", frames["lightgbm"]["val"], y_val)
-    xgb_sc, xgb_p = evaluate_model(xgb_model, "XGBoost",  frames["xgboost"]["val"],  y_val)
+    print("Evaluating on validation set ...")
+    cat_sc, cat_p = evaluate_model(cat_model, "CatBoost", frames["catboost"]["val"], y_valid)
+    lgb_sc, lgb_p = evaluate_model(lgb_model, "LightGBM", frames["lightgbm"]["val"], y_valid)
+    xgb_sc, xgb_p = evaluate_model(xgb_model, "XGBoost",  frames["xgboost"]["val"],  y_valid)
 
-    weights    = optimise_weights(cat_p, lgb_p, xgb_p, y_val)
-    val_scores = evaluate_ensemble(weights, cat_p, lgb_p, xgb_p, y_val)
+    weights    = optimise_weights(cat_p, lgb_p, xgb_p, y_valid)
+    val_scores = evaluate_ensemble(weights, cat_p, lgb_p, xgb_p, y_valid)
 
     _wandb_log({
         "catboost_mae": cat_sc["MAE"],  "catboost_mape": cat_sc["MAPE"],  "catboost_r2": cat_sc["R2"],
@@ -618,7 +816,6 @@ def train_all_models() -> dict:
         "weights_xgboost":  float(weights[2]),
     })
 
-    # Comparison CSV
     comparison = pd.DataFrame([
         {"Model": "CatBoost",  **cat_sc},
         {"Model": "LightGBM",  **lgb_sc},
@@ -626,30 +823,26 @@ def train_all_models() -> dict:
         {"Model": "Ensemble",  **val_scores},
     ]).sort_values("R2", ascending=False)
     comparison.to_csv(ARTIFACT_DIR / "model_comparison.csv", index=False)
-    log.debug("Saved model_comparison.csv")
+    log.debug("Saved model_comparison.csv (validation-set scores)")
     _wandb_log_artifact(ARTIFACT_DIR / "model_comparison.csv", artifact_type="report")
 
-    # Feature importance (CSV only)
     print("Generating feature importances ...")
     top_features = generate_feature_importances(cat_model, lgb_model, xgb_model, FEATURES)
 
-    # Segmented models
     print("Training segment models ...")
-    seg_results   = train_segmented_models(df, cat_model, cat_levels)
+    seg_results   = train_segmented_models(df_train, df_valid, cat_model, cat_levels)
     routing_table, active_segs = save_segment_artifacts(seg_results)
 
-    # Save core artifacts + compact metadata
     val_metrics_full = {
         "CatBoost": cat_sc, "LightGBM": lgb_sc, "XGBoost": xgb_sc, "Ensemble": val_scores
     }
     save_artifacts(cat_model, lgb_model, xgb_model, weights, cat_levels,
-                   frames["encoders"], len(df), val_metrics_full, active_segs)
+                   frames["encoders"], len(df_train), len(df_valid),
+                   val_metrics_full, active_segs)
     _wandb_log_artifact(ARTIFACT_DIR / "model_metadata.json", artifact_type="metadata")
 
-    # Dataset catalog
     try:
-        _cdf = pd.read_csv(DATASET, usecols=["brand", "model", "variant"])
-        _cdf = _cdf.dropna(subset=["brand", "model"])
+        _cdf = df_train[["brand", "model", "variant"]].copy().dropna(subset=["brand", "model"])
         for c in ["brand", "model", "variant"]:
             _cdf[c] = _cdf[c].astype(str).str.strip().str.lower()
 
@@ -705,22 +898,39 @@ def train_all_models() -> dict:
     except Exception as exc:
         log.warning(f"dataset_catalog.json failed: {exc}")
 
-    # Registry
+    holdout_results: dict | None = None
+    try:
+        holdout_results = evaluate_holdout_test(
+            cat_model, lgb_model, xgb_model, weights,
+            cat_levels, train_medians, frames["encoders"],
+            df_train, df_valid,
+        )
+        _wandb_log({
+            "test_ensemble_mape": holdout_results["overall"]["Ensemble"]["MAPE"],
+            "test_ensemble_mae":  holdout_results["overall"]["Ensemble"]["MAE"],
+            "test_ensemble_r2":   holdout_results["overall"]["Ensemble"]["R2"],
+        })
+        _wandb_log_artifact(ARTIFACT_DIR / "holdout_test_results.json", artifact_type="report")
+    except FileNotFoundError:
+        log.warning(f"test.csv not found at {TEST_FILE} — holdout evaluation skipped")
+    except Exception:
+        log.warning("Holdout test evaluation failed\n" + traceback.format_exc())
+
     registry_helper.register_variant(
         variant_id=VARIANT_ID, artifact_dir=ARTIFACT_DIR,
-        dataset_name=DATASET.name,
+        dataset_name=DATASET_DIR.name,
         metrics={"mae": val_scores["MAE"], "rmse": val_scores["RMSE"],
                  "r2": val_scores["R2"],   "mape": val_scores["MAPE"]},
     )
     _finish_wandb()
 
     total_sec = time.perf_counter() - t0
-    log.info(f"COMPLETE — Ensemble MAPE {val_scores['MAPE']:.2f}%  R2 {val_scores['R2']:.4f}  ({total_sec:.1f}s)")
+    log.info(f"COMPLETE — Val MAPE {val_scores['MAPE']:.2f}%  R2 {val_scores['R2']:.4f}  ({total_sec:.1f}s)")
 
-    _print_summary(X_train, X_val, cat_sc, lgb_sc, xgb_sc, val_scores,
-                   weights, comparison, active_segs, top_features, total_sec)
+    _print_summary(df_train, df_valid, cat_sc, lgb_sc, xgb_sc, val_scores,
+                   weights, active_segs, top_features, total_sec, holdout_results)
 
-    return {"comparison": comparison, "segments": seg_results}
+    return {"comparison": comparison, "segments": seg_results, "holdout": holdout_results}
 
 
 if __name__ == "__main__":
