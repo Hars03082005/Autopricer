@@ -38,7 +38,7 @@ const MAIN_VARIANTS = [
   { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
 ];
 
-function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Active, onS5Toggle, s5Switching }) {
+function VariantSwitcher({ activeVariant, onSwitch, switching }) {
   return (
     <div style={{
       background: 'var(--surface-1)',
@@ -47,19 +47,18 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
       padding: '14px 18px',
       marginBottom: 12,
     }}>
-      {}
-      <div style={{ marginBottom: s5Eligible ? 12 : 0 }}>
+      <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
           ML MODEL ENGINE
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {MAIN_VARIANTS.map(v => {
-            const active = activeVariant === v.id && !s5Active;
+            const active = activeVariant === v.id;
             return (
               <button
                 key={v.id}
                 onClick={() => onSwitch(v.id)}
-                disabled={switching || s5Switching}
+                disabled={switching}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '7px 14px',
@@ -69,8 +68,8 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
                   color: active ? '#1d4ed8' : 'var(--text-2)',
                   fontWeight: active ? 700 : 500,
                   fontSize: 13,
-                  cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
-                  opacity: (switching || s5Switching) ? 0.6 : 1,
+                  cursor: switching ? 'not-allowed' : 'pointer',
+                  opacity: switching ? 0.6 : 1,
                   transition: 'all 0.15s',
                 }}
               >
@@ -95,53 +94,6 @@ function VariantSwitcher({ activeVariant, onSwitch, switching, s5Eligible, s5Act
           )}
         </div>
       </div>
-
-      {}
-      {s5Eligible && (
-        <div style={{
-          paddingTop: 12,
-          borderTop: '1px solid var(--border)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 2 }}>
-                S5 QUALITY SHOP MODEL
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                Specialized benchmark from quality dealer dataset (age ≤ 7 yrs)
-              </div>
-            </div>
-            <button
-              onClick={onS5Toggle}
-              disabled={switching || s5Switching}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 16px',
-                borderRadius: 8,
-                border: s5Active ? '2px solid #7c3aed' : '1.5px solid var(--border)',
-                background: s5Active ? '#f5f3ff' : 'var(--surface-2)',
-                color: s5Active ? '#7c3aed' : 'var(--text-2)',
-                fontWeight: s5Active ? 700 : 500,
-                fontSize: 13,
-                cursor: (switching || s5Switching) ? 'not-allowed' : 'pointer',
-                opacity: (switching || s5Switching) ? 0.6 : 1,
-                transition: 'all 0.15s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span>✨</span>
-              <span>{s5Active ? 'S5 Active' : 'View S5 Prediction'}</span>
-              {s5Switching && <span style={{ fontSize: 11, color: '#64748b' }}>Loading…</span>}
-              {s5Active && (
-                <span style={{
-                  fontSize: 9, background: '#7c3aed', color: 'white',
-                  borderRadius: 4, padding: '1px 5px', fontWeight: 700,
-                }}>ACTIVE</span>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -529,10 +481,6 @@ export default function ResultScreen() {
         activeVariant={activeVariant}
         onSwitch={handleVariantSwitch}
         switching={switching}
-        s5Eligible={s5Eligible}
-        s5Active={s5Active}
-        onS5Toggle={handleS5Toggle}
-        s5Switching={s5Switching}
       />
 
       {}
