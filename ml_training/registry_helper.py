@@ -13,7 +13,7 @@ REGISTRY_DIR = ROOT / "model_registry"
 def _read_registry() -> dict:
     f = REGISTRY_DIR / "registry.json"
     if f.exists():
-        with open(f, "r", encoding="utf-8") as fh:
+        with open(f, encoding="utf-8") as fh:
             return json.load(fh)
     return {"default": None, "variants": {}}
 

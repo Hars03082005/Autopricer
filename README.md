@@ -102,6 +102,8 @@ graph TD
 | **Categorical** (9) | brand, model, variant, locality, rto, fuel_type, transmission, seller_type, color |
 | **Numeric** (6) | vehicle_age, odometer_reading, km_per_year, owner_count, certified, pincode |
 
+
+
 ---
 
 ## 🎯 Market Selling Range Logic (AdaptiveRangeEngine)

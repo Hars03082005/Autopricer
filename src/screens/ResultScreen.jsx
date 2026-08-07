@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback } from 'react';
+import { runMLValuationWithVariant } from '../utils/apiValuation.js';
 import { useApp } from '../context/AppContext.jsx';
 import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
-import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
 
 const fmt = (n) => {
   const v = Number(n || 0);
@@ -29,8 +29,6 @@ const ACTION_CFG = {
 const getAction = (a = '') =>
   ACTION_CFG[String(a).toUpperCase()] ||
   { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
-
-const S5_MAX_AGE = 7;
 
 const MAIN_VARIANTS = [
   { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
@@ -346,45 +344,16 @@ export default function ResultScreen() {
   const [displayResult, setDisplayResult] = useState(null);
   const [switching, setSwitching] = useState(false);
   const [s5Active, setS5Active] = useState(false);
-  const [s5Switching, setS5Switching] = useState(false);
-  const [s5Catalog, setS5Catalog] = useState(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetchCatalog()
-      .then(cat => { if (alive && cat) setS5Catalog(cat); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
 
   const result = displayResult || valuationResult;
-
-  const s5Eligible = useMemo(() => {
-    const vehicleAge = inputs?.year ? (new Date().getFullYear() - Number(inputs.year)) : 999;
-    if (vehicleAge > S5_MAX_AGE) return false;
-    if (!s5Catalog) return true; 
-
-    const bKey = String(inputs?.brand || '').trim().toLowerCase();
-    const mKey = String(inputs?.model || '').trim().toLowerCase();
-    if (!bKey || !mKey) return false;
-
-    let brandModels = s5Catalog[bKey];
-    if (!brandModels) {
-      const foundB = Object.keys(s5Catalog).find(k => k.includes(bKey) || bKey.includes(k));
-      if (foundB) brandModels = s5Catalog[foundB];
-    }
-    if (!brandModels) return false;
-    if (brandModels[mKey]) return true;
-    return Object.keys(brandModels).some(m => m.includes(mKey) || mKey.includes(m));
-  }, [inputs?.brand, inputs?.model, inputs?.year, s5Catalog]);
 
   const handleVariantSwitch = useCallback(async (variantId) => {
     if (variantId === activeVariant && !s5Active) return;
     setSwitching(true);
     setS5Active(false);
     try {
-      const result = await runMLValuationWithVariant(inputs, variantId);
-      setDisplayResult(result);
+      const switched = await runMLValuationWithVariant(inputs, variantId);
+      setDisplayResult(switched);
       setActiveVariant(variantId);
     } catch (e) {
       console.error('Variant switch failed:', e);
@@ -392,25 +361,6 @@ export default function ResultScreen() {
       setSwitching(false);
     }
   }, [activeVariant, s5Active, inputs]);
-
-  const handleS5Toggle = useCallback(async () => {
-    if (s5Active) {
-      
-      setS5Active(false);
-      setDisplayResult(null); 
-      return;
-    }
-    setS5Switching(true);
-    try {
-      const s5Result = await runS5Valuation(inputs);
-      setDisplayResult(s5Result);
-      setS5Active(true);
-    } catch (e) {
-      console.error('S5 model fetch failed:', e);
-    } finally {
-      setS5Switching(false);
-    }
-  }, [s5Active, inputs]);
 
   if (isLoading) return <LoadingState />;
   if (!result) return <EmptyState setActiveScreen={setActiveScreen} />;
@@ -426,19 +376,14 @@ export default function ResultScreen() {
     maxOffer,
     targetOffer,
     expectedProfit = 0,
-    expectedMarginPct = 0,
     action = 'BUY',
     segmentClass = 'economy',
     similarCars = [],
-    marketRangeCompCount = 0,
-    marketRangeSource = 'mape_fallback',
-    
     valuationConfidence = 'Low',
     marketSupport = 'Weak',
     comparablesUsed = 0,
     averageSimilarity = 0,
     expectedModelError = 6.3,
-    confidenceCase = 'low',
   } = result;
 
   const confColor = {
@@ -545,22 +490,12 @@ export default function ResultScreen() {
                 >
                   {valuationConfidence} Confidence
                 </span>
-                {s5Active && (
-                  <span className="rs2-badge" style={{
-                    background: '#f5f3ff', color: '#7c3aed',
-                    border: '1px solid #c4b5fd', fontWeight: 700, fontSize: '10px',
-                  }}>
-                    ✨ S5 Quality Model
-                  </span>
-                )}
-                {!s5Active && (
-                  <span className="rs2-badge" style={{
-                    background: '#eff6ff', color: '#1d4ed8',
-                    border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
-                  }}>
-                    {MAIN_VARIANTS.find(v => v.id === activeVariant)?.emoji} {MAIN_VARIANTS.find(v => v.id === activeVariant)?.label}
-                  </span>
-                )}
+                <span className="rs2-badge" style={{
+                  background: '#eff6ff', color: '#1d4ed8',
+                  border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
+                }}>
+                  🥇 Variant 1 (Default)
+                </span>
               </div>
             </div>
           </div>
@@ -622,7 +557,7 @@ export default function ResultScreen() {
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
-        color={s5Active ? '#7c3aed' : '#2563eb'}
+        color="#2563eb"
         min={minP}
         max={maxP}
         confidenceScore={confidenceScore}

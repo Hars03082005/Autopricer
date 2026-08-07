@@ -194,7 +194,7 @@ def main():
     print_row("Segment base",         fmt_inr(base))
     print_row("Brand repair mult",    f"×{brand_mult:.2f}  ({a.brand})")
     print_row("Inspected discount",   "×0.85" if a.inspected else "none")
-    print_row(f"RECON COST",          f"{YELLOW}{fmt_inr(recon_cost)}{RESET}")
+    print_row("RECON COST",          f"{YELLOW}{fmt_inr(recon_cost)}{RESET}")
 
     print_section("STEP 2 — HOLDING COST")
     holding_cost, eff_days = compute_holding_cost(segment, market_value, a.brand)
@@ -225,7 +225,7 @@ def main():
         color_known=color_known,
     )
     print_row("Risk score used",      f"{risk_score}/95")
-    print_row("Base formula",         f"MV × risk_score × 0.0001 × seg_factor")
+    print_row("Base formula",         "MV × risk_score × 0.0001 × seg_factor")
     if not variant_known:   print_row("  + Variant unknown",    "₹1,500")
     if not color_known:     print_row("  + Color unknown",      "  ₹500")
     if not accident_hist_known: print_row("  + Accident hist unknown","₹3,000")

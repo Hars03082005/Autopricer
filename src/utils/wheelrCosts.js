@@ -50,8 +50,6 @@ const ELECTRICAL_COSTS = {
   multi_fault: { inhouse: 8000, vendor: 15000 },
 };
 
-const FIXED_COST = 8000; 
-
 export const GRADE_OPTIONS = {
   engine: [
     { value: 'good', label: 'Good', inhouse: 0, vendor: 0 },

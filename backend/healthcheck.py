@@ -33,7 +33,7 @@ def main() -> int:
         # noqa S310: the scheme is the literal "http" above and `port` is digits
         # only, so this cannot be redirected to file: or a custom scheme. The
         # rule cannot see either fact.
-        with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
+        with urllib.request.urlopen(url, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310  # nosec B310
             if response.status != 200:
                 print(f"unhealthy: HTTP {response.status}", file=sys.stderr)
                 return 1

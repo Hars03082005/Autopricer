@@ -12,5 +12,4 @@ project_id = "priceref"
 # hosted project rejects.
 major_version = 15
 
-[db.migrations]
-schema_paths = []
+

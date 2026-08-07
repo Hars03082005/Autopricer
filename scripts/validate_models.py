@@ -182,7 +182,7 @@ if p.exists():
     except Exception as e:
         print(f"    FAILED: {e}")
 else:
-    print(f"  - vehicle_price_catboost.cbm  NOT FOUND")
+    print("  - vehicle_price_catboost.cbm  NOT FOUND")
 
 for seg in ["economy", "premium", "luxury"]:
     p = ARTIFACT_DIR / f"ensemble_{seg}.pkl"

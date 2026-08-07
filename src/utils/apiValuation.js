@@ -205,7 +205,6 @@ function normalizeApiResult(data, inputs) {
     segmentClass: data.segment_class ?? data.brand_class ?? 'economy',
     segmentModelUsed: data.segment_model_used ?? data.class_model_used ?? false,
     routingNote: data.routing_note ?? '',
-    // ── Adaptive Valuation Engine enrichment ──
     valuationConfidence:     data.confidence ?? 'Low',
     valuationConfidenceScore: data.confidence_score ?? 0,
     marketSupport:           data.market_support ?? 'Weak',
@@ -296,7 +295,6 @@ export async function runMLValuation(inputs) {
 
 /**
  * Run valuation with a specific model variant.
- * Used by the Result page variant switcher to switch between variant_1/2/3.
  */
 export async function runMLValuationWithVariant(inputs, variantId) {
   const payload = {

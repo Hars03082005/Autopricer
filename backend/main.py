@@ -179,6 +179,43 @@ BRAND_SEGMENT_MAP: dict = {
 
 log = logging.getLogger("priceref")
 
+
+def _validate_variant_features(variant_id: str, metadata: dict) -> None:
+    """
+    Priority 5: Warn loudly at startup when a loaded variant's expected feature set
+    doesn't match what build_features() currently produces.  Silent mismatches cause
+    NaN/0 padding for features the model was trained with real signal on.
+    Never blocks startup.
+    """
+    try:
+        dummy = VehicleInput(
+            brand="Honda", model="City", year=2021,
+            fuel_type="Petrol", transmission="Manual", odometer_reading=30000,
+        )
+        frame    = build_features(dummy)
+        expected = set(metadata.get("features", []))
+        actual   = set(frame.columns)
+        missing  = expected - actual   # model expects but build_features() doesn't supply
+        extra    = actual   - expected  # build_features() supplies but model ignores
+        if missing:
+            log.warning(
+                "[FEATURE DRIFT] Variant '%s': %d feature(s) expected by model "
+                "but NOT produced by build_features(): %s",
+                variant_id, len(missing), sorted(missing),
+            )
+        if extra:
+            log.info(
+                "[FEATURE DRIFT] Variant '%s': %d extra feature(s) in build_features() "
+                "output that this model ignores: %s",
+                variant_id, len(extra), sorted(extra),
+            )
+        if not missing and not extra:
+            log.info("[FEATURE DRIFT] Variant '%s': feature schema OK (%d features).",
+                     variant_id, len(expected))
+    except Exception as exc:
+        log.warning("[FEATURE DRIFT] Could not validate features for variant '%s': %s",
+                    variant_id, exc)
+
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):
     """Load ML models AFTER the port is bound (avoids OOM crash before port open)."""
@@ -193,6 +230,7 @@ async def lifespan(app_instance: FastAPI):
     CURRENT_YEAR = METADATA.get("current_year_used_for_age", datetime.now().year)
     BRAND_CATALOG = build_brand_catalog()
     BRAND_SEGMENT_MAP = METADATA.get("brand_segment_map", BRAND_SEGMENT_MAP)
+    _validate_variant_features(ACTIVE_VARIANT_ID, METADATA)   # Priority 5: schema drift check
     log.info("==> ML models loaded. Active variant: %s", ACTIVE_VARIANT_ID)
     yield
     log.info("==> Shutting down.")
@@ -435,9 +473,12 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     city_clean = clean_text(vehicle.city)
     city_info  = _CITY_FEATURE_MAP.get(city_clean)
     if city_info:
-        locality_tier_val, density_norm, rto_val, locality_val = city_info
+        locality_tier_val, density_norm, rto_val, _city_locality = city_info
     else:
-        locality_tier_val, density_norm, rto_val, locality_val = 2, 0.20, "unknown", city_clean
+        locality_tier_val, density_norm, rto_val, _city_locality = 2, 0.20, "unknown", city_clean
+
+    _user_locality = clean_text(getattr(vehicle, "locality", None) or "")
+    locality_val   = _user_locality if _user_locality and _user_locality != "unknown" else _city_locality
 
     user_locality = clean_text(getattr(vehicle, "locality", "") or "")
     if user_locality and user_locality not in ("", "unknown"):
@@ -493,7 +534,11 @@ def build_features(vehicle: VehicleInput) -> pd.DataFrame:
         "inspected":             float(inspected),
         "high_mileage":          float(high_mileage),
         "luxury_brand":          float(luxury_brand),
-        "has_list_price":        0.0,
+        # Priority 1c: has_list_price removed from row dict — it cannot be populated
+        # at inference time (no list price source exists at prediction time).
+        # Models trained with this feature receive 0.0 via _prepare_frame() fill-missing
+        # path, which is semantically correct (no list price = 0).
+        # "has_list_price": 0.0   <- intentionally omitted
     }
     df = pd.DataFrame([row])
     for col in CAT_FEATURES:
@@ -994,7 +1039,13 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: str | None = None) ->
     mrange_src   = prediction.get("market_range_source", "mape_fallback")
     comp_count   = prediction.get("market_range_comp_count", 0)
 
-    if mrange_src == "dataset" and comp_count >= 3 and price_median > 0:
+    # Priority 3b fix: smooth the comp_count threshold via proportional blending.
+    # Previously: hard cliff at comp_count >= 3 switched to a completely different pricing system.
+    # Now: blend_weight ramps linearly from 0.0 (0 comps) to 1.0 (>=3 comps).
+    # At comp_count=1: 33% comp-anchor, 67% waterfall
+    # At comp_count=2: 67% comp-anchor, 33% waterfall
+    # At comp_count>=3: 100% comp-anchor (same as before)
+    if mrange_src == "dataset" and comp_count >= 1 and price_median > 0:
         recon_cost   = decision.get("recon_cost",   18_000)
         holding_cost = decision.get("holding_cost",  5_000)
         doc_cost     = decision.get("doc_cost",      4_500)

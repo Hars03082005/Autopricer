@@ -109,6 +109,10 @@ env:
   # See the note in ci.yml: the build record is an artifact nothing here reads,
   # and it warns on every build once the storage quota is full.
   DOCKER_BUILD_SUMMARY: 'false'
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+  SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
 
 jobs:
   # ══ Build and push ═════════════════════════════════════════════════════════
@@ -124,14 +128,16 @@ jobs:
         with: { fetch-depth: 1 }
 
       - name: Azure login (OIDC)
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure the registry exists
         id: acr
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         # ONLY the registry, deliberately — not the whole template.
         #
         # This step used to run the full Bicep deployment, on the reasoning that
@@ -160,12 +166,15 @@ jobs:
           echo "registry: $login_server"
 
       - name: Registry login
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         # Uses the OIDC-derived Azure identity; no registry password anywhere.
         run: az acr login --name "$(echo '${{ steps.acr.outputs.login_server }}' | cut -d. -f1)"
 
       - uses: docker/setup-buildx-action@v3
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
 
       - name: Build and push backend
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -181,6 +190,7 @@ jobs:
           provenance: false
 
       - name: Build and push frontend
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -205,25 +215,23 @@ jobs:
         with: { fetch-depth: 1 }
 
       - uses: azure/login@v2
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with:
+          version: 1.192.5
 
       - name: Apply database migrations
-        # Before the app deploy, not after: the new revision may depend on new
-        # columns, and a rolling swap means old and new replicas serve
-        # simultaneously. Migrations must therefore be backward compatible with
-        # the revision currently running — additive changes only, no drops or
-        # renames in the same release as the code that stops using them.
+        if: ${{ env.SUPABASE_PROJECT_REF != '' }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase link --project-ref '${{ secrets.SUPABASE_PROJECT_REF }}'
+          supabase link --project-ref '${{ env.SUPABASE_PROJECT_REF }}' --password '${{ secrets.SUPABASE_DB_PASSWORD }}'
           echo "── pending migrations ──"
           supabase migration list --linked
           supabase db push --linked
@@ -231,6 +239,7 @@ jobs:
 
       - name: Deploy revision
         id: deploy
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         run: |
           az deployment group create \
             --resource-group '${{ secrets.AZURE_RESOURCE_GROUP }}' \
@@ -249,10 +258,11 @@ jobs:
           echo "staging: $url"
 
       - name: Smoke test
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         run: ./scripts/smoke-test.sh "${{ steps.deploy.outputs.url }}"
 
       - name: Roll back on failure
-        if: failure()
+        if: failure() && env.AZURE_CLIENT_ID != ''
         # Reactivates the previous healthy revision rather than leaving staging
         # broken. Only the app is reverted — migrations are not, which is exactly
         # why they must be backward compatible.
@@ -287,20 +297,22 @@ jobs:
         with: { fetch-depth: 1 }
 
       - uses: azure/login@v2
+        if: ${{ env.AZURE_CLIENT_ID != '' }}
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with:
+          version: 1.192.5
 
       - name: Apply database migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase link --project-ref '${{ secrets.SUPABASE_PROJECT_REF }}'
+          supabase link --project-ref '${{ secrets.SUPABASE_PROJECT_REF }}' --password '${{ secrets.SUPABASE_DB_PASSWORD }}'
           echo "── pending migrations ──"
           supabase migration list --linked
           supabase db push --linked
