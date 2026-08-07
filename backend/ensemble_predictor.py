@@ -44,7 +44,11 @@ class EnsemblePredictor:
                 if lgb is None:
                     raise ImportError("Ensemble requires lightgbm to be installed.")
                 self.lightgbm = lgb.Booster(model_file=str(lgb_path))
-            if self.weights.get("xgboost", 0.0) > 0 and xgb_path.exists():
+            # Priority 4 fix: load XGBoost whenever the model file exists, regardless of
+            # its ensemble weight.  Weight=0 means it doesn't affect the blended price, but
+            # its prediction is still needed for variance/confidence calculation in
+            # predict_with_variance() — computing std from 3 models instead of 2.
+            if xgb_path.exists():
                 if xgb is None:
                     raise ImportError("Ensemble requires xgboost to be installed.")
                 self.xgboost = xgb.XGBRegressor()
@@ -71,7 +75,12 @@ class EnsemblePredictor:
                 values = values.where(values.isin(self.category_levels[col]), "unknown")
                 catboost_frame[col] = values.astype(str)
                 mapping = {category: idx for idx, category in enumerate(self.category_levels[col])}
-                encoded = values.map(mapping).fillna(0).astype(int)
+                # Priority 2 fix: map unknown values to their own reserved index, not index 0.
+                # fillna(0) would silently treat unseen categories as the first real category.
+                # Instead, use the explicit "unknown" entry's index if present, or append
+                # one at the end of the mapping.
+                unknown_idx = mapping.get("unknown", len(mapping))
+                encoded = values.map(mapping).fillna(unknown_idx).astype(int)
                 if has_lgb_cats:
                     lgb_frame[col] = pd.Categorical(values, categories=self.category_levels[col])
                 else:

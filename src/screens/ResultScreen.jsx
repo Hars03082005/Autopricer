@@ -1,8 +1,6 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
-import { fetchCatalog, runMLValuationWithVariant, runS5Valuation } from '../utils/apiValuation.js';
 
 const fmt = (n) => {
   const v = Number(n || 0);
@@ -545,22 +543,12 @@ export default function ResultScreen() {
                 >
                   {valuationConfidence} Confidence
                 </span>
-                {s5Active && (
-                  <span className="rs2-badge" style={{
-                    background: '#f5f3ff', color: '#7c3aed',
-                    border: '1px solid #c4b5fd', fontWeight: 700, fontSize: '10px',
-                  }}>
-                    ✨ S5 Quality Model
-                  </span>
-                )}
-                {!s5Active && (
-                  <span className="rs2-badge" style={{
-                    background: '#eff6ff', color: '#1d4ed8',
-                    border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
-                  }}>
-                    {MAIN_VARIANTS.find(v => v.id === activeVariant)?.emoji} {MAIN_VARIANTS.find(v => v.id === activeVariant)?.label}
-                  </span>
-                )}
+                <span className="rs2-badge" style={{
+                  background: '#eff6ff', color: '#1d4ed8',
+                  border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
+                }}>
+                  🥇 Variant 1 (Default)
+                </span>
               </div>
             </div>
           </div>
@@ -622,7 +610,7 @@ export default function ResultScreen() {
       <PricingBandCard
         title="Market Selling Range"
         icon="chart"
-        color={s5Active ? '#7c3aed' : '#2563eb'}
+        color="#2563eb"
         min={minP}
         max={maxP}
         confidenceScore={confidenceScore}

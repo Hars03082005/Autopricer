@@ -3,11 +3,11 @@
   "similarity_weights": {
     "brand": 0.18,
     "model": 0.18,
-    "variant": 0.12,
+    "variant": 0.16,
     "vehicle_age": 0.12,
     "odometer_reading": 0.10,
     "fuel_type": 0.10,
-    "locality": 0.08,
+    "locality": 0.04,
     "transmission": 0.07,
     "owner_count": 0.03,
     "seller_type": 0.02

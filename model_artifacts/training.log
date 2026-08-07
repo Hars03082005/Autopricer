@@ -1,24 +1,39 @@
-2026-07-30 12:16:07  DEBUG     Random seed set to 42
-2026-07-30 12:16:07  INFO      AutoPricer ML Training [train-1]  Variant variant_1
-2026-07-30 12:16:07  DEBUG     Loaded 33,979 rows from processed_overall.csv
-2026-07-30 12:16:08  DEBUG     Clean: 33,979 → 33,979 rows (dropped 0)
-2026-07-30 12:16:08  DEBUG     W&B package not installed — skipping experiment tracking
-2026-07-30 12:16:08  DEBUG     CatBoost params: {'iterations': 3000, 'learning_rate': 0.03, 'depth': 6, 'loss_function': 'RMSE', 'eval_metric': 'RMSE', 'random_seed': 42, 'l2_leaf_reg': 10, 'min_data_in_leaf': 25, 'early_stopping_rounds': 150}
-2026-07-30 12:19:27  DEBUG     LightGBM params: {'objective': 'regression', 'metric': 'rmse', 'learning_rate': 0.03, 'num_leaves': 48, 'feature_fraction': 0.8, 'bagging_fraction': 0.8, 'bagging_freq': 5, 'min_child_samples': 25, 'lambda_l2': 5.0, 'verbosity': -1, 'seed': 42}
-2026-07-30 12:19:38  DEBUG     XGBoost params: {'objective': 'reg:squarederror', 'eval_metric': 'rmse', 'learning_rate': 0.03, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8, 'min_child_weight': 25, 'lambda': 5.0, 'seed': 42}
-2026-07-30 12:19:46  DEBUG     CatBoost MAE=₹57,755 MAPE=9.13% R2=0.9597
-2026-07-30 12:19:47  DEBUG     LightGBM MAE=₹37,805 MAPE=6.08% R2=0.9775
-2026-07-30 12:19:47  DEBUG     XGBoost MAE=₹41,626 MAPE=6.78% R2=0.9741
-2026-07-30 12:19:47  DEBUG     Saved model_comparison.csv
-2026-07-30 12:19:47  DEBUG     Saved feature importance: feature_importance_catboost.csv
-2026-07-30 12:19:47  DEBUG     Saved feature importance: feature_importance_lightgbm.csv
-2026-07-30 12:19:47  DEBUG     Saved feature importance: feature_importance_xgboost.csv
-2026-07-30 12:19:47  DEBUG     Segment: 0_6_lakh (20,612 rows)
-2026-07-30 12:22:08  DEBUG     Segment 0_6_lakh ACTIVE (MAPE 7.85% < 8.59%)
-2026-07-30 12:22:08  DEBUG     Segment: 6_12_lakh (10,642 rows)
-2026-07-30 12:24:07  DEBUG     Segment 6_12_lakh ACTIVE (MAPE 5.61% < 7.72%)
-2026-07-30 12:24:07  DEBUG     Segment: 12_plus_lakh (2,953 rows)
-2026-07-30 12:25:55  DEBUG     Segment 12_plus_lakh ACTIVE (MAPE 4.36% < 9.95%)
-2026-07-30 12:25:56  DEBUG     Artifacts saved
-2026-07-30 12:25:56  WARNING   dataset_catalog.json failed: name 're' is not defined
-2026-07-30 12:25:56  INFO      COMPLETE — Ensemble MAPE 6.16%  R2 0.9777  (588.8s)
+2026-08-06 15:56:05  DEBUG     Random seed set to 42
+2026-08-06 15:56:05  INFO      AutoPricer ML Training [train-1]  Variant variant_1
+2026-08-06 15:56:05  DEBUG     Loaded train=23,796 rows, valid=5,099 rows from overall_only/
+2026-08-06 15:56:05  DEBUG     Clean [train]: 23,796 → 23,796 rows (dropped 0)
+2026-08-06 15:56:05  DEBUG     Clean [valid]: 5,099 → 5,099 rows (dropped 0)
+2026-08-06 15:56:06  DEBUG     W&B package not installed — skipping experiment tracking
+2026-08-06 15:56:06  DEBUG     CatBoost params: {'iterations': 3000, 'learning_rate': 0.03, 'depth': 6, 'loss_function': 'RMSE', 'eval_metric': 'RMSE', 'random_seed': 42, 'l2_leaf_reg': 10, 'min_data_in_leaf': 25, 'early_stopping_rounds': 150}
+2026-08-06 16:00:12  DEBUG     LightGBM params: {'objective': 'regression', 'metric': 'rmse', 'learning_rate': 0.03, 'num_leaves': 48, 'feature_fraction': 0.8, 'bagging_fraction': 0.8, 'bagging_freq': 5, 'min_child_samples': 25, 'lambda_l2': 5.0, 'verbosity': -1, 'seed': 42}
+2026-08-06 16:00:24  DEBUG     XGBoost params: {'objective': 'reg:squarederror', 'eval_metric': 'rmse', 'learning_rate': 0.03, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8, 'min_child_weight': 25, 'lambda': 5.0, 'seed': 42}
+2026-08-06 16:00:33  DEBUG     CatBoost MAE=₹55,110 MAPE=8.79% R2=0.9612
+2026-08-06 16:00:33  DEBUG     LightGBM MAE=₹35,812 MAPE=6.01% R2=0.9777
+2026-08-06 16:00:34  DEBUG     XGBoost MAE=₹40,065 MAPE=6.77% R2=0.9738
+2026-08-06 16:00:34  DEBUG     Saved model_comparison.csv (validation-set scores)
+2026-08-06 16:00:34  DEBUG     [catboost] pincode importance rank: 9/15
+2026-08-06 16:00:34  DEBUG     Saved feature importance: feature_importance_catboost.csv
+2026-08-06 16:00:34  DEBUG     [lightgbm] pincode importance rank: 10/15
+2026-08-06 16:00:34  DEBUG     Saved feature importance: feature_importance_lightgbm.csv
+2026-08-06 16:00:34  DEBUG     [xgboost] pincode importance rank: 10/15
+2026-08-06 16:00:34  DEBUG     Saved feature importance: feature_importance_xgboost.csv
+2026-08-06 16:00:34  DEBUG     Segment: 0_6_lakh (train 14,442 rows, valid 3,074 rows)
+2026-08-06 16:03:29  DEBUG     Segment 0_6_lakh: seg MAPE=8.01%, global MAPE=9.26%, relative improvement=13.5% (threshold=5.0%)
+2026-08-06 16:03:29  DEBUG     Segment 0_6_lakh ACTIVE
+2026-08-06 16:03:29  DEBUG     Segment: 6_12_lakh (train 7,454 rows, valid 1,602 rows)
+2026-08-06 16:06:05  DEBUG     Segment 6_12_lakh: seg MAPE=5.54%, global MAPE=8.17%, relative improvement=32.2% (threshold=5.0%)
+2026-08-06 16:06:05  DEBUG     Segment 6_12_lakh ACTIVE
+2026-08-06 16:06:06  DEBUG     Segment: 12_plus_lakh (train 2,059 rows, valid 458 rows)
+2026-08-06 16:08:28  DEBUG     Segment 12_plus_lakh: seg MAPE=4.42%, global MAPE=11.37%, relative improvement=61.1% (threshold=5.0%)
+2026-08-06 16:08:28  DEBUG     Segment 12_plus_lakh ACTIVE
+2026-08-06 16:08:29  DEBUG     Artifacts saved
+2026-08-06 16:08:30  DEBUG     Saved dataset_catalog.json (28 brands)
+2026-08-06 16:08:30  DEBUG     Loaded test holdout: 5,100 rows from test.csv
+2026-08-06 16:08:30  WARNING   LEAKAGE WARNING: 1919 test rows appear in train.csv!
+2026-08-06 16:08:30  WARNING   LEAKAGE WARNING: 544 test rows appear in valid.csv!
+2026-08-06 16:08:30  DEBUG     Clean [test]: 5,100 → 5,100 rows (dropped 0)
+2026-08-06 16:08:30  DEBUG     CatBoost MAE=₹53,678 MAPE=8.91% R2=0.9605
+2026-08-06 16:08:31  DEBUG     LightGBM MAE=₹35,556 MAPE=6.10% R2=0.9761
+2026-08-06 16:08:31  DEBUG     XGBoost MAE=₹39,764 MAPE=6.84% R2=0.9729
+2026-08-06 16:08:32  DEBUG     Saved holdout_test_results.json and holdout_test_comparison.csv
+2026-08-06 16:08:32  INFO      COMPLETE — Val MAPE 6.01%  R2 0.9777  (747.3s)
