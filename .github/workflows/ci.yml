@@ -149,8 +149,7 @@ jobs:
         # services are not, and skipping them cuts the container pull
         # substantially. supabase/config.toml is committed, so no `init` is needed.
         run: |
-          supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector
-          supabase db reset
+          supabase start --exclude realtime,imgproxy,studio,edge-runtime,logflare,vector
           echo "migrations applied cleanly"
 
       - name: Verify row-level security is actually on
