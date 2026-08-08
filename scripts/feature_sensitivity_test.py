@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend.main import VehicleInput, predict_market_value
+from backend.main import VehicleInput, predict_market_value  # pyrefly: ignore [missing-import]
 
 base = dict(brand='Maruti', model='Swift', variant='VXI', year=2017,
             fuel_type='Petrol', transmission='Manual', owner_count=1,

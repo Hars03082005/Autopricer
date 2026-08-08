@@ -456,9 +456,10 @@ def _usage_category_num(km_per_year: float) -> float:
 
 def build_features(vehicle: VehicleInput) -> pd.DataFrame:
     """Build the ML feature DataFrame for a single vehicle."""
-    vehicle_age = max(0, CURRENT_YEAR - int(vehicle.year))
-    km          = max(0, float(vehicle.odometer_reading or 0))
-    owner       = max(1, int(vehicle.owner_count or 1))
+    safe_year   = max(1990, min(int(vehicle.year or 2021), CURRENT_YEAR))
+    vehicle_age = max(0, CURRENT_YEAR - safe_year)
+    km          = max(0.0, min(float(vehicle.odometer_reading or 0), 500_000.0))
+    owner       = max(1, min(int(vehicle.owner_count or 1), 6))
     km_per_year = min(km / max(vehicle_age, 0.5), 100_000)
 
     seg_class    = get_segment_class(vehicle.brand)
@@ -1166,7 +1167,12 @@ def activate_variant_endpoint(variant_id: str):
     if not success:
         return {"status": "error", "message": f"Variant '{variant_id}' not found in registry"}
     global predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID
+    global FEATURES, CAT_FEATURES, CURRENT_YEAR, BRAND_CATALOG, BRAND_SEGMENT_MAP
     predictor, SEGMENT_MODELS, METADATA, DATASET_CATALOG, ACTIVE_VARIANT_ID = resolve_variant_data()
+    FEATURES    = METADATA.get("features", FEATURES)
+    CAT_FEATURES = METADATA.get("categorical_features", CAT_FEATURES)
+    CURRENT_YEAR = METADATA.get("current_year_used_for_age", CURRENT_YEAR)
+    BRAND_SEGMENT_MAP = METADATA.get("brand_segment_map", BRAND_SEGMENT_MAP)
     return {"status": "success", "active_variant": variant_id}
 
 

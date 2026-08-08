@@ -127,7 +127,6 @@ export default function InputScreen() {
   const [availableTransmissions, setAvailableTransmissions] = useState(TRANSMISSIONS);
   const [availableYears, setAvailableYears]           = useState(YEARS);
   const [optionsLoading, setOptionsLoading]           = useState(false);
-  const optionsAbort = useRef(null);
 
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
@@ -192,15 +191,12 @@ export default function InputScreen() {
   useEffect(() => {
     if (!inputs.brand) return;
 
-    let alive = true;
-    if (optionsAbort.current) optionsAbort.current = false;
-    const token = {};
-    Promise.resolve().then(() => {
-      if (alive) setOptionsLoading(true);
-    });
+    let cancelled = false;
+    setOptionsLoading(true);
+
     fetchOptions({ brand: inputs.brand, model: inputs.model || undefined, variant: inputs.variant || undefined })
       .then(opts => {
-        if (!alive || optionsAbort.current !== token) return; 
+        if (cancelled) return;
         setAvailableFuels(opts.fuel_types?.length   ? opts.fuel_types   : FUELS);
         setAvailableTransmissions(opts.transmissions?.length ? opts.transmissions : TRANSMISSIONS);
         setAvailableYears(opts.years?.length         ? opts.years        : YEARS);
@@ -212,10 +208,16 @@ export default function InputScreen() {
         if (inputs.year && !opts.years?.includes(inputs.year))
           updateInput('year', '');
       })
-      .catch(() => {})
-      .finally(() => { if (alive && optionsAbort.current === token) setOptionsLoading(false); });
+      .catch(() => {
+        if (!cancelled) {
+          setAvailableFuels(FUELS);
+          setAvailableTransmissions(TRANSMISSIONS);
+          setAvailableYears(YEARS);
+        }
+      })
+      .finally(() => { if (!cancelled) setOptionsLoading(false); });
 
-    return () => { alive = false; };
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs.brand, inputs.model, inputs.variant]);
 

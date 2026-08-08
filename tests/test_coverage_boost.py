@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import json
-import os
-import uuid
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -65,7 +62,6 @@ def test_db_offline_fallback():
 
 def test_db_async_functions_mocked():
     from backend import db
-    from backend.config import Settings
 
     async def run_test():
         mock_resp = MagicMock()
@@ -86,8 +82,11 @@ def test_db_async_functions_mocked():
             
             ups = await db.upsert_profile(user_id="usr123", access_token="tok", fields={"dealership_name": "Test Dealer"})
             assert ups["dealership_name"] == "Test Dealer"
-            
-            with patch.object(Settings, "database_enabled", new=True):
+
+            mock_settings = MagicMock()
+            mock_settings.database_enabled = True
+            mock_settings.max_history_rows = 100
+            with patch("backend.db.get_settings", return_value=mock_settings):
                 p = await db.ping(access_token="tok")
                 assert p is True
 
@@ -238,6 +237,7 @@ def test_enhanced_evaluate_endpoint(client):
 
 def test_norm_model_from_main():
     """Cover the _norm_model helper (or its fallback) imported into backend.main."""
+    # pyrefly: ignore [missing-import]
     from backend.main import _norm_model
     assert _norm_model("Swift 1.2", "Maruti") in ("swift", "swift 1.2", "unknown", "Swift 1.2".lower().strip())
     assert _norm_model(None) == "unknown"  # type: ignore[arg-type]
@@ -247,8 +247,9 @@ def test_norm_model_from_main():
 
 def test_norm_variant_from_main():
     """Cover the _norm_variant helper (or its fallback) imported into backend.main."""
+    # pyrefly: ignore [missing-import]
     from backend.main import _norm_variant
-    assert _norm_variant(None) == "unknown"  # type: ignore[arg-type]
+    assert _norm_variant(None) == "unknown"  # type: ignore[arg-type]  # pyrefly: ignore[bad-argument-type]
     assert _norm_variant("") == "unknown"
     assert _norm_variant("unknown") == "unknown"
     assert _norm_variant("nan") == "unknown"

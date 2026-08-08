@@ -390,11 +390,18 @@ export async function fetchRegistry() {
 }
 
 export async function activateVariant(variantId) {
+  const token = import.meta.env.VITE_ADMIN_API_TOKEN || 'priceref_admin_token_production_32chars_min';
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
   const response = await fetch(`${getApiBase()}/api/registry/${encodeURIComponent(variantId)}/activate`, {
     method: 'POST',
+    headers,
   });
   if (!response.ok) {
-    throw new Error(`Failed to activate variant ${variantId}`);
+    const text = await response.text().catch(() => '');
+    throw new Error(`Failed to activate variant ${variantId} (${response.status}): ${text}`);
   }
   return response.json();
 }

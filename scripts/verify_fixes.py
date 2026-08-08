@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend.main import VehicleInput, predict_market_value, _normalize_brand, normalize_model_name
+from backend.main import VehicleInput, predict_market_value, _normalize_brand, normalize_model_name  # pyrefly: ignore [missing-import]
 
 print('=== Brand Normalization Test ===')
 brands = [
