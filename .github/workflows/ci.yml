@@ -250,19 +250,26 @@ jobs:
           echo "frontend runs as uid $uid"
           test "$uid" != "0" || { echo "::error::frontend image runs as root"; exit 1; }
 
-      - name: Verify only the serving variant shipped
-        # A stale .dockerignore silently triples image size by pulling in the
-        # archived variants.
+      - name: Verify expected variants shipped
+        # variant_1 is the active default; variant_2 and variant_3 ship alongside
+        # it so the Results-screen variant switcher works on the deployed server.
+        # variant_4 / variant_s5 are not yet shipped (require explicit opt-in).
         run: |
           shipped=$(docker run --rm --entrypoint ls priceref-backend:ci /app/model_registry)
           echo "variants in image: $shipped"
-          echo "$shipped" | grep -q variant_1
-          for unwanted in variant_2 variant_3 variant_4; do
-            if echo "$shipped" | grep -q "$unwanted"; then
-              echo "::error::$unwanted was baked into the image; check .dockerignore"
+          for required in variant_1 variant_2 variant_3; do
+            if ! echo "$shipped" | grep -q "$required"; then
+              echo "::error::$required is missing from the image; check backend/Dockerfile COPY lines"
               exit 1
             fi
           done
+          for unwanted in variant_4 variant_s5; do
+            if echo "$shipped" | grep -q "$unwanted"; then
+              echo "::error::$unwanted was unexpectedly baked into the image; check .dockerignore"
+              exit 1
+            fi
+          done
+          echo "variant manifest ok"
 
   # The image is not handed to the downstream jobs as an artifact. It is ~1.8 GB
   # (~1 GB gzipped) against a 500 MB artifact quota on this plan, so a single run
