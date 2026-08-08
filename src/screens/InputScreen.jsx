@@ -5,56 +5,56 @@ import { fetchBrands, fetchCatalog, fetchOptions, runMLValuation } from '../util
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS        = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
-const FUELS        = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
+const YEARS = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
+const FUELS = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
 const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT', 'AMT', 'IMT'];
-const OWNERS       = ['1', '2', '3', '4+'];
+const OWNERS = ['1', '2', '3', '4+'];
 
 const COLORS = [
-  { name: 'White',  hex: '#f0f0f0', border: '#d0d0d0' },
+  { name: 'White', hex: '#f0f0f0', border: '#d0d0d0' },
   { name: 'Silver', hex: '#c0c0c0', border: '#a0a0a0' },
-  { name: 'Grey',   hex: '#787878', border: '#555'     },
-  { name: 'Black',  hex: '#1a1a1a', border: '#000'     },
-  { name: 'Blue',   hex: '#1e5fa3', border: '#1447a0'  },
-  { name: 'Red',    hex: '#c01b1b', border: '#a01818'  },
-  { name: 'Brown',  hex: '#6d4c41', border: '#4e342e'  },
-  { name: 'Beige',  hex: '#d7ccc8', border: '#bcaaa4'  },
-  { name: 'Gold',   hex: '#d4a024', border: '#b88820'  },
-  { name: 'Green',  hex: '#2e7a32', border: '#226026'  },
-  { name: 'Orange', hex: '#d4531c', border: '#b84418'  },
-  { name: 'Maroon', hex: '#78003f', border: '#5c0030'  },
+  { name: 'Grey', hex: '#787878', border: '#555' },
+  { name: 'Black', hex: '#1a1a1a', border: '#000' },
+  { name: 'Blue', hex: '#1e5fa3', border: '#1447a0' },
+  { name: 'Red', hex: '#c01b1b', border: '#a01818' },
+  { name: 'Brown', hex: '#6d4c41', border: '#4e342e' },
+  { name: 'Beige', hex: '#d7ccc8', border: '#bcaaa4' },
+  { name: 'Gold', hex: '#d4a024', border: '#b88820' },
+  { name: 'Green', hex: '#2e7a32', border: '#226026' },
+  { name: 'Orange', hex: '#d4531c', border: '#b84418' },
+  { name: 'Maroon', hex: '#78003f', border: '#5c0030' },
 ];
 
-const LUXURY_BRANDS  = new Set(['BMW','Mercedes-Benz','Audi','Lexus','Volvo','Land Rover','Jaguar','Porsche','Tesla']);
-const PREMIUM_BRANDS = new Set(['Toyota','Honda','Volkswagen','Skoda','Kia','MG','Jeep','Ford','Renault','Nissan']);
+const LUXURY_BRANDS = new Set(['BMW', 'Mercedes-Benz', 'Audi', 'Lexus', 'Volvo', 'Land Rover', 'Jaguar', 'Porsche', 'Tesla']);
+const PREMIUM_BRANDS = new Set(['Toyota', 'Honda', 'Volkswagen', 'Skoda', 'Kia', 'MG', 'Jeep', 'Ford', 'Renault', 'Nissan']);
 
 function getSegment(brand) {
   if (!brand) return null;
-  if (LUXURY_BRANDS.has(brand))  return 'luxury';
+  if (LUXURY_BRANDS.has(brand)) return 'luxury';
   if (PREMIUM_BRANDS.has(brand)) return 'premium';
   return 'economy';
 }
 
 function healthScore(inputs) {
   if (!inputs.brand) return 0;
-  const age  = new Date().getFullYear() - Number(inputs.year || 2020);
-  const km   = Number(inputs.mileage || 0);
-  const own  = Number(inputs.ownerCount || 1);
+  const age = new Date().getFullYear() - Number(inputs.year || 2020);
+  const km = Number(inputs.mileage || 0);
+  const own = Number(inputs.ownerCount || 1);
   const cond = inputs.condition || 'Good';
 
-  const ageS  = age <= 2 ? 100 : age <= 4 ? 85 : age <= 6 ? 70 : age <= 8 ? 55 : age <= 10 ? 40 : 25;
-  const kmS   = km < 20000 ? 100 : km < 40000 ? 85 : km < 60000 ? 70 : km < 90000 ? 55 : km < 120000 ? 40 : 20;
-  const ownS  = own === 1 ? 100 : own === 2 ? 70 : own === 3 ? 45 : 20;
-  const condS = { Excellent:100, Good:75, Average:45, Poor:20 }[cond] ?? 60;
+  const ageS = age <= 2 ? 100 : age <= 4 ? 85 : age <= 6 ? 70 : age <= 8 ? 55 : age <= 10 ? 40 : 25;
+  const kmS = km < 20000 ? 100 : km < 40000 ? 85 : km < 60000 ? 70 : km < 90000 ? 55 : km < 120000 ? 40 : 20;
+  const ownS = own === 1 ? 100 : own === 2 ? 70 : own === 3 ? 45 : 20;
+  const condS = { Excellent: 100, Good: 75, Average: 45, Poor: 20 }[cond] ?? 60;
 
   return Math.round(ageS * 0.25 + kmS * 0.30 + ownS * 0.20 + condS * 0.25);
 }
 
 function healthMeta(score) {
-  if (score >= 75) return { label: 'Strong Candidate',     color: '#15803d', fill: '#22c55e' };
-  if (score >= 55) return { label: 'Viable Deal',          color: '#b45309', fill: '#f59e0b' };
-  if (score >= 35) return { label: 'Review Carefully',     color: '#c2410c', fill: '#f97316' };
-  return              { label: 'High Risk Asset',       color: '#be123c', fill: '#f43f5e' };
+  if (score >= 75) return { label: 'Strong Candidate', color: '#15803d', fill: '#22c55e' };
+  if (score >= 55) return { label: 'Viable Deal', color: '#b45309', fill: '#f59e0b' };
+  if (score >= 35) return { label: 'Review Carefully', color: '#c2410c', fill: '#f97316' };
+  return { label: 'High Risk Asset', color: '#be123c', fill: '#f43f5e' };
 }
 
 function formatReg(v) {
@@ -103,13 +103,13 @@ function normalizeVariant(raw, modelName = '') {
 
   let res = tokens.join(' ').toUpperCase();
   res = res.replace(/\bSX\s+O\b/g, 'SX (O)')
-           .replace(/\bS\s+O\b/g, 'S (O)')
-           .replace(/\bZX\s+O\b/g, 'ZX (O)')
-           .replace(/\bZXI\s+PLUS\b/g, 'ZXI+')
-           .replace(/\bVXI\s+PLUS\b/g, 'VXI+')
-           .replace(/\bLXI\s+PLUS\b/g, 'LXI+')
-           .replace(/\bXZ\s+PLUS\b/g, 'XZ+')
-           .replace(/\bXT\s+PLUS\b/g, 'XT+');
+    .replace(/\bS\s+O\b/g, 'S (O)')
+    .replace(/\bZX\s+O\b/g, 'ZX (O)')
+    .replace(/\bZXI\s+PLUS\b/g, 'ZXI+')
+    .replace(/\bVXI\s+PLUS\b/g, 'VXI+')
+    .replace(/\bLXI\s+PLUS\b/g, 'LXI+')
+    .replace(/\bXZ\s+PLUS\b/g, 'XZ+')
+    .replace(/\bXT\s+PLUS\b/g, 'XT+');
 
   return res;
 }
@@ -120,22 +120,22 @@ export default function InputScreen() {
     setValuationResult, setActiveScreen, setIsLoading, addEvaluation,
   } = useApp();
 
-  const [brandCatalog, setBrandCatalog]   = useState({});
+  const [brandCatalog, setBrandCatalog] = useState({});
   const [datasetCatalog, setDatasetCatalog] = useState({});
 
-  const [availableFuels, setAvailableFuels]           = useState(FUELS);
+  const [availableFuels, setAvailableFuels] = useState(FUELS);
   const [availableTransmissions, setAvailableTransmissions] = useState(TRANSMISSIONS);
-  const [availableYears, setAvailableYears]           = useState(YEARS);
-  const [optionsLoading, setOptionsLoading]           = useState(false);
+  const [availableYears, setAvailableYears] = useState(YEARS);
+  const [optionsLoading, setOptionsLoading] = useState(false);
   const optionsAbort = useRef(null);
 
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const brandList   = useMemo(() => Object.keys(brandCatalog).sort(), [brandCatalog]);
-  const modelList   = useMemo(() => brandCatalog[inputs.brand] || [], [brandCatalog, inputs.brand]);
-  
+  const brandList = useMemo(() => Object.keys(brandCatalog).sort(), [brandCatalog]);
+  const modelList = useMemo(() => brandCatalog[inputs.brand] || [], [brandCatalog, inputs.brand]);
+
   const variantList = useMemo(() => {
     if (!inputs.brand || !inputs.model) return [];
 
@@ -144,7 +144,7 @@ export default function InputScreen() {
 
     let brandModels = datasetCatalog[brandKey];
     if (!brandModels) {
-      
+
       const foundB = Object.keys(datasetCatalog).find(k => k.includes(brandKey) || brandKey.includes(k));
       if (foundB) brandModels = datasetCatalog[foundB];
     }
@@ -171,11 +171,11 @@ export default function InputScreen() {
     return [];
   }, [inputs.brand, inputs.model, datasetCatalog]);
 
-  const segment  = getSegment(inputs.brand);
-  const score    = healthScore(inputs);
-  const meta     = healthMeta(score);
+  const segment = getSegment(inputs.brand);
+  const score = healthScore(inputs);
+  const meta = healthMeta(score);
   const required = [inputs.brand, inputs.model, inputs.year, inputs.mileage, inputs.fuel, inputs.city].filter(Boolean).length;
-  const isReady  = required === 6;
+  const isReady = required === 6;
 
   useEffect(() => {
     let alive = true;
@@ -185,7 +185,7 @@ export default function InputScreen() {
       .finally(() => { if (alive) setLoading(false); });
     fetchCatalog()
       .then(cat => { if (alive && cat) setDatasetCatalog(cat); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { alive = false; };
   }, []);
 
@@ -193,17 +193,17 @@ export default function InputScreen() {
     if (!inputs.brand) return;
 
     let alive = true;
-    if (optionsAbort.current) optionsAbort.current = false;
     const token = {};
-    Promise.resolve().then(() => {
-      if (alive) setOptionsLoading(true);
-    });
+    optionsAbort.current = token;   // ✅ actually store the token so the check below works
+
+    setOptionsLoading(true);
+
     fetchOptions({ brand: inputs.brand, model: inputs.model || undefined, variant: inputs.variant || undefined })
       .then(opts => {
-        if (!alive || optionsAbort.current !== token) return; 
-        setAvailableFuels(opts.fuel_types?.length   ? opts.fuel_types   : FUELS);
+        if (!alive || optionsAbort.current !== token) return;
+        setAvailableFuels(opts.fuel_types?.length ? opts.fuel_types : FUELS);
         setAvailableTransmissions(opts.transmissions?.length ? opts.transmissions : TRANSMISSIONS);
-        setAvailableYears(opts.years?.length         ? opts.years        : YEARS);
+        setAvailableYears(opts.years?.length ? opts.years : YEARS);
 
         if (inputs.fuel && !opts.fuel_types?.includes(inputs.fuel))
           updateInput('fuel', '');
@@ -212,7 +212,7 @@ export default function InputScreen() {
         if (inputs.year && !opts.years?.includes(inputs.year))
           updateInput('year', '');
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => { if (alive && optionsAbort.current === token) setOptionsLoading(false); });
 
     return () => { alive = false; };
@@ -243,7 +243,7 @@ export default function InputScreen() {
 
   const onVariant = (v) => {
     updateInput('variant', v);
-    
+
   };
 
   const onSubmit = async () => {
@@ -256,7 +256,7 @@ export default function InputScreen() {
     try {
       const payload = {
         ...inputs,
-        
+
         model: inputs.model,
         variant: inputs.variant || 'unknown',
       };
@@ -276,16 +276,16 @@ export default function InputScreen() {
   return (
     <div className="vws-root">
 
-      {}
+      { }
       <div className="vws-form">
 
-        {}
+        { }
         <div style={{ marginBottom: 16 }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Vehicle Valuation Parameters</h2>
           <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Configure all inputs side-by-side to estimate buy and sell pricing bands.</p>
         </div>
 
-        {}
+        { }
         <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel required>Brand</FieldLabel>
@@ -335,7 +335,7 @@ export default function InputScreen() {
           </div>
         </div>
 
-        {}
+        { }
         <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel required>Odometer Reading</FieldLabel>
@@ -389,13 +389,13 @@ export default function InputScreen() {
             >
               <option value="">Select Owners</option>
               {OWNERS.map(o => (
-                <option key={o} value={o.replace('+','')}>{o}</option>
+                <option key={o} value={o.replace('+', '')}>{o}</option>
               ))}
             </select>
           </div>
         </div>
 
-        {}
+        { }
         <div className="vws-row-4">
           <div className="vws-field">
             <FieldLabel>Color</FieldLabel>
@@ -462,27 +462,27 @@ export default function InputScreen() {
           </div>
         </div>
 
-        {}
+        { }
         {error && (
           <div className="vws-error" style={{ marginTop: 12 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-              <path d="M12 9v4M12 17h.01"/>
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <path d="M12 9v4M12 17h.01" />
             </svg>
             {error}
           </div>
         )}
 
-      </div>{}
+      </div>{ }
 
-      {}
+      { }
       <div className="vws-panel">
         <div className="vws-panel-inner">
 
-          {}
+          { }
           <div className="vwsp-heading">Valuation Summary</div>
 
-          {}
+          { }
           <div className="vwsp-card">
             <div className="vwsp-vehicle-name">
               {inputs.brand && inputs.model
@@ -495,18 +495,18 @@ export default function InputScreen() {
               </div>
             )}
             <div className="vwsp-tags">
-              {inputs.fuel         && <span className="vwsp-tag">{inputs.fuel}</span>}
+              {inputs.fuel && <span className="vwsp-tag">{inputs.fuel}</span>}
               {inputs.transmission && <span className="vwsp-tag">{inputs.transmission}</span>}
-              {inputs.ownerCount   && <span className="vwsp-tag">{inputs.ownerCount} Owner{inputs.ownerCount !== '1' ? 's' : ''}</span>}
+              {inputs.ownerCount && <span className="vwsp-tag">{inputs.ownerCount} Owner{inputs.ownerCount !== '1' ? 's' : ''}</span>}
               {Number(inputs.mileage) > 0 && (
-                <span className="vwsp-tag">{(Number(inputs.mileage)/1000).toFixed(0)}k km</span>
+                <span className="vwsp-tag">{(Number(inputs.mileage) / 1000).toFixed(0)}k km</span>
               )}
-              {inputs.condition    && <span className="vwsp-tag">{inputs.condition}</span>}
-              {inputs.city         && <span className="vwsp-tag">{inputs.city}</span>}
+              {inputs.condition && <span className="vwsp-tag">{inputs.condition}</span>}
+              {inputs.city && <span className="vwsp-tag">{inputs.city}</span>}
             </div>
           </div>
 
-          {}
+          { }
           {inputs.brand && (
             <div className="vwsp-card">
               <div className="vwsp-stat-label">Deal Health Preview</div>
@@ -523,7 +523,7 @@ export default function InputScreen() {
             </div>
           )}
 
-          {}
+          { }
           {segment && (
             <div className="vwsp-grid">
               <div className="vwsp-stat">
@@ -551,25 +551,25 @@ export default function InputScreen() {
             </div>
           )}
 
-          {}
+          { }
           {!isReady && inputs.brand && (
             <div className="vwsp-checklist">
               <div className="vwsp-check-head">Required fields</div>
               {[
-                { key: 'brand',   label: 'Brand' },
-                { key: 'model',   label: 'Model' },
-                { key: 'year',    label: 'Year' },
+                { key: 'brand', label: 'Brand' },
+                { key: 'model', label: 'Model' },
+                { key: 'year', label: 'Year' },
                 { key: 'mileage', label: 'Odometer' },
-                { key: 'fuel',    label: 'Fuel type' },
-                { key: 'city',    label: 'City' },
+                { key: 'fuel', label: 'Fuel type' },
+                { key: 'city', label: 'City' },
               ].map(f => {
                 const done = !!inputs[f.key];
                 return (
                   <div key={f.key} className={`vwsp-check-row${done ? ' done' : ''}`}>
                     <span className="vwsp-check-icon">
                       {done
-                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
+                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /></svg>}
                     </span>
                     {f.label}
                   </div>
@@ -580,7 +580,7 @@ export default function InputScreen() {
 
           <div style={{ flex: 1 }} />
 
-          {}
+          { }
           <div className="vwsp-cta">
 
             <button
@@ -588,9 +588,9 @@ export default function InputScreen() {
               onClick={onSubmit}
               disabled={!isReady || submitting}
             >
-              {}
+              { }
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
               {submitting ? 'Analysing…' : 'Analyse with ML'}
             </button>
