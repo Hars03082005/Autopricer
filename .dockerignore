@@ -40,8 +40,15 @@ venv
 htmlcov
 .coverage
 
-# ── Training data and pipeline (~30 MB) — inference never reads these ────────
+# ── Training pipeline (~14 MB Python scripts) — exclude the code, keep the data ──
+# decision_engine._load_dataset_df() reads ml_training/data/overall_only/train.csv
+# at inference time for the comparable-vehicle search. Without it the deployed
+# server finds 0 comparables and returns a pure ML price with no market range.
+# The Python scripts, notebooks and raw datasets are not needed at inference time.
 ml_training/
+!ml_training/data/
+!ml_training/data/overall_only/
+!ml_training/data/overall_only/train.csv
 
 # ── Flutter mobile shell — built and shipped separately, not by these images ─
 mobile/

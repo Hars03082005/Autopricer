@@ -118,13 +118,18 @@ model_artifacts/training_report.json
 *.7z
 *.rar
 
-# Dataset directories
+# Dataset directories — large training CSVs stay out of git
 data/
 ml_training/data/
 raw_data/
 processed_data/
 datasets/
-
+# Exception: the comparables CSV is needed by the Docker build so
+# decision_engine._load_dataset_df() can find comparable vehicles on the
+# deployed server. Only the one file needed for inference is included.
+!ml_training/data/
+!ml_training/data/overall_only/
+!ml_training/data/overall_only/train.csv
 
 # ── Model Artifacts (large binary files) ──────────────────────────────────────
 # Legacy model_artifacts/ folder (superseded by model_registry/)

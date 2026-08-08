@@ -106,6 +106,12 @@ COPY model_registry/variant_3/     /app/model_registry/variant_3/
 COPY backend/            /app/backend/
 COPY scripts/            /app/scripts/
 
+# Comparables dataset (~2 MB). decision_engine._load_dataset_df() reads this
+# at inference time to find comparable vehicles for the market-range calculation.
+# Without it the deployed server returns 0 comparables and the price range falls
+# back to a pure MAPE estimate instead of real market data.
+COPY ml_training/data/overall_only/train.csv /app/ml_training/data/overall_only/train.csv
+
 # Non-root. Nothing under /app needs to be writable: the one code path that
 # writes (model_registry.activate_variant -> registry.json) is refused in
 # containers via ALLOW_RUNTIME_VARIANT_SWITCH, because a disk write inside one
