@@ -92,11 +92,15 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
 
-# Model artifacts first: ~66 MB that changes only when a model is retrained, so
-# it stays cached across the frequent code-only rebuilds below. Explicit paths
-# so a stale .dockerignore can never silently pull in every archived variant.
+# Model artifacts: variant_1 is the active default (MAPE 7.48%); variant_2 and
+# variant_3 ship alongside it so the Results-screen variant switcher works on
+# the deployed server without a 404. Total: ~198 MB across all three.
+# Explicit paths so a stale .dockerignore can never silently pull in
+# unintended or archived variants.
 COPY model_registry/registry.json  /app/model_registry/registry.json
 COPY model_registry/variant_1/     /app/model_registry/variant_1/
+COPY model_registry/variant_2/     /app/model_registry/variant_2/
+COPY model_registry/variant_3/     /app/model_registry/variant_3/
 
 # Application code — smallest and most frequently changed, so it goes last.
 COPY backend/            /app/backend/

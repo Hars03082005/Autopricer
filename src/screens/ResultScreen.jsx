@@ -36,7 +36,7 @@ const MAIN_VARIANTS = [
   { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
 ];
 
-function VariantSwitcher({ activeVariant, onSwitch, switching }) {
+function VariantSwitcher({ activeVariant, onSwitch, switching, switchError }) {
   return (
     <div style={{
       background: 'var(--surface-1)',
@@ -91,6 +91,23 @@ function VariantSwitcher({ activeVariant, onSwitch, switching }) {
             </span>
           )}
         </div>
+        {switchError && (
+          <div style={{
+            marginTop: 8,
+            padding: '6px 10px',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 6,
+            fontSize: 12,
+            color: '#dc2626',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <span>⚠️</span>
+            <span>{switchError}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -343,6 +360,7 @@ export default function ResultScreen() {
   const [activeVariant, setActiveVariant] = useState('variant_1');
   const [displayResult, setDisplayResult] = useState(null);
   const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState(null);
   const [s5Active, setS5Active] = useState(false);
 
   const result = displayResult || valuationResult;
@@ -350,6 +368,7 @@ export default function ResultScreen() {
   const handleVariantSwitch = useCallback(async (variantId) => {
     if (variantId === activeVariant && !s5Active) return;
     setSwitching(true);
+    setSwitchError(null);
     setS5Active(false);
     try {
       const switched = await runMLValuationWithVariant(inputs, variantId);
@@ -357,6 +376,11 @@ export default function ResultScreen() {
       setActiveVariant(variantId);
     } catch (e) {
       console.error('Variant switch failed:', e);
+      // Extract a user-friendly message from the API error (FastAPI returns
+      // {"detail": "..."} in the body; postJson wraps it as "ML API error 404: ...").
+      const raw = e?.message || 'Variant switch failed. Please try again.';
+      const match = raw.match(/\{.*"detail"\s*:\s*"([^"]+)"/);
+      setSwitchError(match ? match[1] : raw);
     } finally {
       setSwitching(false);
     }
@@ -426,6 +450,7 @@ export default function ResultScreen() {
         activeVariant={activeVariant}
         onSwitch={handleVariantSwitch}
         switching={switching}
+        switchError={switchError}
       />
 
       {}
