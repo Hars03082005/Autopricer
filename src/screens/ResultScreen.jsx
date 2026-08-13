@@ -168,19 +168,19 @@ function CarImage() {
 function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
   return (
     <div className="rs2-card rs2-range-card" style={{ padding: '18px 24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="rs2-range-card-inner">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Icon name={icon} size={18} color={color} strokeWidth={2.2} />
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{title}</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-1)', marginTop: 2 }}>
+            <div className="rs2-range-price" style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-1)', marginTop: 2 }}>
               {fmtFull(min)} – {fmtFull(max)}
             </div>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div className="rs2-range-card-right">
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>Confidence Interval</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color, marginTop: 2 }}>
             {confidenceScore}% Confidence
@@ -208,7 +208,7 @@ function NegotiationSection({ opening, ideal, walkAway }) {
       </div>
       {expanded && (
         <div className="rs2-neg-body">
-          <div className="rs2-neg-cards">
+          <div className="rs2-neg-cards rs2-neg-cards-row">
             <div className="rs2-neg-card rs2-neg-green">
               <div className="rs2-neg-card-label">Opening Offer</div>
               <div className="rs2-neg-card-value" style={{ color: '#16a34a' }}>{fmtFull(opening)}</div>
