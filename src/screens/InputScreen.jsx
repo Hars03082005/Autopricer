@@ -75,46 +75,160 @@ function FieldLabel({ children, required }) {
   );
 }
 
+// ── Tokens stripped from ALL variant names across all brands ────────────────
+// Engine/fuel: petrol, diesel, revotron, kryotec, etc.
+// Transmission: amt, dct, ivt, 6dca, 7dca, etc.
+// Color names: purple, red, ivory, dark, etc. (stripped after multi-word phrases)
+// Edition labels: handled via PHRASE_STRIP in normalizeVariant
 const STRIP_TOKENS = new Set([
-  'petrol', 'diesel', 'crdi', 'cng', 'lpg', 'electric', 'ev', 'vtvt', 'tdci', 'mpi', 'dci', 'ddis',
-  'tsi', 'tdi', 'gdi', 'tgdi', 'cdti', 'idtec', 'ivtec', 'k10', 'k12', 'k15', 'boostjet', 'smart', 'hybrid',
-  'at', 'mt', 'cvt', 'dct', 'amt', 'ivt', 'dsg', 'automatic', 'manual', 'str', 'shvs',
-  'dsl', 'ptl', 'bs6', 'bs4', 'bsiv', 'bs3', 'unknown', 'nan', 'null', 'none', 'car', 'model', 'variant',
-  '5sp', '6sp', '5-speed', '6-speed', '7-speed', '8-speed', '5mt', '6mt', '6at', '5at', 'speed',
-  'drive', '2wd', '4wd', 'awd', '4x2', '4x4', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
-]);
+  // Fuel / engine tech
+  'petrol', 'diesel', 'crdi', 'lpg', 'electric', 'ev', 'vtvt', 'tdci', 'mpi', 'dci', 'ddis',
+  'tsi', 'tdi', 'gdi', 'tgdi', 'cdti', 'idtec', 'ivtec', 'boostjet', 'hybrid',
+  'ecoboost', 'ti', 'vct', 'tvct', 'dicor', 'xtec',
+  // Tata / Mahindra engine codes
+  'revotron', 'revotorq', 'kryotec', 'kryojet', 'hyperion',
+  // Transmission: mt, amt, at (Ford/Hyundai), dct, cvt, etc.
+  'mt', 'amt', 'at', 'dct', 'cvt', 'ivt', 'dsg', 'ags', 'automatic', 'manual', 'shvs',
+  // Emission / misc qual
+  'bs6', 'bs4', 'bsiv', 'bs3', 'dsl', 'ptl', 'str',
+  // Feature notes in variant strings (not trim names)
+  'airbag', 'airbags',
+  // Seating descriptors from KUV100 (6 str = 6 seater)
+  'str',
+  // Null / unknown
+  'unknown', 'nan', 'null', 'none', 'car', 'model', 'variant',
+  // Drivetrain
+  '2wd', '4wd', 'awd', '4x2', '4x4',
+]); 
+
+// Multi-word phrases to strip BEFORE tokenising (order: longest / most specific first)
+const PHRASE_STRIP = [
+  // Tata engine+gearbox combos
+  'revotron 7dca dark edition', 'revotron 7dca', 'revotron 6dca', 'revotron 6 dca',
+  'revotron 6amt',  'revotron 6 amt', 'revotron 6mt',
+  'revotorq 6amt', 'revotorq 6 amt', 'revotorq 6mt',
+  // Standalone gearbox codes with numbers
+  '6 dca', '7dca', '6dca', '7 dca',
+  '6 dct', '6dct', '5dct', '7dct',
+  '6amt', '6 amt', '7amt', '7 amt', '6mt', '5mt', '5 mt', '6 mt',
+  // Ford engine names
+  'ti vct', 'ti-vct', 'ecoboost tdci',
+  // KUV100 seating suffix  
+  '6 str', '7 str', '5 str', '8 str',
+  // Special editions (most specific → least)
+  'halo dark edition', 'halo edition',
+  'dark edition', 'special edition', 'anniversary edition',
+  'camo edition', 'dazzle pack', 'dazzle sunroof',
+  'kaziranga edition', 'kaziranga',
+  'rhythm pack',
+  'dual tone', 'dual-tone', 'dualtone',
+  'outside fitted',
+  // Tata DCA suffix alone (e.g. "creative dca", "fearless sunroof dca")
+  // Only strip lone 'dca' here; multi-word already handled above
+  'dca',
+  // Icng (CNG fitted outside)
+  'icng',
+  // DT = abbreviation for dual tone
+  'dt',
+  // Standalone 'edition' leftover (e.g. "knight edition" → "knight edition" kept since knight is meaningful)
+  'edition',
+];
 
 function normalizeVariant(raw, modelName = '') {
   if (!raw || typeof raw !== 'string') return '';
   let text = raw.toLowerCase().trim();
-  if (['unknown', 'nan', 'null', 'none', '-', '', 'base model'].includes(text)) return '';
+  if (!text || ['unknown', 'nan', 'null', 'none', '-', 'base model'].includes(text)) return '';
 
+  // Remove model-name words from variant string (avoid "nexon nexon xz+")
   if (modelName) {
     modelName.toLowerCase().split(/\s+/).forEach(word => {
-      if (word.length > 2) text = text.replace(word, '');
+      if (word.length > 2) text = text.replace(new RegExp('\\b' + word + '\\b', 'g'), ' ');
     });
   }
 
-  text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, '');
-  text = text.replace(/[()[\]/\-,_.+]/g, ' ');
+  // Strip engine displacement and cc values (1.2l, 1500cc, etc.)
+  text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, ' ');
 
+  // ── CRITICAL RULE: ALL + means "Plus" tier in Indian car naming ────
+  // "fearless + sunroof" = Fearless Plus with Sunroof  ≠  "fearless sunroof"
+  // "zxi+" = ZXI Plus  |  "k4+" = K4 Plus  |  "titanium+" = Titanium Plus
+  // Convert every + (with or without spaces) to " plus "
+  text = text.replace(/\s*\+\s*/g, ' plus ');
+
+  // Remove remaining punctuation (parens, slashes, dashes, etc.)
+  text = text.replace(/[()[\]/\-,_.]/g, ' ');
+
+  // ── Phase 1: Strip multi-word noise phrases ─────────────────────────
+  PHRASE_STRIP.forEach(phrase => {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]+');
+    text = text.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), ' ');
+  });
+
+  // ── Phase 2: Strip standalone color words ──────────────────────────
+  const COLOR_WORDS = [
+    'purple', 'ivory', 'dark', 'red', 'blue', 'black', 'white',
+    'grey', 'gray', 'silver', 'gold', 'green', 'orange', 'maroon',
+    'brown', 'beige', 'metallic', 'pearl', 'solid',
+  ];
+  COLOR_WORDS.forEach(color => {
+    text = text.replace(new RegExp('(?<![a-z])' + color + '(?![a-z])', 'g'), ' ');
+  });
+
+  // ── Phase 3: Token-level strip (engine tech, transmission, emission) ─
   const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
   if (tokens.length === 0) return '';
 
   let res = tokens.join(' ').toUpperCase();
-  res = res.replace(/\bSX\s+O\b/g, 'SX (O)')
-           .replace(/\bS\s+O\b/g, 'S (O)')
-           .replace(/\bZX\s+O\b/g, 'ZX (O)')
-           .replace(/\bZXI\s+PLUS\b/g, 'ZXI+')
-           .replace(/\bVXI\s+PLUS\b/g, 'VXI+')
-           .replace(/\bLXI\s+PLUS\b/g, 'LXI+')
-           .replace(/\bXZ\s+PLUS\b/g, 'XZ+')
-           .replace(/\bXT\s+PLUS\b/g, 'XT+');
 
-  return res;
+  // ── Phase 4: Restore canonical bracket notation (Hyundai SX(O)) ────
+  res = res.replace(/\bSX\s+O\b/g, 'SX (O)')
+           .replace(/\bS\s+O\b/g,  'S (O)')
+           .replace(/\bZX\s+O\b/g, 'ZX (O)');
+
+  // ── Phase 5: Reconstitute PLUS → + for ALL standard Indian brands ──
+  // Order matters: longest / most specific patterns first
+  res = res
+    // Maruti grade letters: ZXI+, VXI+, LXI+, ZDI+, VDI+
+    .replace(/\bZXI\s+PLUS\b/g,  'ZXI+')
+    .replace(/\bVXI\s+PLUS\b/g,  'VXI+')
+    .replace(/\bLXI\s+PLUS\b/g,  'LXI+')
+    .replace(/\bZDI\s+PLUS\b/g,  'ZDI+')
+    .replace(/\bVDI\s+PLUS\b/g,  'VDI+')
+    // Tata old-gen grade names: XZ+, XZA+, XT+, XM+
+    .replace(/\bXZA\s+PLUS\b/g,  'XZA+')
+    .replace(/\bXZ\s+PLUS\b/g,   'XZ+')
+    .replace(/\bXT\s+PLUS\b/g,   'XT+')
+    .replace(/\bXMA\s+PLUS\b/g,  'XMA+')
+    .replace(/\bXM\s+PLUS\b/g,   'XM+')
+    // Tata new-gen persona names: Fearless+, Creative+, Pure+, Smart+
+    .replace(/\bFEARLESS\s+PLUS\b/g,     'FEARLESS+')
+    .replace(/\bCREATIVE\s+PLUS\b/g,     'CREATIVE+')
+    .replace(/\bPURE\s+PLUS\b/g,         'PURE+')
+    .replace(/\bSMART\s+PLUS\b/g,        'SMART+')
+    .replace(/\bACCOMPLISHED\s+PLUS\b/g, 'ACCOMPLISHED+')
+    .replace(/\bADVENTURE\s+PLUS\b/g,    'ADVENTURE+')
+    // Ford EcoSport: Titanium+, Trend+
+    .replace(/\bTITANIUM\s+PLUS\b/g,  'TITANIUM+')
+    .replace(/\bTREND\s+PLUS\b/g,     'TREND+')
+    // Hyundai: D-Lite+, Magna+, Era+, Sportz+, Asta+
+    .replace(/\bD[\s-]LITE\s+PLUS\b/g, 'D-LITE+')
+    .replace(/\bMAGNA\s+PLUS\b/g,      'MAGNA+')
+    .replace(/\bERA\s+PLUS\b/g,        'ERA+')
+    .replace(/\bSPORTZ\s+PLUS\b/g,     'SPORTZ+')
+    .replace(/\bASTA\s+PLUS\b/g,       'ASTA+')
+    // Mahindra KUV100: K4+, K6+, K8+
+    .replace(/\bK(\d)\s+PLUS\b/g,  'K$1+')
+    // Maruti Grand Vitara / Hyundai: Alpha+, Zeta+
+    .replace(/\bALPHA\s+PLUS\b/g, 'ALPHA+')
+    .replace(/\bZETA\s+PLUS\b/g,  'ZETA+')
+    // Generic catch-all: short trim codes like S+, N+, E+, SX+, HTX+, GTX+
+    .replace(/\b([A-Z]{1,4})\s+PLUS\b/g, '$1+');
+
+  return res.replace(/\s{2,}/g, ' ').trim();
 }
 
 export default function InputScreen() {
+
   const {
     inputs, updateInput,
     setValuationResult, setActiveScreen, setIsLoading, addEvaluation,
