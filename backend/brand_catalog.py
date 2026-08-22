@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT / "ml_training" / "data" / "processed_widoutown-2.csv"
@@ -73,6 +72,7 @@ def build_brand_catalog() -> dict[str, list[str]]:
     # Fallback: derive from dataset CSV (no hardcoded brands)
     if not DATASET_PATH.exists():
         return {}
+    import pandas as pd  # noqa: PLC0415 — lazy: only needed when JSON catalog absent
     try:
         frame = pd.read_csv(DATASET_PATH, usecols=["brand_name", "model_name"], low_memory=False)
     except (ValueError, KeyError):

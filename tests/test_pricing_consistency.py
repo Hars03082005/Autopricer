@@ -1,6 +1,12 @@
 import pytest
 from pathlib import Path
-from backend.main import evaluate_vehicle, VehicleInput
+
+pytest.importorskip("joblib", reason="requires ML stack")
+pytest.importorskip("pandas", reason="requires ML stack")
+
+pytestmark = pytest.mark.models
+
+from backend.main import evaluate_vehicle, VehicleInput  # noqa: E402
 
 
 @pytest.mark.parametrize("brand,model,variant,year,fuel,transmission,odo,condition,owner", [
