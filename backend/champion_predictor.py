@@ -65,7 +65,7 @@ _MIN_PRICE_INR = 10_000.0
 _MAX_PRICE_INR = 50_000_000.0
 
 # ── Module-level singleton cache ───────────────────────────────────────────────
-_PIPELINE_CACHE: dict[str, "ChampionPredictor"] = {}
+_PIPELINE_CACHE: dict[str, ChampionPredictor] = {}
 
 
 def _clean_string_series(s: pd.Series) -> pd.Series:
