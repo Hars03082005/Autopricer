@@ -59,12 +59,6 @@ const ICONS = {
       <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" strokeLinecap="round"/>
     </svg>
   ),
-  info: (
-    <svg viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="10" strokeLinejoin="round"/>
-      <path d="M12 16v-4M12 8h.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"/>
-    </svg>
-  ),
   lock: (
     <svg viewBox="0 0 24 24" fill="none">
       <rect x="5" y="11" width="14" height="10" rx="2" strokeLinejoin="round"/>

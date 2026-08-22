@@ -64,7 +64,6 @@ export default function ResultScreen() {
     priceMax = 0,
     priceMedian = 0,
     recommendedBuyPrice = 0,
-    recommendedSellPrice = 0,
     expectedProfit = 0,
     expectedMarginPct = 0,
     action = 'BUY',
@@ -98,6 +97,8 @@ export default function ResultScreen() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const evalIdStr = String(valuationResult.id || 'REF001');
+
   return (
     <div className="screen">
       {/* Top Action Bar */}
@@ -108,7 +109,7 @@ export default function ResultScreen() {
             <span>Edit Valuation</span>
           </button>
           <span style={{ fontSize: 12, color: 'var(--text-4)' }}>
-            Evaluation ID #{String(valuationResult.id || Date.now()).slice(-6)}
+            Evaluation ID #{evalIdStr.slice(-6)}
           </span>
         </div>
 

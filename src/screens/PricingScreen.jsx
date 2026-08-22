@@ -36,8 +36,6 @@ export default function PricingScreen() {
 
   const {
     predictedPrice = 0,
-    priceMin = 0,
-    priceMax = 0,
     recommendedBuyPrice = 0,
     recommendedSellPrice = 0,
     expectedProfit = 0,
