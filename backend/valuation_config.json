@@ -1,18 +1,18 @@
 {
   "_comment": "Adaptive Valuation Engine — all tuning parameters. Edit here; no code changes needed.",
   "similarity_weights": {
-    "brand": 0.18,
-    "model": 0.18,
+    "brand": 0.16,
+    "model": 0.16,
     "variant": 0.16,
-    "vehicle_age": 0.12,
+    "vehicle_age": 0.22,
     "odometer_reading": 0.10,
     "fuel_type": 0.10,
-    "locality": 0.04,
-    "transmission": 0.07,
+    "transmission": 0.05,
     "owner_count": 0.03,
-    "seller_type": 0.02
+    "locality": 0.01,
+    "seller_type": 0.01
   },
-  "age_sigma": 3.0,
+  "age_sigma": 1.2,
   "odometer_sigma": 25000,
   "min_similarity_threshold": 0.55,
   "luxury_min_similarity_threshold": 0.45,

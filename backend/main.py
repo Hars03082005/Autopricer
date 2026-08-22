@@ -1044,14 +1044,9 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: str | None = None) ->
             (anchored_sell - total_non_profit_costs - real_max_profit) / 500
         ) * 500)
 
-        buy_floor    = int(round(price_min * 0.90 / 500) * 500)
-        anchored_buy = max(anchored_buy, buy_floor)
-
-        soft_ceil = int(round(price_min * 0.97 / 500) * 500)
-        if anchored_buy > soft_ceil:
-            profit_at_ceil = anchored_sell - soft_ceil - recon_cost - holding_cost - doc_cost
-            if profit_at_ceil <= real_max_profit:
-                anchored_buy = soft_ceil
+        # Cap acquisition price to guarantee minimum dealer margin buffer
+        anchored_buy = min(anchored_buy, int(round(anchored_sell * 0.95 / 500) * 500))
+        anchored_buy = max(anchored_buy, int(round(anchored_sell * 0.70 / 500) * 500))
 
         anchored_profit = max(0, anchored_sell - anchored_buy - recon_cost - holding_cost - doc_cost)
         anchored_margin = round((anchored_profit / max(anchored_buy, 1)) * 100, 1)

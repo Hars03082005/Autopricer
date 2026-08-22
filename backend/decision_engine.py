@@ -1306,8 +1306,10 @@ class AdaptiveRangeEngine:
 
     def build(self, *, prediction: float, comps: list[dict],
               sim_scores: list[float], mape: float,
-              odometer: float = 0.0) -> dict:
+              odometer: float = 0.0, year: int | None = None) -> dict:
         """
+        Builds market range with ML prediction as the anchor, factoring in
+        year-proximity decay so older model year comps do not distort valuation.
         """
         import numpy as _np
 
@@ -1369,6 +1371,29 @@ class AdaptiveRangeEngine:
         else:
             _comp_alpha = 0.0          # below threshold → ML-only
 
+        # ── Year-proximity decay for comp blending ───────────────────────────
+        # If available comps are from older model years (e.g. 2016 comps for a 2019 car),
+        # their historical prices reflect depreciation from a different vintage.
+        # Scale comp_alpha down so the ML point prediction (which captures the exact model year)
+        # remains the primary price anchor.
+        query_yr = float(year) if (year and _math.isfinite(float(year))) else 0.0
+        if query_yr > 1900 and comps:
+            top_k_check = min(5, len(comps))
+            valid_comp_years = []
+            for c in comps[:top_k_check]:
+                try:
+                    y_val = float(c.get("year", 0) or 0)
+                    if _math.isfinite(y_val) and y_val > 1900:
+                        valid_comp_years.append(y_val)
+                except (ValueError, TypeError):
+                    pass
+            if valid_comp_years:
+                avg_yr_gap = float(_np.mean([abs(cy - query_yr) for cy in valid_comp_years]))
+                year_relevance = float(_np.exp(-0.5 * (avg_yr_gap / 1.0) ** 2))
+            else:
+                year_relevance = 1.0
+            _comp_alpha = float(_comp_alpha * year_relevance)
+
         # Similarity-weighted top-5 comp anchor (price center)
         if n_valid > 0 and _comp_alpha > 0:
             sims_arr       = _np.array(valid_sims)
@@ -1376,7 +1401,7 @@ class AdaptiveRangeEngine:
             top_prices     = prices_arr_all[:top_k]
             top_sims       = sims_arr[:top_k]
             top_comps_list = comps[:top_k]
-            query_odo      = float(odometer) if odometer else 0.0
+            query_odo      = float(odometer) if (odometer and _math.isfinite(float(odometer))) else 0.0
 
             combined_weights = []
             for c, s in zip(top_comps_list, top_sims):
@@ -1386,12 +1411,29 @@ class AdaptiveRangeEngine:
                 odo_sigma = 20_000.0
                 w_odo     = float(_np.exp(-0.5 * ((odo - query_odo) / odo_sigma) ** 2)) \
                             if (query_odo > 0 and odo > 0) else 1.0
-                combined_weights.append((s ** 6) * w_oc * w_odo)
+                
+                # Heavy decay for year differences in individual comp weights
+                c_yr = 0.0
+                try:
+                    c_yr = float(c.get("year", 0) or 0)
+                except (ValueError, TypeError):
+                    pass
+                if _math.isfinite(c_yr) and c_yr > 1900 and query_yr > 1900:
+                    yr_diff = abs(c_yr - query_yr)
+                    w_year  = float(_np.exp(-0.5 * (yr_diff / 1.0) ** 2))
+                else:
+                    w_year  = 1.0
 
-            exp_weights          = _np.array(combined_weights)
-            comp_weighted_anchor = float(_np.average(top_prices, weights=exp_weights))
-            blended_center       = _comp_alpha * comp_weighted_anchor + (1.0 - _comp_alpha) * pred
-        else:
+                combined_weights.append((s ** 6) * w_oc * w_odo * w_year)
+
+            exp_weights = _np.array(combined_weights)
+            if exp_weights.sum() > 0:
+                comp_weighted_anchor = float(_np.average(top_prices, weights=exp_weights))
+            else:
+                comp_weighted_anchor = float(_np.mean(top_prices))
+        # Center the valuation range on the ML point prediction
+        blended_center = pred
+        if not _math.isfinite(blended_center) or blended_center <= 0:
             blended_center = pred
 
         # ── DATA-DRIVEN RANGE — robust sigma, anchored on blended center ────────
@@ -1664,6 +1706,7 @@ def get_market_range_result(*, brand, model, variant, fuel, transmission,
         sim_scores=sim_scores,
         mape=_mape,
         odometer=float(odometer or 0),
+        year=int(year) if year else None,
     )
 
     price_min    = rng["price_min"]
