@@ -14,7 +14,6 @@ export default function AuthScreen() {
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   
-  const [showPass, setShowPass]   = useState(false);
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
 
@@ -52,7 +51,6 @@ export default function AuthScreen() {
     if (!result.ok) {
       setError(result.error || 'Registration failed');
     } else {
-      
       setSignUpName('');
       setSignUpEmail('');
       setSignUpPassword('');
@@ -62,273 +60,198 @@ export default function AuthScreen() {
 
   return (
     <div className="auth-root">
-      {}
+      {/* Left Brand Showcase (Desktop) */}
       <div className="auth-left">
-        <div className="auth-left-brand">
-          <div className="auth-left-logo">
-            <Icon name="car" size={22} color="white" strokeWidth={2} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="sidebar-logo" style={{ width: 34, height: 34 }}>
+            <Icon name="car" size={18} color="white" strokeWidth={2} />
           </div>
           <div>
-            <div className="auth-left-title">Price<span>Ref</span></div>
-            <div className="auth-left-sub">Dealer Decision OS</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: -0.4 }}>
+              Price<span style={{ color: '#e85d26' }}>Ref</span>
+            </div>
+            <div style={{ fontSize: 10.5, color: '#9dafc2', fontWeight: 500, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              Dealer Valuation OS
+            </div>
           </div>
         </div>
 
         <div>
-          <div className="auth-left-tagline">
-            Know the exact<br />
-            price <span>before</span><br />
-            you negotiate.
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: -1, lineHeight: 1.15, marginBottom: 16 }}>
+            Precision vehicle pricing for modern automotive dealerships.
           </div>
-          <div className="auth-left-desc">
-            ML-powered valuation engine trusted by dealerships across India.
-            Get instant buy/sell recommendations with full cost breakdowns.
+          <div style={{ fontSize: 14, color: '#9dafc2', lineHeight: 1.6, maxWidth: 440 }}>
+            Powered by comprehensive market transaction intelligence, real-time comparable benchmarking, and dealer acquisition margin waterfalls.
           </div>
         </div>
 
-        <div className="auth-value-props">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
-            { icon: 'robot', text: 'Ensemble ML engine trained on market transactions' },
-            { icon: 'shield', text: 'Segment-aware pricing — Economy, Premium & Luxury models' },
-            { icon: 'coins', text: 'Realistic dealer margin with full cost breakdown' },
-            { icon: 'chart', text: 'Live analytics dashboard with deal quality scoring' },
-          ].map((p, i) => (
-            <div key={i} className="auth-prop">
-              <div className="auth-prop-icon">
-                <Icon name={p.icon} size={16} color="rgba(255,255,255,0.7)" strokeWidth={1.8} />
+            'Live acquisition buy/sell price recommendations',
+            'Full dealer reconditioning and holding cost breakdown',
+            'Real-time market comparable transactions in your city',
+            'Automated deal quality scoring and margin protection',
+          ].map((text, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#c8d9e8' }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(232,93,38,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="check" size={11} color="#e85d26" strokeWidth={2.5} />
               </div>
-              <div className="auth-prop-text">{p.text}</div>
+              <span>{text}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {}
-      <div className="auth-right">
+      {/* Right Login / Register Panel */}
+      <div className="auth-panel">
         <div className="auth-form-wrap">
-          
-          {}
-          <div className="auth-mobile-header">
-            <Icon name="car" size={28} color="#f75d34" strokeWidth={2.2} />
-            <div className="auth-mobile-title">PriceRef</div>
+          <div className="auth-logo">
+            <Icon name="car" size={20} color="white" strokeWidth={2} />
           </div>
 
-          <div className="auth-form-title">
-            {activeTab === 'signin' ? 'Welcome back' : 'Create Dealer Account'}
+          <div className="auth-heading">
+            {activeTab === 'signin' ? 'Sign In to Dealer Terminal' : 'Create Dealer Account'}
           </div>
-          <div className="auth-form-sub" style={{ marginBottom: 24 }}>
-            {activeTab === 'signin' 
-              ? 'Sign in to access your valuations & analytics' 
-              : 'Register your dealership to get started'}
+          <div className="auth-sub">
+            {activeTab === 'signin'
+              ? 'Access real-time vehicle valuations, pipeline margins, and deal analytics.'
+              : 'Register your dealership account to begin evaluating inventory.'}
           </div>
 
-          {}
-          <div className="auth-tabs" style={{ display: 'flex', gap: 4, background: '#f1f5f9', padding: 4, borderRadius: 10, marginBottom: 24 }}>
-            <button 
+          {/* Tabs */}
+          <div className="auth-tabs">
+            <button
               type="button"
-              className={`auth-tab-btn ${activeTab === 'signin' ? 'active' : ''}`}
+              className={`auth-tab ${activeTab === 'signin' ? 'active' : ''}`}
               onClick={() => { setActiveTab('signin'); setError(''); }}
-              style={{
-                flex: 1,
-                border: 'none',
-                padding: '8px 16px',
-                fontSize: 13.5,
-                fontWeight: 600,
-                borderRadius: 8,
-                cursor: 'pointer',
-                background: activeTab === 'signin' ? '#ffffff' : 'none',
-                color: activeTab === 'signin' ? '#0f172a' : '#64748b',
-                boxShadow: activeTab === 'signin' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                transition: 'all 0.15s'
-              }}
             >
               Sign In
             </button>
-            <button 
+            <button
               type="button"
-              className={`auth-tab-btn ${activeTab === 'signup' ? 'active' : ''}`}
+              className={`auth-tab ${activeTab === 'signup' ? 'active' : ''}`}
               onClick={() => { setActiveTab('signup'); setError(''); }}
-              style={{
-                flex: 1,
-                border: 'none',
-                padding: '8px 16px',
-                fontSize: 13.5,
-                fontWeight: 600,
-                borderRadius: 8,
-                cursor: 'pointer',
-                background: activeTab === 'signup' ? '#ffffff' : 'none',
-                color: activeTab === 'signup' ? '#0f172a' : '#64748b',
-                boxShadow: activeTab === 'signup' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                transition: 'all 0.15s'
-              }}
             >
               Sign Up
             </button>
           </div>
 
-          {}
           {error && (
-            <div className="error-banner" style={{ marginBottom: 20 }}>
-              <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
+            <div className="auth-error" style={{ marginBottom: 16 }}>
               {error}
             </div>
           )}
 
           {activeTab === 'signin' ? (
-            
             <form onSubmit={handleSignIn} className="auth-form">
-              <div className="field-group" style={{ marginBottom: 16 }}>
-                <label className="field-label">Email Address</label>
+              <div className="form-group">
+                <label className="form-label form-label-req">Email Address</label>
                 <input
-                  className="field-input"
                   type="email"
+                  className="form-input"
+                  placeholder="dealer@dealership.com"
                   value={signInEmail}
-                  onChange={e => setSignInEmail(e.target.value)}
-                  placeholder="name@dealership.com"
+                  onChange={(e) => setSignInEmail(e.target.value)}
                   autoComplete="email"
                   required
                 />
               </div>
 
-              <div className="field-group" style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label className="field-label" style={{ marginBottom: 0 }}>Password</label>
-                  <button 
-                    type="button" 
-                    className="demo-pill-btn" 
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="form-label form-label-req">Password</label>
+                  <button
+                    type="button"
                     onClick={fillDemo}
-                    style={{
-                      border: 'none',
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      cursor: 'pointer'
-                    }}
+                    style={{ fontSize: 11.5, color: '#e85d26', fontWeight: 600 }}
                   >
                     Use Demo Account
                   </button>
                 </div>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    className="field-input"
-                    type={showPass ? 'text' : 'password'}
-                    value={signInPassword}
-                    onChange={e => setSignInPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    style={{ paddingRight: 44 }}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(s => !s)}
-                    style={{
-                      position: 'absolute', right: 12, top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center'
-                    }}
-                  >
-                    <Icon name="eye" size={16} color="#94a3b8" strokeWidth={1.8} />
-                  </button>
-                </div>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={signInPassword}
+                  onChange={(e) => setSignInPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
               </div>
 
               <button
                 type="submit"
-                className="btn btn-primary btn-full btn-lg"
+                className="btn btn-primary btn-lg"
                 disabled={loading}
+                style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
               >
-                {loading ? (
-                  <>
-                    <div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, marginRight: 8 }} />
-                    Signing in…
-                  </>
-                ) : (
-                  <>
-                    Sign In
-                    <Icon name="arrowRight" size={16} color="white" strokeWidth={2.2} />
-                  </>
-                )}
+                {loading ? 'Authenticating...' : 'Sign In to Terminal'}
+              </button>
+
+              <div className="auth-divider">
+                <div className="auth-divider-line" />
+                <span className="auth-divider-text">DEMO ACCESS</span>
+                <div className="auth-divider-line" />
+              </div>
+
+              <button
+                type="button"
+                className="auth-demo-btn"
+                onClick={fillDemo}
+              >
+                Auto-fill Dealer Credentials
               </button>
             </form>
           ) : (
-            
             <form onSubmit={handleSignUp} className="auth-form">
-              <div className="field-group" style={{ marginBottom: 16 }}>
-                <label className="field-label">FullName / Dealership Name</label>
+              <div className="form-group">
+                <label className="form-label form-label-req">Dealership / User Name</label>
                 <input
-                  className="field-input"
                   type="text"
+                  className="form-input"
+                  placeholder="e.g. Apex Auto Wheels"
                   value={signUpName}
-                  onChange={e => setSignUpName(e.target.value)}
-                  placeholder="e.g. Sharma Motors"
+                  onChange={(e) => setSignUpName(e.target.value)}
                   required
                 />
               </div>
 
-              <div className="field-group" style={{ marginBottom: 16 }}>
-                <label className="field-label">Email Address</label>
+              <div className="form-group">
+                <label className="form-label form-label-req">Email Address</label>
                 <input
-                  className="field-input"
                   type="email"
+                  className="form-input"
+                  placeholder="dealer@dealership.com"
                   value={signUpEmail}
-                  onChange={e => setSignUpEmail(e.target.value)}
-                  placeholder="name@dealership.com"
+                  onChange={(e) => setSignUpEmail(e.target.value)}
+                  autoComplete="email"
                   required
                 />
               </div>
 
-              <div className="field-group" style={{ marginBottom: 24 }}>
-                <label className="field-label">Password</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    className="field-input"
-                    type={showPass ? 'text' : 'password'}
-                    value={signUpPassword}
-                    onChange={e => setSignUpPassword(e.target.value)}
-                    placeholder="Minimum 6 characters"
-                    style={{ paddingRight: 44 }}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(s => !s)}
-                    style={{
-                      position: 'absolute', right: 12, top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center'
-                    }}
-                  >
-                    <Icon name="eye" size={16} color="#94a3b8" strokeWidth={1.8} />
-                  </button>
-                </div>
+              <div className="form-group">
+                <label className="form-label form-label-req">Password</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={signUpPassword}
+                  onChange={(e) => setSignUpPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
               </div>
 
               <button
                 type="submit"
-                className="btn btn-primary btn-full btn-lg"
+                className="btn btn-primary btn-lg"
                 disabled={loading}
+                style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
               >
-                {loading ? (
-                  <>
-                    <div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, marginRight: 8 }} />
-                    Creating account…
-                  </>
-                ) : (
-                  <>
-                    Register & Sign In
-                    <Icon name="arrowRight" size={16} color="white" strokeWidth={2.2} />
-                  </>
-                )}
+                {loading ? 'Creating Account...' : 'Register Dealer Account'}
               </button>
             </form>
           )}
-
         </div>
       </div>
     </div>

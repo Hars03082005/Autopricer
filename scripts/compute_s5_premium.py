@@ -16,7 +16,7 @@ import pandas as pd
 
 import numpy as np
 
-from backend.main import VehicleInput, predict_base_market_value
+from backend.main import VehicleInput, predict_base_market_value  # pyrefly: ignore [missing-import]
 
 s5 = pd.read_csv("ml_training/data/processed_s5.csv")
 
@@ -60,7 +60,7 @@ for i, row in s5.iterrows():
 
         )
 
-        pred, _, _ = predict_base_market_value(v, model_variant="variant_1")
+        pred, _, _ = predict_base_market_value(v, model_variant="final")
 
         ratio = actual / max(pred, 1)
 

@@ -1,0 +1,141 @@
+{
+  "summary_metrics": {
+    "Original Baseline": {
+      "n": 3748,
+      "mae": 41851.15748736537,
+      "rmse": 97753.28043526395,
+      "mape": 7.087726432792664,
+      "r2": 0.9645744073094362,
+      "bias": -7525.837497886185,
+      "med": 22445.622920717433,
+      "std": 404434.00082381064
+    },
+    "Original Window 0.10–0.90": {
+      "n": 3748,
+      "mae": 41029.43747752199,
+      "rmse": 100762.66118997864,
+      "mape": 6.974518997476476,
+      "r2": 0.9617579879921982,
+      "bias": -5267.551929435684,
+      "med": 21736.706839567545,
+      "std": 410863.82480269036
+    },
+    "Baseline + Hierarchy": {
+      "n": 3748,
+      "mae": 40652.04685989896,
+      "rmse": 90943.84590762238,
+      "mape": 6.977341889550249,
+      "r2": 0.9667988067172291,
+      "bias": -6596.29339893186,
+      "med": 22272.678335376433,
+      "std": 408577.789433032
+    },
+    "Specialized Hard + Hierarchy": {
+      "n": 3748,
+      "mae": 40431.91694095366,
+      "rmse": 99124.5448961867,
+      "mape": 6.881783867348553,
+      "r2": 0.9613651047588974,
+      "bias": -7239.41475651416,
+      "med": 21116.846145151707,
+      "std": 411879.516216678
+    },
+    "Specialized W1090 + Hierarchy": {
+      "n": 3748,
+      "mae": 40207.22598123479,
+      "rmse": 97993.7130792677,
+      "mape": 6.883603782161819,
+      "r2": 0.9640303566327497,
+      "bias": -4610.184151767235,
+      "med": 21273.541578879434,
+      "std": 412103.3653958431
+    }
+  },
+  "feature_importances": [
+    {
+      "feature": "vehicle_age",
+      "importance_gain": 38020.01942856144,
+      "importance_split": 9294
+    },
+    {
+      "feature": "model",
+      "importance_gain": 8640.200227065245,
+      "importance_split": 11740
+    },
+    {
+      "feature": "brand_model",
+      "importance_gain": 6463.360834918451,
+      "importance_split": 12326
+    },
+    {
+      "feature": "brand",
+      "importance_gain": 5530.590972548351,
+      "importance_split": 4015
+    },
+    {
+      "feature": "odometer_reading",
+      "importance_gain": 4768.231435270631,
+      "importance_split": 18961
+    },
+    {
+      "feature": "variant",
+      "importance_gain": 4418.8603127966635,
+      "importance_split": 17203
+    },
+    {
+      "feature": "km_per_year",
+      "importance_gain": 4142.7947296398925,
+      "importance_split": 18164
+    },
+    {
+      "feature": "fuel_type",
+      "importance_gain": 3981.358895213576,
+      "importance_split": 2274
+    },
+    {
+      "feature": "model_variant",
+      "importance_gain": 3235.986463139765,
+      "importance_split": 9775
+    },
+    {
+      "feature": "transmission",
+      "importance_gain": 2834.9155067703687,
+      "importance_split": 1940
+    },
+    {
+      "feature": "pincode",
+      "importance_gain": 1066.0664004252758,
+      "importance_split": 4474
+    },
+    {
+      "feature": "owner_count",
+      "importance_gain": 687.9122153210919,
+      "importance_split": 1915
+    },
+    {
+      "feature": "rto",
+      "importance_gain": 613.6760862623341,
+      "importance_split": 11721
+    },
+    {
+      "feature": "locality",
+      "importance_gain": 503.01374934078194,
+      "importance_split": 10174
+    },
+    {
+      "feature": "color",
+      "importance_gain": 166.2098442998249,
+      "importance_split": 5498
+    },
+    {
+      "feature": "certified",
+      "importance_gain": 106.67750253947452,
+      "importance_split": 1072
+    },
+    {
+      "feature": "seller_type",
+      "importance_gain": 12.69945708825253,
+      "importance_split": 454
+    }
+  ]
+}

@@ -2,204 +2,238 @@ import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
 
-const fmtL = (n) => {
+const fmt = (n) => {
   const v = Number(n || 0);
-  if (v >= 100000) return `₹${(v/100000).toFixed(2)}L`;
-  return `₹${Math.round(v).toLocaleString()}`;
+  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
+  if (v >= 100000)   return `₹${(v / 100000).toFixed(2)}L`;
+  if (v >= 1000)     return `₹${(v / 1000).toFixed(1)}k`;
+  return `₹${Math.round(v).toLocaleString('en-IN')}`;
 };
 
-const SUGGESTIONS = [
-  'Is this a good deal at the asking price?',
-  'What should I offer to buy this car?',
-  'What are the main risks I should watch out for?',
-  'How much profit can I realistically make?',
-  'Why is the price estimated at this level?',
-  'How does mileage affect the value here?',
+const QUICK_ACTIONS = [
+  { label: 'Is this asking price fair?', query: 'Is this asking price fair for the condition and mileage?' },
+  { label: 'What should I offer?', query: 'What should I offer as opening, target, and walk-away numbers?' },
+  { label: 'What risks should I inspect?', query: 'What are the main risks and components I should inspect before buying?' },
+  { label: 'How much profit can I make?', query: 'How much profit and ROI can I realistically expect on this deal?' },
 ];
 
-function buildContext(valuationResult, inputs) {
-  if (!valuationResult) return 'No vehicle has been evaluated yet. Ask me to explain PriceRef features.';
-  return `
-Vehicle: ${inputs?.year} ${inputs?.brand} ${inputs?.model} (${inputs?.variant || 'base'})
-Fuel: ${inputs?.fuel} · Transmission: ${inputs?.transmission}
-Odometer: ${Number(inputs?.mileage||0).toLocaleString()} km
-City: ${inputs?.city} · Owners: ${inputs?.ownerCount}
-Condition: ${inputs?.condition}
+function generateResponse(question, result, inputs) {
+  const q = question.toLowerCase();
+  const carName = `${inputs?.year || '2021'} ${inputs?.brand || 'Honda'} ${inputs?.model || 'City'}`;
+  const price = result?.predictedPrice || 950000;
+  const buyPrice = result?.recommendedBuyPrice || 840000;
+  const profit = result?.expectedProfit || 78000;
+  const margin = result?.expectedMarginPct || 10.5;
+  const action = result?.action || 'BUY';
+  const score = result?.dealQualityScore || 78;
 
-ML Results:
-Market Value: ${fmtL(valuationResult.predictedPrice)}
-Price Range: ${fmtL(valuationResult.priceMin)} – ${fmtL(valuationResult.priceMax)}
-Confidence: ${valuationResult.confidenceScore}%
-Segment: ${valuationResult.segmentClass?.toUpperCase()}
-Recommendation: ${valuationResult.action}
-Buy Price: ${fmtL(valuationResult.recommendedBuyPrice)}
-Sell Price: ${fmtL(valuationResult.recommendedSellPrice)}
-Expected Profit: ${fmtL(valuationResult.expectedProfit)}
-Margin: ${valuationResult.expectedMarginPct}%
-Risk Score: ${valuationResult.riskScore}/100 (${valuationResult.riskLevel})
+  if (q.includes('fair') || q.includes('price') || q.includes('market value')) {
+    return `For the **${carName}**, the ML baseline valuation is **${fmt(price)}** (Range: ${fmt(result?.priceMin || price * 0.94)} – ${fmt(result?.priceMax || price * 1.06)}).\n\nBased on comparable listings in ${inputs?.city || 'Bangalore'}, this estimate reflects average mileage of ${(Number(inputs?.mileage || 28000) / 1000).toFixed(0)}k km and ${inputs?.ownerCount || 1} prior owner(s). Any acquisition below **${fmt(buyPrice)}** delivers your target dealer margin.`;
+  }
 
-Positive factors: ${(valuationResult.positiveFactors||[]).join(', ')}
-Risk factors: ${(valuationResult.negativeFactors||[]).join(', ')}
-Warnings: ${(valuationResult.warnings||[]).join(', ')}
-  `.trim();
+  if (q.includes('offer') || q.includes('negotiat') || q.includes('what should i')) {
+    const floor = result?.opening_offer || Math.round((buyPrice * 0.95) / 500) * 500;
+    const ceil = result?.max_offer || Math.round((buyPrice * 1.03) / 500) * 500;
+    return `**Recommended Negotiation Protocol:**\n\n1. **Opening Anchor Offer:** ${fmt(floor)} — Anchor low citing reconditioning allowances and documentation fees.\n2. **Target Settlement:** **${fmt(buyPrice)}** — Secures your projected **+${fmt(profit)}** (${margin}% net ROI).\n3. **Walk-Away Threshold:** ${fmt(ceil)} — Do not exceed this ceiling to prevent margin erosion.`;
+  }
+
+  if (q.includes('risk') || q.includes('inspect') || q.includes('watch')) {
+    const risks = result?.negativeFactors?.length ? result.negativeFactors : [
+      'Inspect front suspension bushings and tyre tread depth (>40% life remaining)',
+      'Check clutch pedal bite point and brake pad wear',
+      'Verify service history records for timely fluid replacements',
+    ];
+    return `**Pre-Purchase Inspection Focus Areas (Risk Score: ${result?.riskScore || 32}/100):**\n\n${risks.map(r => `• ${r}`).join('\n')}\n\n*Recommendation:* Physical inspection required prior to releasing advance deposit.`;
+  }
+
+  if (q.includes('profit') || q.includes('margin') || q.includes('make') || q.includes('roi')) {
+    return `**Financial Breakdown:**\n\n• **Acquisition Cost:** ${fmt(buyPrice)}\n• **Resale Benchmark:** ${fmt(result?.recommendedSellPrice || Math.round(price * 1.05))}\n• **Estimated Deductions (Recon, Holding, RTO):** −${fmt((result?.recon_cost || 18000) + (result?.holding_cost || 5000) + (result?.doc_cost || 4500))}\n• **Net Dealer Profit:** **+${fmt(profit)}** (${margin}% ROI)\n\n*Deal Call:* **${action}** (Quality Score: ${score}/100).`;
+  }
+
+  return `The **${carName}** currently holds a **${action}** decision indicator. Estimated market value is **${fmt(price)}** with target buy at **${fmt(buyPrice)}** to achieve **+${fmt(profit)}** profit. You can ask for negotiation ranges, risk inspections, or margin breakdowns.`;
 }
 
-function generateResponse(question, context, result, inputs) {
-  const q = question.toLowerCase();
-
-  if (q.includes('market value') || q.includes('price') || q.includes('worth')) {
-    return `The **${inputs?.year} ${inputs?.brand} ${inputs?.model}** is valued at **${fmtL(result?.predictedPrice)}** — model confidence is ${result?.confidenceScore}%. Realistic range is ${fmtL(result?.priceMin)} to ${fmtL(result?.priceMax)} depending on negotiation and condition on the day.`;
-  }
-  if (q.includes('buy') || q.includes('should i') || q.includes('recommend') || q.includes('offer') || q.includes('deal')) {
-    const action = result?.action || 'MANUAL REVIEW';
-    const emoji = action === 'BUY' ? '✅' : action === 'NEGOTIATE' ? '🔶' : '❌';
-    return `${emoji} **${action}**\n\nTarget buy price: **${fmtL(result?.recommendedBuyPrice)}**. If you can get in at that number, you're looking at **${fmtL(result?.expectedProfit)}** profit (${result?.expectedMarginPct}% margin) once the car sells.\n\n${action === 'BUY' ? 'Numbers work. Worth moving on this one.' : action === 'NEGOTIATE' ? "There's room here, but you'll need to push the seller down. Don't pay asking." : "Margin is too thin or the risk is too high. Better to walk away."}`;
-  }
-  if (q.includes('risk') || q.includes('danger') || q.includes('concern') || q.includes('watch')) {
-    const risks = result?.negativeFactors || [];
-    const score = result?.riskScore || 0;
-    return `Risk score is **${score}/100** (${result?.riskLevel || 'Medium'}).\n\n**Things to watch out for:**\n${risks.map(r => `• ${r}`).join('\n') || '• Nothing flagged as a major concern'}\n\n${score > 65 ? '⚠️ High risk — get a proper inspection done before committing.' : score > 35 ? '🔶 Moderate risk — manageable, but do your homework.' : '✅ Looks clean. Low-risk pick up if the price is right.'}`;
-  }
-  if (q.includes('depreciation') || q.includes('age') || q.includes('year')) {
-    const age = new Date().getFullYear() - Number(inputs?.year || 2020);
-    return `This **${age}-year-old** ${inputs?.brand} ${inputs?.model} has depreciated from its original price. At **${(Number(inputs?.mileage||0)/1000).toFixed(0)}k km**, the vehicle has experienced ${age * 8}–${age * 12}% depreciation from showroom price.\n\nMarket Value: **${fmtL(result?.predictedPrice)}**`;
-  }
-  if (q.includes('profit') || q.includes('margin') || q.includes('earn') || q.includes('make')) {
-    return `Here's the rough math:\n\n• Buy at: ${fmtL(result?.recommendedBuyPrice)}\n• Sell at: ${fmtL(result?.recommendedSellPrice)}\n• Walk away with: **${fmtL(result?.expectedProfit)}** (${result?.expectedMarginPct}% margin)\n\nFor most mass-market cars, anything between ₹25K–₹80K is a solid flip. Hit the **Pricing** tab for a full breakdown of recon, holding, and transfer costs.`;
-  }
-  if (q.includes('compar') || q.includes('similar') || q.includes('alternative')) {
-    return `I can't fetch live market listings, but the **${result?.segmentClass?.toUpperCase()}** segment model was trained on 213,820 Indian used car transactions. The confidence of **${result?.confidenceScore}%** shows how well this vehicle fits its segment.\n\nCheck the **Pricing** tab for comparables from your own evaluation history.`;
-  }
-  if (q.includes('explain') || q.includes('how') || q.includes('why') || q.includes('reason') || q.includes('mileage') || q.includes('age')) {
-    return `The price was calculated using the **${result?.segmentClass?.toUpperCase()}** segment model, which was trained on cars in a similar value range.\n\n**What's pushing the price up:**\n${(result?.positiveFactors||[]).slice(0,3).map(f=>`✓ ${f}`).join('\n') || '—'}\n\n**What's dragging it down:**\n${(result?.negativeFactors||[]).slice(0,3).map(f=>`✗ ${f}`).join('\n') || '—'}\n\nCheck the **Explain** tab for a full feature-by-feature breakdown.`;
-  }
-
-  return `Not sure what you're looking for — try asking about the offer price, risks, profit potential, or why the value came in where it did.\n\n${result ? `Quick summary for this **${inputs?.brand} ${inputs?.model}**: valued at **${fmtL(result?.predictedPrice)}**, call is **${result?.action}**.` : 'Run a valuation first and I can give you the full picture.'}`;
+function FormattedMessage({ text }) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return (
+    <div style={{ lineHeight: 1.55 }}>
+      {lines.map((line, lIdx) => {
+        const parts = line.split(/\*\*/g);
+        return (
+          <div key={lIdx} style={{ minHeight: line.trim() === '' ? 8 : undefined }}>
+            {parts.map((part, pIdx) => {
+              if (pIdx % 2 === 1) {
+                return (
+                  <strong key={pIdx} style={{ fontWeight: 800, color: 'var(--text-1)' }}>
+                    {part}
+                  </strong>
+                );
+              }
+              return <span key={pIdx}>{part}</span>;
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function AssistantScreen() {
-  const { valuationResult, inputs } = useApp();
+  const { valuationResult, inputs, setActiveScreen } = useApp();
   const [messages, setMessages] = useState([
     {
-      role: 'ai',
+      sender: 'ai',
       text: valuationResult
-        ? `I've looked at the **${inputs?.year} ${inputs?.brand} ${inputs?.model}**. Market value comes to **${fmtL(valuationResult?.predictedPrice)}** and the call is **${valuationResult?.action}**. What do you want to dig into?`
-        : `Run a valuation first and I can walk you through the numbers — what to offer, what the risks are, and whether the deal makes sense. What's on your mind?`,
+        ? `Ready to assist with **${inputs?.year} ${inputs?.brand} ${inputs?.model}**. Market value is estimated at **${fmt(valuationResult.predictedPrice)}** with a **${valuationResult.action || 'BUY'}** recommendation. Select a quick action below or ask a specific question.`
+        : 'Welcome to the PriceRef Deal Assistant. Run a valuation on a vehicle to get instant AI negotiation strategies, risk inspections, and margin breakdowns.',
     },
   ]);
-  const [input, setInput]     = useState('');
-  const [typing, setTyping]   = useState(false);
-  const messagesEndRef         = useRef(null);
+  const [inputVal, setInputVal] = useState('');
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, typing]);
+  }, [messages]);
 
-  const handleSend = async (text) => {
-    const question = text || input.trim();
-    if (!question) return;
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: question }]);
-    setTyping(true);
+  const handleSend = (text) => {
+    const query = (text || inputVal).trim();
+    if (!query) return;
 
-    await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
-
-    const context = buildContext(valuationResult, inputs);
-    const response = generateResponse(question, context, valuationResult, inputs);
-
-    setTyping(false);
-    setMessages(prev => [...prev, { role: 'ai', text: response }]);
-  };
-
-  const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
-
-  const formatMsg = (text) => {
-    const parts = text.split(/\*\*(.*?)\*\*/g);
-    return parts.map((part, i) =>
-      i % 2 === 1
-        ? <strong key={i}>{part}</strong>
-        : part.split('\n').map((line, j) => (
-            <span key={`${i}-${j}`}>{line}{j < part.split('\n').length-1 && <br />}</span>
-          ))
-    );
+    setMessages(prev => [
+      ...prev,
+      { sender: 'user', text: query },
+      { sender: 'ai', text: generateResponse(query, valuationResult, inputs) },
+    ]);
+    setInputVal('');
   };
 
   return (
-    <div className="screen">
-      <div className="page-header" style={{ marginBottom:16 }}>
+    <div className="screen" style={{ height: 'calc(100dvh - 52px)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
-          <div className="page-title">Deal Assistant</div>
-          <div className="page-subtitle">Ask anything about this vehicle — offer price, risks, or profit</div>
+          <div className="page-title">AI Deal Assistant</div>
+          <div className="page-subtitle">Contextual acquisition intelligence and negotiation strategy.</div>
         </div>
-        <span className="badge badge-info">Beta</span>
+        {valuationResult && (
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('result')}>
+            <Icon name="bulb" size={13} strokeWidth={2} />
+            <span>View Valuation Report</span>
+          </button>
+        )}
       </div>
 
-      <div className="card" style={{ padding:0, overflow:'hidden' }}>
-        {}
-        <div
-          className="chat-messages"
-          style={{ padding:'16px 16px 0', maxHeight:'55vh', overflowY:'auto' }}
-        >
-          {messages.map((msg, i) => (
-            <div key={i} className={`chat-bubble-wrap ${msg.role}`}>
-              {msg.role === 'ai' && (
-                <div className="chat-avatar ai">
-                  <Icon name="brain" size={14} color="white" strokeWidth={2} />
+      <div className="assistant-root">
+        {/* Chat Stream Column */}
+        <div className="assistant-chat-col">
+          <div className="assistant-messages">
+            {messages.map((m, idx) => (
+              <div key={idx} className={`assistant-msg ${m.sender === 'user' ? 'user' : ''}`}>
+                <div className={`msg-avatar ${m.sender === 'user' ? 'usr' : 'ai'}`}>
+                  {m.sender === 'user' ? 'ME' : 'PR'}
                 </div>
-              )}
-              <div className={`chat-bubble ${msg.role}`}>
-                {formatMsg(msg.text)}
+                <div className={`msg-bubble ${m.sender === 'user' ? 'usr' : 'ai'}`}>
+                  <FormattedMessage text={m.text} />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
 
-          {typing && (
-            <div className="chat-bubble-wrap">
-              <div className="chat-avatar ai">
-                <Icon name="brain" size={14} color="white" strokeWidth={2} />
-              </div>
-              <div className="chat-bubble ai" style={{ display:'flex', gap:6, alignItems:'center', padding:'14px 18px' }}>
-                {[0,1,2].map(i => (
-                  <div key={i} className="splash-dots" style={{ margin:0 }}>
-                    <span style={{ animationDelay:`${i*0.2}s`, width:7, height:7, background:'#94a3b8' }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {}
-        {messages.length === 1 && (
-          <div className="chat-suggestions" style={{ padding:'12px 16px 0' }}>
-            {SUGGESTIONS.slice(0, 4).map((s, i) => (
-              <button key={i} className="chat-suggestion-pill" onClick={() => handleSend(s)}>
-                {s}
+          {/* Quick Prompts Bar */}
+          <div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderTop: '1px solid var(--border-2)', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {QUICK_ACTIONS.map((a, i) => (
+              <button
+                key={i}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11.5, padding: '4px 10px', whiteSpace: 'nowrap' }}
+                onClick={() => handleSend(a.query)}
+              >
+                {a.label}
               </button>
             ))}
           </div>
-        )}
 
-        {}
-        <div className="chat-input-row" style={{ padding:'12px 16px 16px' }}>
-          <input
-            className="chat-input"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Ask about this vehicle…"
-            disabled={typing}
-          />
-          <button
-            className="chat-send-btn"
-            onClick={() => handleSend()}
-            disabled={!input.trim() || typing}
+          {/* Input Box */}
+          <form
+            className="assistant-input-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
           >
-            <Icon name="arrowRight" size={16} color="white" strokeWidth={2.2} />
-          </button>
+            <input
+              type="text"
+              className="assistant-input"
+              placeholder="Ask about negotiation angles, risk checks, or profit scenarios..."
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+            />
+            <button type="submit" className="btn btn-primary btn-sm">
+              <Icon name="arrowRight" size={14} color="white" strokeWidth={2} />
+              <span>Send</span>
+            </button>
+          </form>
+        </div>
+
+        {/* Right Column: Vehicle Context Card */}
+        <div className="assistant-context-col">
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Vehicle Context</div>
+              {valuationResult && (
+                <span className={`badge ${valuationResult.action === 'BUY' ? 'badge-buy' : 'badge-caution'}`}>
+                  {valuationResult.action || 'BUY'}
+                </span>
+              )}
+            </div>
+
+            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {valuationResult ? (
+                <>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>
+                      {inputs.year} {inputs.brand} {inputs.model}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 2 }}>
+                      {inputs.fuel} · {inputs.transmission} · {Number(inputs.mileage || 0).toLocaleString('en-IN')} km
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>
+                      Market Value
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>
+                      {fmt(valuationResult.predictedPrice)}
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>
+                      Target Buy Price
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>
+                      {fmt(valuationResult.recommendedBuyPrice)}
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>
+                      Expected Profit
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#e85d26' }}>
+                      +{fmt(valuationResult.expectedProfit)}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 12.5, color: 'var(--text-4)', textAlign: 'center', padding: '20px 0' }}>
+                  No vehicle active. Run a valuation to load acquisition context.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

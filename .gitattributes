@@ -1,13 +1,12 @@
-# Model binaries — must never have line endings touched
+# Model binaries — large files tracked with Git LFS
+model_registry/final/ensemble_bundle.pkl filter=lfs diff=lfs merge=lfs -text
 *.pkl binary
 *.cbm binary
 model_registry/**/*.txt binary
 model_artifacts/*.txt binary
-
 # Keep these as normal text (JSON/CSV) so diffs still work
 *.json text
 *.csv text
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Files that execute inside Linux containers MUST be checked out with LF.
 #
@@ -27,12 +26,10 @@ Dockerfile      text eol=lf
 Dockerfile.*    text eol=lf
 *.dockerfile    text eol=lf
 .dockerignore   text eol=lf
-
 # nginx reads this inside the container; a stray CR becomes part of a directive
 # value and produces a confusing config parse error.
 *.conf          text eol=lf
 *.template      text eol=lf
-
 # Interpreted by tools running on Linux (GitHub Actions runners, Supabase CLI,
 # Azure CLI). YAML in particular is whitespace-sensitive.
 *.yml           text eol=lf
@@ -40,14 +37,13 @@ Dockerfile.*    text eol=lf
 *.bicep         text eol=lf
 *.sql           text eol=lf
 *.toml          text eol=lf
-
 # Python runs fine either way, but the container tests diff files against the
 # host copy, and mixed endings make those diffs unreadable.
 *.py            text eol=lf
-
 # requirements.lock is COPYed into the image and read by pip there. Its entries
 # are line-continued with a trailing backslash, so a CR landing between the
 # backslash and the newline breaks the continuation. CI also regenerates it and
 # diffs it byte-for-byte against the committed copy, which a CRLF working tree
 # would fail on its own.
 *.lock          text eol=lf
+model_registry/**/*.pkl filter=lfs diff=lfs merge=lfs -text

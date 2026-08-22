@@ -108,9 +108,9 @@ echo "$health" | grep -q '"status":"ok"' || fail "unexpected health payload: ${h
 # A process that is listening but failed to load its ensemble is not healthy;
 # treating it as healthy would put it in rotation serving errors.
 echo "$health" | grep -q '"model_loaded":true' || fail "model not loaded: ${health}"
-echo "$health" | grep -q '"active_variant":"variant_1"' \
+echo "$health" | grep -q '"active_variant":"final"' \
   || fail "serving an unexpected model variant: ${health}"
-pass "model loaded, serving variant_1"
+pass "model loaded, serving final"
 
 # ── 4. A real prediction ─────────────────────────────────────────────────────
 # The endpoint returning 200 is not sufficient: a broken feature pipeline still
@@ -151,7 +151,7 @@ for endpoint in /api/history /api/profile; do
 done
 
 code=$(curl -fsS -o /dev/null -w '%{http_code}' -X POST \
-  "${BASE_URL}/api/registry/variant_2/activate" || true)
+  "${BASE_URL}/api/registry/variant_1/activate" || true)
 case "$code" in
   401|403) pass "variant activation refused (${code})" ;;
   *) fail "variant activation returned ${code}; it must never be publicly callable" ;;

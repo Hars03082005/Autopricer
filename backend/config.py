@@ -1,14 +1,4 @@
-"""Environment-driven configuration for the PriceRef API.
-
-Deliberately plain `os.environ` + a frozen dataclass rather than
-pydantic-settings: it keeps the dependency set smaller and, more importantly,
-lets `Settings.load()` be called from tests with an explicit mapping instead of
-having to mutate global process state.
-
-Configuration is validated once at import and again at startup, so a
-misconfigured deployment fails at boot with a precise message rather than on the
-first request that happens to touch the bad value.
-"""
+"""Runtime Configuration."""
 
 from __future__ import annotations
 
@@ -19,8 +9,6 @@ from dataclasses import dataclass, field
 
 log = logging.getLogger("priceref.config")
 
-# Origins allowed by default when nothing is configured. Covers `npm run dev`
-# (5173) and the frontend container served locally (8080).
 _DEFAULT_DEV_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -32,7 +20,7 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
 class ConfigError(RuntimeError):
-    """Raised when the environment is configured in a way that cannot be served."""
+    """Config Error."""
 
 
 def _as_bool(raw: str | None, *, default: bool = False) -> bool:
@@ -55,24 +43,11 @@ class Settings:
     cors_allowed_origins: tuple[str, ...] = _DEFAULT_DEV_ORIGINS
     cors_allow_all: bool = False
 
-    # Supabase.
-    #
-    # User-scoped requests are made with the *caller's* JWT plus the public anon
-    # key, so PostgREST still evaluates row-level security. That is intentional
-    # defence in depth: the backend already filters every query by the verified
-    # user id, and RLS means a mistake in that filtering still cannot cross
-    # tenants. Using the service-role key for this would switch RLS off and make
-    # correct filtering the only thing standing between two dealers' data.
-    #
-    # The service-role key is therefore optional and currently unused by any
-    # request path. It is read here only so a future admin/maintenance endpoint
-    # has somewhere defined to get it from.
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str = ""
 
-    # Guarded admin surface (POST /api/registry/{id}/activate).
     allow_runtime_variant_switch: bool = False
     admin_api_token: str = ""
 
@@ -82,7 +57,6 @@ class Settings:
 
     _warnings: tuple[str, ...] = field(default=(), repr=False)
 
-    # ── Derived properties ───────────────────────────────────────────────────
 
     @property
     def is_production(self) -> bool:
@@ -90,39 +64,27 @@ class Settings:
 
     @property
     def database_enabled(self) -> bool:
-        """True when server-side persistence can actually be attempted.
-
-        History and profile endpoints return 503 rather than 500 when this is
-        False, so a deployment without Supabase configured degrades to
-        "valuations work, history does not" with an honest status code.
-
-        Requires the anon key, not the service-role key: user-scoped queries are
-        issued with the caller's own JWT so that RLS still applies.
-        """
+        """DB Enabled."""
         return bool(self.supabase_url and self.supabase_anon_key)
 
     @property
     def auth_enabled(self) -> bool:
-        """True when a caller's Supabase JWT can be verified.
-
-        Only supabase_url is strictly required: asymmetric (ES256/RS256) tokens
-        are verified against the project's JWKS endpoint, and the shared
-        HS256 secret is needed only for projects still on legacy signing keys.
-        """
+        """Auth Enabled."""
         return bool(self.supabase_url)
 
     @property
     def jwks_url(self) -> str:
+        """JWKS URL."""
         return f"{self.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
 
     @property
     def postgrest_url(self) -> str:
+        """PostgREST URL."""
         return f"{self.supabase_url.rstrip('/')}/rest/v1"
-
-    # ── Construction ─────────────────────────────────────────────────────────
 
     @classmethod
     def load(cls, env: Mapping[str, str] | None = None) -> Settings:
+        """Load Settings."""
         source = os.environ if env is None else env
         warnings: list[str] = []
 
@@ -133,8 +95,6 @@ class Settings:
         allow_all = "*" in raw_origins
 
         if allow_all and is_production:
-            # allow_origins=["*"] with allow_credentials=True is rejected by
-            # browsers anyway, and in production it is never what was intended.
             raise ConfigError(
                 "CORS_ALLOWED_ORIGINS='*' is not permitted when "
                 "APP_ENVIRONMENT=production. Set an explicit origin allowlist "
@@ -167,8 +127,6 @@ class Settings:
         jwt_secret = (source.get("SUPABASE_JWT_SECRET") or "").strip()
 
         if supabase_url and not supabase_url.startswith("https://"):
-            # Plain http would put bearer tokens on the wire in clear text. The
-            # only legitimate exception is a local Supabase CLI stack.
             if not supabase_url.startswith("http://127.0.0.1") and not supabase_url.startswith(
                 "http://localhost"
             ):
@@ -230,7 +188,7 @@ class Settings:
         )
 
     def log_summary(self) -> None:
-        """Emit configuration state at startup, secrets redacted."""
+        """Log Config Summary."""
         log.info(
             "config | env=%s cors=%s database=%s auth=%s variant=%s",
             self.environment,
@@ -247,11 +205,7 @@ _settings: Settings | None = None
 
 
 def get_settings() -> Settings:
-    """Process-wide settings, resolved on first use.
-
-    Cached rather than re-read per request so that a malformed value cannot start
-    failing midway through a deployment's life.
-    """
+    """Get Settings."""
     global _settings
     if _settings is None:
         _settings = Settings.load()
@@ -259,6 +213,6 @@ def get_settings() -> Settings:
 
 
 def reset_settings_cache() -> None:
-    """Drop the cached settings. For tests only."""
+    """Reset Settings Cache."""
     global _settings
     _settings = None

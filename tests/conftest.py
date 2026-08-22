@@ -20,15 +20,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Baseline environment for every test. Set before backend imports happen.
 os.environ.setdefault("APP_ENVIRONMENT", "development")
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
-os.environ.setdefault("ACTIVE_VARIANT_ID", "variant_1")
+os.environ.setdefault("ACTIVE_VARIANT_ID", "final")
 
 
 def _artifacts_available() -> bool:
     """True when the model artifacts needed for real inference are present."""
+    final_bundle = REPO_ROOT / "model_registry" / "final" / "ensemble_bundle.pkl"
     variant = REPO_ROOT / "model_registry" / "variant_1"
-    return (variant / "model_metadata.json").exists() and (
-        variant / "vehicle_price_catboost.cbm"
-    ).exists()
+    return final_bundle.exists() or (
+        (variant / "model_metadata.json").exists() and (
+            variant / "ensemble_bundle.pkl"
+        ).exists()
+    )
 
 
 def _ml_stack_importable() -> bool:
@@ -41,12 +44,12 @@ def _ml_stack_importable() -> bool:
     """
     from importlib.util import find_spec
 
-    return all(find_spec(name) is not None for name in ("catboost", "lightgbm", "xgboost", "pandas"))
+    return all(find_spec(name) is not None for name in ("catboost", "lightgbm", "pandas"))
 
 
 requires_models = pytest.mark.skipif(
     not (_artifacts_available() and _ml_stack_importable()),
-    reason="requires model_registry/variant_1 artifacts and the ML inference stack",
+    reason="requires model_registry artifacts and the ML inference stack",
 )
 
 

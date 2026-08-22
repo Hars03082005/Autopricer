@@ -13,7 +13,7 @@
 set -eu
 
 PORT="${PORT:-8000}"
-VARIANT="${ACTIVE_VARIANT_ID:-variant_1}"
+VARIANT="${ACTIVE_VARIANT_ID:-final}"
 VARIANT_DIR="/app/model_registry/${VARIANT}"
 
 echo "==> PriceRef API starting | variant=${VARIANT} port=${PORT}"
@@ -30,12 +30,24 @@ if [ ! -d "${VARIANT_DIR}" ]; then
   exit 1
 fi
 
-for required in model_metadata.json ensemble_bundle.pkl vehicle_price_catboost.cbm; do
-  if [ ! -f "${VARIANT_DIR}/${required}" ]; then
-    echo "FATAL: ${VARIANT_DIR}/${required} missing — model artifacts are incomplete." >&2
-    exit 1
-  fi
-done
+# Final bundle uses a single ensemble_bundle.pkl; legacy variants use separate files.
+if [ -f "${VARIANT_DIR}/ensemble_bundle.pkl" ] && [ ! -f "${VARIANT_DIR}/vehicle_price_catboost.cbm" ]; then
+  # New single-bundle architecture (final and later)
+  for required in model_metadata.json ensemble_bundle.pkl; do
+    if [ ! -f "${VARIANT_DIR}/${required}" ]; then
+      echo "FATAL: ${VARIANT_DIR}/${required} missing — model artifacts are incomplete." >&2
+      exit 1
+    fi
+  done
+else
+  # Legacy multi-file architecture (variant_1 etc.)
+  for required in model_metadata.json ensemble_bundle.pkl vehicle_price_catboost.cbm; do
+    if [ ! -f "${VARIANT_DIR}/${required}" ]; then
+      echo "FATAL: ${VARIANT_DIR}/${required} missing — model artifacts are incomplete." >&2
+      exit 1
+    fi
+  done
+fi
 
 # Warn on a half-configured database. The API degrades to "valuations work,
 # history does not", which is easy to miss in logs otherwise.

@@ -1,18 +1,4 @@
-"""Valuation history and dealer profile endpoints.
-
-These replace direct browser-to-Postgres writes. Previously the React app called
-`supabase.from('evaluations').insert(...)` itself, which meant:
-
-  * the row shape was defined in frontend code and had drifted from the schema
-    documented in the README (it sent `variant` and `locality` columns that did
-    not exist there, so every insert failed);
-  * guest sessions wrote the literal string 'guest' into a `uuid` column, which
-    also failed, silently, in a `console.warn`;
-  * any validation was advisory, because the client chose what to send.
-
-Now the server owns the row shape, the id, and the timestamp, and derives
-`user_id` from a verified token rather than trusting the request body.
-"""
+"""History & Profile Endpoints."""
 
 from __future__ import annotations
 
@@ -25,8 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
+# pyrefly: ignore [missing-import]
 from backend import db
+# pyrefly: ignore [missing-import]
 from backend.auth import AuthenticatedUser, get_current_user
+
+# pyrefly: ignore [missing-import]
 from backend.config import get_settings
 
 log = logging.getLogger("priceref.history")
@@ -35,33 +25,18 @@ router = APIRouter(prefix="/api", tags=["history"])
 
 
 class _CamelModel(BaseModel):
-    """Accepts and emits camelCase, stores snake_case internally.
-
-    The frontend's record objects are camelCase and the database columns are
-    snake_case; doing the translation here means neither side has to know about
-    the other's convention, and the mapping lives in one place instead of two
-    hand-written converter functions in AppContext.jsx.
-    """
+    """camelCase Model."""
 
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
-        extra="ignore",  # tolerate extra UI-only fields rather than 422 the request
-        # This domain is about vehicle models and ML model variants, so fields
-        # named `model` and `model_variant` are unavoidable. Pydantic reserves the
-        # `model_` prefix by default and warns on collision; clearing the
-        # namespace is the documented way to opt out.
+        extra="ignore",
         protected_namespaces=(),
     )
 
 
 class EvaluationIn(_CamelModel):
-    """A valuation the client wants persisted.
-
-    Note what is absent: `id`, `created_at` and `user_id`. All three are assigned
-    server-side. Accepting them would let a caller backdate a record, collide
-    with an existing id, or attribute a row to another user.
-    """
+    """Evaluation Input."""
 
     source: str = Field(default="Single Vehicle", max_length=64)
     brand: str = Field(default="Unknown", max_length=64)
@@ -120,7 +95,7 @@ class ProfileOut(ProfileIn):
 
 
 def _to_db_row(payload: EvaluationIn, user_id: str) -> dict[str, Any]:
-    """Build the insert row. Server-owned fields are set here, not copied in."""
+    """Build DB Row."""
     row = payload.model_dump(by_alias=False)
     row["id"] = str(uuid.uuid4())
     row["user_id"] = user_id
@@ -137,7 +112,7 @@ async def list_history(
     limit: int = Query(default=200, ge=1, le=500),
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> HistoryResponse:
-    """Return the caller's valuation history, newest first."""
+    """List History."""
     if not get_settings().database_enabled:
         log.debug("history | database not configured — returning empty history")
         return HistoryResponse(evaluations=[], count=0)
@@ -151,7 +126,6 @@ async def list_history(
         try:
             evaluations.append(_from_db_row(row))
         except Exception as exc:
-            # One unparseable legacy row must not blank out the whole dashboard.
             log.warning("history | skipping unreadable row id=%s: %s", row.get("id"), exc)
 
     return HistoryResponse(evaluations=evaluations, count=len(evaluations))
@@ -162,10 +136,9 @@ async def create_history_entry(
     payload: EvaluationIn,
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> EvaluationOut:
-    """Persist one valuation for the caller."""
+    """Create Entry."""
     if not get_settings().database_enabled:
         log.debug("history | database not configured — skipping persist")
-        # Return a synthetic record so the frontend still works locally.
         row = _to_db_row(payload, user.id)
         return _from_db_row(row)
     inserted = await db.insert_evaluation(
@@ -178,7 +151,7 @@ async def create_history_entry(
 async def clear_history(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> DeleteResponse:
-    """Delete all of the caller's valuation history."""
+    """Clear History."""
     if not get_settings().database_enabled:
         return DeleteResponse(deleted=0)
     deleted = await db.delete_evaluations(user_id=user.id, access_token=user.access_token)
@@ -191,7 +164,7 @@ async def delete_history_entry(
     evaluation_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> DeleteResponse:
-    """Delete a single valuation."""
+    """Delete Entry."""
     try:
         uuid.UUID(evaluation_id)
     except ValueError:
@@ -207,8 +180,6 @@ async def delete_history_entry(
         user_id=user.id, evaluation_id=evaluation_id, access_token=user.access_token
     )
     if deleted == 0:
-        # Deliberately identical whether the row belongs to someone else or does
-        # not exist, so this cannot be used to probe for valid ids.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
     return DeleteResponse(deleted=deleted)
 
@@ -217,12 +188,7 @@ async def delete_history_entry(
 async def read_profile(
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> ProfileOut:
-    """Return the caller's dealer profile, synthesising one if absent.
-
-    A missing row is normal — a user can exist in auth.users before a profile is
-    created — so this derives a sensible default from the token's email rather
-    than returning 404 and making the client handle it.
-    """
+    """Read Profile."""
     fallback_name = (user.email or "dealer").split("@")[0]
     fallback = ProfileOut(
         id=user.id,
@@ -248,7 +214,7 @@ async def write_profile(
     payload: ProfileIn,
     user: AuthenticatedUser = Depends(get_current_user),
 ) -> ProfileOut:
-    """Create or update the caller's dealer profile."""
+    """Write Profile."""
     if not get_settings().database_enabled:
         log.debug("profile | database not configured — returning payload as-is")
         return ProfileOut(

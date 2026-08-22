@@ -5,7 +5,7 @@
 # Build from the REPOSITORY ROOT, not from backend/:
 #   docker build -f backend/Dockerfile -t priceref-backend .
 #
-# Ships exactly one model variant (variant_1, ~66 MB). See .dockerignore.
+# Ships exactly one model variant (final, ~120 MB). See .dockerignore.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ══ Stage 1: build the virtualenv ════════════════════════════════════════════
@@ -74,7 +74,7 @@ ENV PORT=8000
 
 # Pin the serving variant. Must match the variant directory copied below;
 # docker-entrypoint.sh aborts startup if the two disagree.
-ENV ACTIVE_VARIANT_ID=variant_1
+ENV ACTIVE_VARIANT_ID=final
 
 # Single-threaded BLAS/OpenMP. backend/main.py sets these at import time too,
 # but they must be in the environment before numpy is first imported to actually
@@ -92,25 +92,17 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
 
-# Model artifacts: variant_1 is the active default (MAPE 7.48%); variant_2 and
-# variant_3 ship alongside it so the Results-screen variant switcher works on
-# the deployed server without a 404. Total: ~198 MB across all three.
-# Explicit paths so a stale .dockerignore can never silently pull in
-# unintended or archived variants.
+# Model artifacts: final is the active model (5-Seed LightGBM + Luxury CatBoost Specialist + Strategy D)
 COPY model_registry/registry.json  /app/model_registry/registry.json
-COPY model_registry/variant_1/     /app/model_registry/variant_1/
-COPY model_registry/variant_2/     /app/model_registry/variant_2/
-COPY model_registry/variant_3/     /app/model_registry/variant_3/
+COPY model_registry/final/         /app/model_registry/final/
 
 # Application code — smallest and most frequently changed, so it goes last.
 COPY backend/            /app/backend/
 COPY scripts/            /app/scripts/
 
-# Comparables dataset (~2 MB). decision_engine._load_dataset_df() reads this
-# at inference time to find comparable vehicles for the market-range calculation.
-# Without it the deployed server returns 0 comparables and the price range falls
-# back to a pure MAPE estimate instead of real market data.
-COPY ml_training/data/overall_only/train.csv /app/ml_training/data/overall_only/train.csv
+# Comparables dataset. decision_engine._load_dataset_df() reads data/data.csv
+# at inference time to find genuine comparable vehicles for market-range calculations.
+COPY data/                   /app/data/
 
 # Non-root. Nothing under /app needs to be writable: the one code path that
 # writes (model_registry.activate_variant -> registry.json) is refused in

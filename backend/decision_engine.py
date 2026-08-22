@@ -852,13 +852,13 @@ def _load_dataset_df():
     _DATASET_NORM_VER   = _VARIANT_NORM_VERSION
     try:
         import pandas as _pd
-        _here     = _os.path.dirname(_os.path.abspath(__file__))
-        _data_dir = _os.path.normpath(_os.path.join(_here, "..", "ml_training", "data"))
+        _here      = _os.path.dirname(_os.path.abspath(__file__))
+        _root_data = _os.path.normpath(_os.path.join(_here, "..", "data", "data.csv"))
+        _data_dir  = _os.path.normpath(_os.path.join(_here, "..", "ml_training", "data"))
 
         _candidates = [
+            _root_data,
             _os.path.join(_data_dir, "overall_only", "train.csv"),
-            _os.path.join(_data_dir, "overall_plus_s5", "train.csv"),
-            _os.path.join(_data_dir, "s1s4_plus_s5", "train.csv"),
             _os.path.join(_data_dir, "overall.csv"),
             _os.path.join(_data_dir, "processed_overall.csv"),
         ]
@@ -1062,16 +1062,25 @@ class AdaptiveComparableService:
         if df is None or df.empty:
             return self._empty_result()
 
-        _cy         = current_year or datetime.now().year
-        vehicle_age = max(0, _cy - int(year)) if year else 0
         bk  = str(brand or "").strip().lower()
         mk  = str(model or "").strip().lower()
+
+        same_model_df = df[df["brand"].eq(bk) & df["model"].eq(mk)]
+        if not same_model_df.empty:
+            df = same_model_df
+        else:
+            same_brand_df = df[df["brand"].eq(bk)]
+            if not same_brand_df.empty:
+                df = same_brand_df
+
         # Normalize the query variant so "zxi+" and "zxi plus" resolve to the same token
         vk  = _normalize_variant(str(variant or "").strip().lower())
         fk  = str(fuel or "").strip().lower()
         tk  = str(transmission or "").strip().lower()
         slk = str(seller_type or "").strip().lower()
         lok = str(locality or "").strip().lower()
+        _cy         = current_year or datetime.now().year
+        vehicle_age = max(0, _cy - int(year)) if year else 0
 
         is_luxury   = bk in self._luxury_brands
         threshold   = self._luxury_min_sim if is_luxury else self._min_sim
@@ -1203,6 +1212,13 @@ class AdaptiveComparableService:
                 oc  = int(float(oc))  if _m.isfinite(float(oc))  else 1
             except (TypeError, ValueError):
                 pass
+            if yr == 0 and "vehicle_age" in row:
+                try:
+                    v_age = float(row.get("vehicle_age", 0))
+                    if _m.isfinite(v_age) and v_age > 0:
+                        yr = int(datetime.now().year - v_age)
+                except (TypeError, ValueError):
+                    pass
             results.append({
                 "brand":        str(row.get("brand",        "")).title(),
                 "model":        str(row.get("model",        "")).title(),
@@ -1385,7 +1401,7 @@ class AdaptiveRangeEngine:
         # Range is anchored on blended_center (not comp median), then blended with the
         # MAPE-based ML range using the same alpha weight as the price blending.
         # Result: tight, negotiation-realistic band that scales with actual comp spread.
-        if n_valid >= self._hi_min_comps and case in ("high", "medium"):
+        if n_valid >= 4 and case in ("high", "medium"):
             q1    = float(_np.percentile(prices_arr_all, 25))
             q3    = float(_np.percentile(prices_arr_all, 75))
             iqr   = max(q3 - q1, 1.0)
@@ -1397,15 +1413,11 @@ class AdaptiveRangeEngine:
             # MAPE-based ML range around anchor
             ml_lo   = blended_center * (1.0 - mape)
             ml_hi   = blended_center * (1.0 + mape)
-            # Blend both range bounds with same alpha (mirrors AutoQuant approach)
+            # Blend both range bounds with same alpha
             lo = _comp_alpha * comp_lo + (1.0 - _comp_alpha) * ml_lo
             hi = _comp_alpha * comp_hi + (1.0 - _comp_alpha) * ml_hi
-        elif n_valid >= self._med_min_comps:
-            # Some comps but not enough for sigma — use tight percentile slice
-            lo = float(_np.percentile(prices_arr_all, self._p_med_lo))
-            hi = float(_np.percentile(prices_arr_all, self._p_med_hi))
         else:
-            # No usable comps — pure MAPE fallback
+            # No usable comps or low confidence — pure MAPE fallback around anchor
             lo = blended_center * (1.0 - mape)
             hi = blended_center * (1.0 + mape)
 
@@ -1414,11 +1426,15 @@ class AdaptiveRangeEngine:
         lo = max(lo, blended_center - half_max)
         hi = min(hi, blended_center + half_max)
 
+        # Mathematical consistency: ensure range contains both blended_center and point prediction
+        lo = min(lo, pred - 500, blended_center - 500)
+        hi = max(hi, pred + 500, blended_center + 500)
+
         price_median = int(round(blended_center / 500) * 500)
         price_min    = int(round(lo / 500) * 500)
         price_max    = int(round(hi / 500) * 500)
-        price_min    = min(price_min, price_median - 500)
-        price_max    = max(price_max, price_median + 500)
+        price_min    = min(price_min, int(pred) - 500, price_median - 500)
+        price_max    = max(price_max, int(pred) + 500, price_median + 500)
         comp_p25 = float(_np.percentile(prices_arr_all, 25)) if n_valid > 0 else blended_center
         comp_p75 = float(_np.percentile(prices_arr_all, 75)) if n_valid > 0 else blended_center
 

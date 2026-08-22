@@ -1,13 +1,4 @@
-"""
-ml_training/prepare_splits.py
-
-Robust data preparation & splitting pipeline:
-1. Loads raw source CSVs if present, or falls back to existing pre-split CSVs in data/<dataset>/.
-2. Applies brand, model, and variant normalization (stripping engine size, fuel tech badges, cosmetic suffixes).
-3. Applies strict two-pass deduplication and quality filters.
-4. Performs leak-free group-stratified 70/15/15 splitting based on price buckets.
-5. Saves clean train.csv, valid.csv, test.csv and split_report.json directly to data/<dataset>/ and data/splits/<dataset>/.
-"""
+"""Data Preparation Pipeline."""
 from __future__ import annotations
 
 import json
@@ -87,8 +78,8 @@ def _bucket_label(price: float) -> str:
             return label
     return "15L_plus"
 
-# ── STAGE 1: LOAD & MERGE SOURCES ────────────────────────────────────────────
 def load_dataset_sources(dataset_name: str, raw_sources: list[Path]) -> tuple[pd.DataFrame, list[str]]:
+    """Load Dataset Sources."""
     existing_raw = [p for p in raw_sources if p.exists()]
     sources_used = []
 
@@ -102,7 +93,6 @@ def load_dataset_sources(dataset_name: str, raw_sources: list[Path]) -> tuple[pd
         print(f"  Loaded {len(existing_raw)} raw source file(s) for '{dataset_name}': {len(combined):,} rows")
         return combined, sources_used
 
-    # Fallback to existing split files in data/<dataset_name>/
     folder = DATA_DIR / dataset_name
     split_frames = []
     for split in ["train", "valid", "test"]:
@@ -119,20 +109,18 @@ def load_dataset_sources(dataset_name: str, raw_sources: list[Path]) -> tuple[pd
 
     return pd.DataFrame(), []
 
-# ── STAGE 2: PREPROCESS & NORMALIZE ──────────────────────────────────────────
 def preprocess_and_normalize(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Preprocess & Normalize."""
     initial_count = len(df)
     if initial_count == 0:
         return df, {}
 
     df = df.copy()
 
-    # Price filter
     if "selling_price" in df.columns:
         df["selling_price"] = pd.to_numeric(df["selling_price"], errors="coerce")
         df = df[df["selling_price"].notna() & df["selling_price"].between(PRICE_MIN, PRICE_MAX)]
 
-    # Age filter
     if "vehicle_age" in df.columns:
         df["vehicle_age"] = pd.to_numeric(df["vehicle_age"], errors="coerce")
     elif "age" in df.columns:
@@ -141,13 +129,11 @@ def preprocess_and_normalize(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         df["vehicle_age"] = CURRENT_YEAR - pd.to_numeric(df["year"], errors="coerce")
     df = df[df["vehicle_age"].notna() & df["vehicle_age"].between(AGE_MIN, AGE_MAX)]
 
-    # Odometer filter
     odo_col = "odometer_reading" if "odometer_reading" in df.columns else "odometer" if "odometer" in df.columns else None
     if odo_col:
         df["odometer_reading"] = pd.to_numeric(df[odo_col], errors="coerce")
         df = df[df["odometer_reading"].notna() & df["odometer_reading"].between(ODO_MIN, ODO_MAX)]
 
-    # Normalize Brand, Model, Variant
     if "brand" in df.columns:
         df["brand"] = df["brand"].apply(normalize_brand)
     elif "make" in df.columns:
@@ -160,7 +146,6 @@ def preprocess_and_normalize(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     if variant_col:
         df["variant"] = df[variant_col].apply(normalize_variant)
 
-    # 2-Pass Deduplication
     exact_cols = [c for c in CORE_DUP_COLS if c in df.columns]
     df_exact = df.drop_duplicates(subset=exact_cols, keep="first").reset_index(drop=True)
 
@@ -177,8 +162,8 @@ def preprocess_and_normalize(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
     return df_clean, stats
 
-# ── STAGE 3: LEAK-FREE GROUP STRATIFIED SPLIT ─────────────────────────────────
 def leak_free_stratified_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
+    """Stratified Split."""
     df = df.copy()
     df["_bucket"] = df["selling_price"].apply(_bucket_label)
     df["_group_key"] = (
@@ -235,7 +220,6 @@ def leak_free_stratified_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataF
     df_valid = df_valid.drop(columns=["_bucket", "_group_key"], errors="ignore")
     df_test  = df_test.drop(columns=["_bucket", "_group_key"], errors="ignore")
 
-    # Leakage check
     key_cols = [c for c in ["brand", "model", "variant", "vehicle_age", "odometer_reading", "selling_price"] if c in df_train.columns]
     tr_keys = set(df_train[key_cols].apply(tuple, axis=1))
     vl_keys = set(df_valid[key_cols].apply(tuple, axis=1))
@@ -249,8 +233,8 @@ def leak_free_stratified_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataF
 
     return df_train, df_valid, df_test, {"bucket_distribution": bucket_dist, "leakage_stats": leakage_stats}
 
-# ── STAGE 4: RUN PIPELINE ─────────────────────────────────────────────────────
 def run_pipeline(dataset_name: str, raw_sources: list[Path]) -> None:
+    """Run Pipeline."""
     t0 = time.perf_counter()
     print(f"\n{DIV}")
     print(f" PIPELINE: {dataset_name}")
@@ -271,7 +255,6 @@ def run_pipeline(dataset_name: str, raw_sources: list[Path]) -> None:
 
     out_cols = [c for c in ML_FEATURES if c in clean_df.columns]
 
-    # Target folders: data/<dataset_name>/ and data/splits/<dataset_name>/
     target_dirs = [DATA_DIR / dataset_name, SPLITS_DIR / dataset_name]
 
     for target_dir in target_dirs:
@@ -307,14 +290,6 @@ def main() -> None:
         {
             "name": "overall_only",
             "sources": [DATA_DIR / "overall.csv"],
-        },
-        {
-            "name": "overall_plus_s5",
-            "sources": [DATA_DIR / "overall.csv", DATA_DIR / "s5_overall.csv"],
-        },
-        {
-            "name": "s1s4_plus_s5",
-            "sources": [DATA_DIR / "s1-s4_owner-filled.csv", DATA_DIR / "s5_overall.csv"],
         },
     ]
 

@@ -1,41 +1,22 @@
 {
-  "default": "variant_1",
+  "default": "final",
   "variants": {
-    "variant_1": {
+    "final": {
       "dataset": "overall_only",
-      "trained_at": "2026-08-07T10:36:16.077119",
+      "trained_at": "2026-08-22T05:25:27.983539+00:00",
+      "architecture": "5-Seed LightGBM + Luxury CatBoost Specialist + Strategy D Routing",
       "metrics": {
-        "mae": 44383.37,
-        "rmse": 120201.14,
-        "r2": 0.9607,
-        "mape": 7.48
+        "mae": 39969.55,
+        "rmse": 97821.45,
+        "r2": 0.967513,
+        "mape": 6.7342,
+        "median_ae": 20880.69
       },
-      "artifact_path": "model_registry/variant_1",
+      "artifact_path": "model_registry/final",
+      "bundle_file": "ensemble_bundle.pkl",
+      "sha256": "5c3a2ccee8efb8d842b0bac7a6380c49d2491a39b403e10dac5a279ed4bf9f3b",
+      "bundle_size_bytes": 119923750,
       "status": "active"
-    },
-    "variant_2": {
-      "dataset": "overall_plus_s5",
-      "trained_at": "2026-08-07T10:48:57.878379",
-      "metrics": {
-        "mae": 47112.55,
-        "rmse": 132822.35,
-        "r2": 0.9564,
-        "mape": 7.54
-      },
-      "artifact_path": "model_registry/variant_2",
-      "status": "archived"
-    },
-    "variant_3": {
-      "dataset": "s1s4_plus_s5",
-      "trained_at": "2026-08-07T11:01:54.284413",
-      "metrics": {
-        "mae": 46363.38,
-        "rmse": 125445.54,
-        "r2": 0.9581,
-        "mape": 7.58
-      },
-      "artifact_path": "model_registry/variant_3",
-      "status": "archived"
     }
   }
-}
+}

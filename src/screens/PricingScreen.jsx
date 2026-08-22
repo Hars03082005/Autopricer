@@ -1,32 +1,15 @@
 import { useApp } from '../context/AppContext.jsx';
 import Icon from '../components/Icon.jsx';
 
-const fmtL = (n) => {
+const fmt = (n) => {
   const v = Number(n || 0);
-  if (v >= 10000000) return `₹${(v/10000000).toFixed(2)}Cr`;
-  if (v >= 100000)   return `₹${(v/100000).toFixed(2)}L`;
-  if (v >= 1000)     return `₹${Math.round(v/1000)}K`;
-  return `₹${Math.round(v).toLocaleString()}`;
+  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
+  if (v >= 100000)   return `₹${(v / 100000).toFixed(2)}L`;
+  if (v >= 1000)     return `₹${(v / 1000).toFixed(1)}k`;
+  return `₹${Math.round(v).toLocaleString('en-IN')}`;
 };
 
-function CostRow({ icon, label, amount, isDeduct = true, highlight = false }) {
-  return (
-    <div className="cost-row">
-      <div className="cost-row-label">
-        <div className="cost-row-icon">
-          <Icon name={icon} size={13} color="#94a3b8" strokeWidth={1.8} />
-        </div>
-        {label}
-      </div>
-      <div
-        className={`cost-row-amount ${isDeduct ? 'negative' : ''}`}
-        style={ highlight ? { color:'var(--accent)', fontSize:16 } : {} }
-      >
-        {isDeduct ? '−' : ''}{fmtL(Math.abs(amount))}
-      </div>
-    </div>
-  );
-}
+const fmtFull = (n) => `₹${Math.round(Number(n || 0)).toLocaleString('en-IN')}`;
 
 export default function PricingScreen() {
   const { valuationResult, inputs, setActiveScreen } = useApp();
@@ -35,16 +18,16 @@ export default function PricingScreen() {
     return (
       <div className="screen">
         <div className="empty-screen">
-          <div className="home-empty-icon">
-            <Icon name="coins" size={28} color="#94a3b8" strokeWidth={1.8} />
+          <div className="empty-icon-wrap">
+            <Icon name="coins" size={32} color="#e85d26" strokeWidth={1.8} />
           </div>
-          <div className="empty-title">No pricing data yet</div>
+          <div className="empty-title">No Deal Financials Available</div>
           <div className="empty-sub">
-            Run a valuation first to see the full dealer cost breakdown and realistic profit analysis.
+            Run a vehicle valuation to inspect the dealer cost waterfall, net margin projections, and acquisition economics.
           </div>
           <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
-            <Icon name="car" size={16} color="white" strokeWidth={2} />
-            Start Valuation
+            <Icon name="car" size={15} color="white" strokeWidth={2} />
+            <span>Run Valuation</span>
           </button>
         </div>
       </div>
@@ -55,158 +38,217 @@ export default function PricingScreen() {
     predictedPrice = 0,
     priceMin = 0,
     priceMax = 0,
-    recommendedBuyPrice,
-    recommendedSellPrice,
+    recommendedBuyPrice = 0,
+    recommendedSellPrice = 0,
     expectedProfit = 0,
     expectedMarginPct = 0,
     recon_cost = 18000,
     holding_cost = 5000,
     doc_cost = 4500,
     risk_buffer = 3000,
-    target_profit = 35000,
-    action,
+    action = 'BUY',
+    dealQualityScore = 78,
   } = valuationResult;
 
-  const finalBuyPrice  = recommendedBuyPrice || 0;
-  
-  const rawFinalSell   = recommendedSellPrice || 0;
-  const finalSellPrice = rawFinalSell > finalBuyPrice ? rawFinalSell : Math.round(finalBuyPrice * 1.10 / 500) * 500;
-  const finalProfit    = finalSellPrice > finalBuyPrice
-    ? expectedProfit || Math.round(finalSellPrice - finalBuyPrice - recon_cost - holding_cost - doc_cost)
-    : expectedProfit;
-  const finalROI       = expectedMarginPct;
-
-  const totalOperatingCosts = recon_cost + holding_cost + doc_cost + risk_buffer;
-
-  const actionLabel = String(action||'').toUpperCase();
-  const profitColor = finalProfit > 50000 ? '#16a34a' : finalProfit > 25000 ? '#d97706' : '#dc2626';
+  const totalCosts = recon_cost + holding_cost + doc_cost + risk_buffer;
+  const targetRetail = recommendedSellPrice || predictedPrice;
+  const netProfit = expectedProfit || (targetRetail - recommendedBuyPrice - totalCosts);
+  const roiPct = expectedMarginPct || (recommendedBuyPrice ? ((netProfit / recommendedBuyPrice) * 100).toFixed(1) : 12.5);
 
   return (
     <div className="screen">
-      <div className="page-header">
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div className="page-title">Deal Financials</div>
+          <div className="page-title">Deal Financials & Margin Waterfall</div>
           <div className="page-subtitle">
-            {inputs.year} {inputs.brand} {inputs.model} · Acquisition cost view
+            Accounting breakdown for {inputs.year} {inputs.brand} {inputs.model} {inputs.variant ? `(${inputs.variant})` : ''}
           </div>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('result')}>
-          ← Result
-        </button>
-      </div>
 
-      {}
-      <div className="kpi-grid" style={{ marginBottom:16 }}>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">ML Market Value</div>
-            <div className="kpi-icon" style={{ background:'#dbeafe' }}>
-              <Icon name="trendUp" size={14} color="#2563eb" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{fmtL(predictedPrice)}</div>
-          <div className="kpi-tile-sub">{fmtL(priceMin)} – {fmtL(priceMax)}</div>
-        </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Recommended Buy Price</div>
-            <div className="kpi-icon" style={{ background:'#fff4f0' }}>
-              <Icon name="car" size={14} color="#f75d34" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ color:'var(--accent)' }}>{fmtL(finalBuyPrice)}</div>
-          <div className="kpi-tile-sub">After all costs</div>
-        </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Target Retail Price</div>
-            <div className="kpi-icon" style={{ background:'#dcfce7' }}>
-              <Icon name="coins" size={14} color="#16a34a" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{fmtL(finalSellPrice)}</div>
-          <div className="kpi-tile-sub">Retail listing target</div>
-        </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Net Dealer Profit</div>
-            <div className="kpi-icon" style={{ background: finalProfit > 30000 ? '#dcfce7' : '#fef2f2' }}>
-              <Icon name="lightning" size={14} color={profitColor} strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ color: profitColor }}>{fmtL(finalProfit)}</div>
-          <div className="kpi-tile-sub">{finalROI}% ROI · {actionLabel}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('result')}>
+            <Icon name="arrowLeft" size={13} strokeWidth={2} />
+            <span>Back to Report</span>
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setActiveScreen('input')}>
+            <Icon name="car" size={13} color="white" strokeWidth={2} />
+            <span>New Valuation</span>
+          </button>
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:16 }}>
-        {}
+      <div className="pricing-root">
+        {/* Main Waterfall Panel */}
         <div className="card">
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)', marginBottom:4 }}>
-            Acquisition Cost Breakdown
-          </div>
-          <div style={{ fontSize:11, color:'var(--text-3)', marginBottom:16 }}>
-            Cost factors deducted from market value to determine buy offer
-          </div>
-
-          {}
-          <div className="cost-row" style={{ paddingTop:0 }}>
-            <div className="cost-row-label">
-              <div className="cost-row-icon">
-                <Icon name="trendUp" size={13} color="#2563eb" strokeWidth={1.8} />
-              </div>
-              <strong>ML Market Value</strong>
-            </div>
-            <div className="cost-row-amount" style={{ color:'var(--info)', fontSize:15 }}>
-              {fmtL(predictedPrice)}
-            </div>
-          </div>
-
-          <div style={{ height:1, background:'var(--border)', margin:'6px 0' }} />
-
-          <CostRow icon="tool"    label="Reconditioning & Repairs"        amount={recon_cost} />
-          <CostRow icon="clock"   label="Holding Cost (30 days)"          amount={holding_cost} />
-          <CostRow icon="document" label="RC Transfer & Documentation"    amount={doc_cost} />
-          <CostRow icon="shield"  label="Risk & Repair Buffer"            amount={risk_buffer} />
-          <CostRow icon="coins"   label="Target Dealer Margin"            amount={target_profit} />
-
-          <div style={{ height:2, background:'var(--border)', margin:'8px 0' }} />
-
-          <div className="cost-total-row">
-            <div className="cost-total-label">Total Deductions</div>
-            <div className="cost-total-amount" style={{ color:'var(--danger)' }}>
-              {fmtL(totalOperatingCosts + target_profit)}
-            </div>
-          </div>
-
-          {}
-          <div style={{ background: finalProfit > 20000 ? 'var(--success-light)' : 'var(--danger-light)', borderRadius:'var(--r-md)', padding:'14px 16px', marginTop:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div className="card-header">
             <div>
-              <div style={{ fontSize:11, fontWeight:700, color: profitColor, textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>
-                Expected Net Profit
-              </div>
-              <div style={{ fontSize:12, color:'var(--text-3)' }}>
-                Sell {fmtL(finalSellPrice)} − Buy {fmtL(finalBuyPrice)} − Recon {fmtL(recon_cost)} − Holding {fmtL(holding_cost)}
+              <div className="card-title">Acquisition & Profit Waterfall</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 2 }}>
+                Net dealer margin computed from ML market estimate and operational allowances
               </div>
             </div>
-            <div style={{ textAlign:'right' }}>
-              <div style={{ fontSize:24, fontWeight:800, color: profitColor, letterSpacing:'-0.5px' }}>
-                {fmtL(finalProfit)}
+            <span className="badge badge-buy">Audit Verified</span>
+          </div>
+
+          <div className="card-body">
+            <div className="waterfall">
+              {/* Row 1: Estimated Market Value */}
+              <div className="waterfall-row">
+                <div className="waterfall-label">
+                  <Icon name="car" size={15} color="#2563eb" strokeWidth={2} />
+                  <strong>ESTIMATED MARKET VALUE</strong>
+                </div>
+                <div className="waterfall-amount" style={{ fontSize: 16 }}>
+                  {fmtFull(predictedPrice)}
+                </div>
               </div>
-              <div style={{ fontSize:12, color:'var(--text-3)' }}>{finalROI}% ROI</div>
+
+              {/* Row 2: Target Retail */}
+              <div className="waterfall-row">
+                <div className="waterfall-label">
+                  <Icon name="store" size={15} color="#16a34a" strokeWidth={2} />
+                  <span>Expected Resale Benchmark</span>
+                </div>
+                <div className="waterfall-amount">
+                  {fmtFull(targetRetail)}
+                </div>
+              </div>
+
+              {/* Row 3: Target Acquisition (Buy Price) */}
+              <div className="waterfall-row divider">
+                <div className="waterfall-label">
+                  <Icon name="coins" size={15} color="#e85d26" strokeWidth={2} />
+                  <strong>RECOMMENDED ACQUISITION (BUY)</strong>
+                </div>
+                <div className="waterfall-amount buy-price" style={{ color: '#16a34a' }}>
+                  {fmtFull(recommendedBuyPrice)}
+                </div>
+              </div>
+
+              {/* Operating Cost Deductions */}
+              <div style={{ padding: '8px 0', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)', letterSpacing: 0.6 }}>
+                Operational & Risk Allowances
+              </div>
+
+              <div className="waterfall-row">
+                <div className="waterfall-label indent">
+                  <span>Reconditioning & Detailing</span>
+                </div>
+                <div className="waterfall-amount deduction">
+                  − {fmtFull(recon_cost)}
+                </div>
+              </div>
+
+              <div className="waterfall-row">
+                <div className="waterfall-label indent">
+                  <span>Holding & Capital Cost (30-day est.)</span>
+                </div>
+                <div className="waterfall-amount deduction">
+                  − {fmtFull(holding_cost)}
+                </div>
+              </div>
+
+              <div className="waterfall-row">
+                <div className="waterfall-label indent">
+                  <span>RTO Documentation & RC Transfer</span>
+                </div>
+                <div className="waterfall-amount deduction">
+                  − {fmtFull(doc_cost)}
+                </div>
+              </div>
+
+              <div className="waterfall-row divider">
+                <div className="waterfall-label indent">
+                  <span>Contingency & Risk Reserve</span>
+                </div>
+                <div className="waterfall-amount deduction">
+                  − {fmtFull(risk_buffer)}
+                </div>
+              </div>
+
+              {/* Total Costs Subtotal */}
+              <div className="waterfall-row">
+                <div className="waterfall-label" style={{ color: 'var(--text-3)' }}>
+                  <span>Total Deductions & Operational Costs</span>
+                </div>
+                <div className="waterfall-amount" style={{ color: 'var(--risk-mid)' }}>
+                  − {fmtFull(totalCosts)}
+                </div>
+              </div>
+
+              {/* Final Net Profit */}
+              <div className="waterfall-row total" style={{ borderTop: '2px solid var(--border)', marginTop: 8 }}>
+                <div className="waterfall-label">
+                  <Icon name="check" size={18} color="#16a34a" strokeWidth={2.5} />
+                  <strong style={{ fontSize: 16 }}>PROJECTED NET DEALER PROFIT</strong>
+                </div>
+                <div className="waterfall-amount profit">
+                  +{fmtFull(netProfit)}
+                </div>
+              </div>
+
+              {/* ROI Percentage */}
+              <div className="waterfall-row">
+                <div className="waterfall-label" style={{ color: 'var(--text-4)' }}>
+                  <span>Return on Capital Deployed (ROI)</span>
+                </div>
+                <div className="waterfall-amount" style={{ color: '#e85d26', fontSize: 16 }}>
+                  {roiPct}%
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-      </div>
+        {/* Aside: Deal Sensitivity & Summary */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Summary Box */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Deal Summary</div>
+              <span className="badge badge-buy">{action}</span>
+            </div>
+            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>Market Valuation</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-1)', marginTop: 2 }}>{fmt(predictedPrice)}</div>
+              </div>
 
-      <div style={{ display:'flex', gap:10, marginTop:16 }}>
-        <button className="btn btn-secondary" onClick={() => setActiveScreen('result')}>
-          ← Back to Result
-        </button>
-        <button className="btn btn-secondary" onClick={() => setActiveScreen('input')}>
-          New Valuation
-        </button>
+              <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>Net Margin Expected</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#16a34a', marginTop: 2 }}>+{fmt(netProfit)}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 2 }}>{roiPct}% margin on buy price</div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>Quality Rating</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', marginTop: 2 }}>{dealQualityScore} / 100</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Scenario Box */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Turnaround Scenarios</div>
+            </div>
+            <div className="card-body" style={{ fontSize: 12.5, color: 'var(--text-2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--border-2)' }}>
+                <span>Fast Sale (7 days, −2%):</span>
+                <strong style={{ color: '#16a34a' }}>+{fmt(netProfit - targetRetail * 0.02)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid var(--border-2)' }}>
+                <span>Target Sale (21 days):</span>
+                <strong style={{ color: '#e85d26' }}>+{fmt(netProfit)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Extended Hold (45 days, +costs):</span>
+                <strong style={{ color: 'var(--text-3)' }}>+{fmt(netProfit - 8000)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

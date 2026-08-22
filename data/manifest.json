@@ -1,0 +1,31 @@
+{
+  "description": "Combined full dataset (train + valid + test). READ-ONLY reference file \u2014 do NOT use for training.",
+  "warning": "This file contains all splits including the held-out test set. It must NEVER be used as training input, validation input, or for any form of model fitting or hyperparameter search.",
+  "row_counts": {
+    "train": 17632,
+    "valid": 3778,
+    "test": 3748,
+    "total": 25158
+  },
+  "columns": [
+    "brand",
+    "model",
+    "variant",
+    "locality",
+    "rto",
+    "fuel_type",
+    "transmission",
+    "seller_type",
+    "color",
+    "vehicle_age",
+    "odometer_reading",
+    "km_per_year",
+    "owner_count",
+    "certified",
+    "pincode",
+    "selling_price",
+    "split"
+  ],
+  "sha256": "4f228903c464edba097a7afb04c593c1c76caa05f1096b938a1a25c17e0f9de5",
+  "source": "ml_training/data/overall_only/{train,valid,test}.csv"
+}

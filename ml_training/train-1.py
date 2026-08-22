@@ -34,7 +34,7 @@ except Exception:
 
 import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1]))
-from ml_training import registry_helper
+from ml_training import registry_helper  # type: ignore[import]
 
 ROOT        = Path(__file__).resolve().parents[1]
 DATASET_DIR = Path(__file__).resolve().parent / "data" / "overall_only"

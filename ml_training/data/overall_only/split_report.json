@@ -1,0 +1,67 @@
+{
+  "dataset": "overall_only",
+  "sources_used": [
+    "overall_only/train.csv",
+    "overall_only/valid.csv",
+    "overall_only/test.csv"
+  ],
+  "processed_at": "2026-08-07T10:02:32.590072",
+  "prep_stats": {
+    "initial_rows": 25158,
+    "clean_rows": 25158,
+    "dropped_rows": 0
+  },
+  "split_row_counts": {
+    "train": 17632,
+    "valid": 3778,
+    "test": 3748,
+    "total": 25158
+  },
+  "bucket_distribution": {
+    "train": {
+      "0_3L": 3216,
+      "3_5L": 5325,
+      "5_10L": 6615,
+      "10_15L": 1850,
+      "15L_plus": 626
+    },
+    "valid": {
+      "0_3L": 693,
+      "3_5L": 1154,
+      "5_10L": 1403,
+      "10_15L": 396,
+      "15L_plus": 132
+    },
+    "test": {
+      "0_3L": 673,
+      "3_5L": 1154,
+      "5_10L": 1402,
+      "10_15L": 387,
+      "15L_plus": 132
+    }
+  },
+  "leakage_stats": {
+    "train_valid_overlap": 0,
+    "train_test_overlap": 0,
+    "valid_test_overlap": 0
+  },
+  "features": [
+    "brand",
+    "model",
+    "variant",
+    "locality",
+    "rto",
+    "fuel_type",
+    "transmission",
+    "seller_type",
+    "color",
+    "vehicle_age",
+    "odometer_reading",
+    "km_per_year",
+    "owner_count",
+    "certified",
+    "pincode",
+    "selling_price"
+  ],
+  "duration_sec": 1.7
+}

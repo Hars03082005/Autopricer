@@ -137,6 +137,19 @@ def _load_variant_data(variant_id: str) -> dict:
     if path is None:
         raise FileNotFoundError(f"Variant '{variant_id}' artifact path not found in registry.")
 
+    bundle_path = path / "ensemble_bundle.pkl"
+    if bundle_path.exists() and not (path / "vehicle_price_catboost.cbm").exists():
+        from backend.champion_predictor import load_champion
+        predictor = load_champion(bundle_path)
+        metadata = predictor.metadata
+        return {
+            "predictor":      predictor,
+            "segment_models": {},
+            "metadata":       metadata,
+            "catalog":        {},
+            "artifact_dir":   path,
+        }
+
     predictor = EnsemblePredictor.from_artifact_dir(path)
 
     segment_models: dict = {}

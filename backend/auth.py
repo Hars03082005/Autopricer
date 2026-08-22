@@ -1,23 +1,4 @@
-"""Supabase JWT verification.
-
-The browser continues to authenticate directly against Supabase Auth (GoTrue) —
-that part was already correct and there is no reason to proxy password flows
-through this service. What changed is that the access token it receives is now
-presented to *this* API, which verifies it and performs database work on the
-user's behalf, instead of the browser writing to Postgres directly.
-
-Two signing schemes are supported, because which one a project uses depends on
-when it was created and whether it has migrated:
-
-  * Asymmetric (ES256 / RS256) — current default. Verified against the project's
-    published JWKS. No shared secret needs to be deployed.
-  * HS256 — legacy shared secret, supplied as SUPABASE_JWT_SECRET.
-
-Both the audience and the issuer are checked. Skipping the issuer check is the
-subtle mistake here: without it, a validly-signed token from *any other*
-Supabase project would be accepted, since the signature verifies against
-whatever key material that project publishes.
-"""
+"""JWT Verification."""
 
 from __future__ import annotations
 
@@ -33,13 +14,10 @@ from backend.config import Settings, get_settings
 
 log = logging.getLogger("priceref.auth")
 
-# Supabase issues access tokens with aud="authenticated" for signed-in users.
 _EXPECTED_AUDIENCE = "authenticated"
 
 _SUPPORTED_ASYMMETRIC_ALGORITHMS = ("ES256", "RS256", "ES384", "RS384", "ES512", "RS512")
 
-# auto_error=False so that endpoints can distinguish "no credentials supplied"
-# from "credentials supplied but invalid" and phrase the 401 accordingly.
 _bearer_scheme = HTTPBearer(auto_error=False, description="Supabase access token")
 
 _jwks_client: jwt.PyJWKClient | None = None
@@ -48,12 +26,7 @@ _jwks_client_url: str | None = None
 
 @dataclass(frozen=True)
 class AuthenticatedUser:
-    """The verified caller. `id` is the Supabase auth.users UUID.
-
-    `access_token` is retained because database calls are made *as this user*
-    against PostgREST, so row-level security still applies (see backend/db.py).
-    It is excluded from repr so it cannot leak into a logged exception.
-    """
+    """Verified Caller."""
 
     id: str
     email: str | None
@@ -71,12 +44,7 @@ def _unauthorized(detail: str) -> HTTPException:
 
 
 def _get_jwks_client(settings: Settings) -> jwt.PyJWKClient:
-    """Cached JWKS client.
-
-    Rebuilt only if the configured URL changes (which in practice means tests).
-    PyJWKClient does its own key caching, so a request does not fetch per call;
-    `lifespan` bounds how long a rotated-out key stays trusted.
-    """
+    """Get JWKS Client."""
     global _jwks_client, _jwks_client_url
     if _jwks_client is None or _jwks_client_url != settings.jwks_url:
         _jwks_client = jwt.PyJWKClient(
@@ -91,19 +59,14 @@ def _get_jwks_client(settings: Settings) -> jwt.PyJWKClient:
 
 
 def reset_jwks_cache() -> None:
-    """Drop the cached JWKS client. For tests only."""
+    """Reset JWKS Cache."""
     global _jwks_client, _jwks_client_url
     _jwks_client = None
     _jwks_client_url = None
 
 
 def verify_token(token: str, settings: Settings) -> AuthenticatedUser:
-    """Verify a Supabase access token and return the caller.
-
-    Raises HTTPException(401) for anything unverifiable, and 503 when the
-    service itself is not configured to verify tokens at all — the latter is a
-    server fault, not the caller's, so it must not be reported as 401.
-    """
+    """Verify Token."""
     if not settings.auth_enabled:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -119,9 +82,6 @@ def verify_token(token: str, settings: Settings) -> AuthenticatedUser:
 
     if algorithm == "HS256":
         if not settings.supabase_jwt_secret:
-            # The project still signs with a shared secret but this deployment
-            # was not given it. Refusing loudly beats silently rejecting every
-            # user as unauthenticated.
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(
@@ -160,7 +120,6 @@ def verify_token(token: str, settings: Settings) -> AuthenticatedUser:
     except jwt.InvalidAudienceError as exc:
         raise _unauthorized("Token audience is not 'authenticated'.") from exc
     except jwt.InvalidIssuerError as exc:
-        # Correctly signed, but by a different Supabase project.
         raise _unauthorized("Token was issued by a different project.") from exc
     except jwt.PyJWTError as exc:
         raise _unauthorized(f"Token verification failed: {exc}") from exc
@@ -181,12 +140,7 @@ def verify_token(token: str, settings: Settings) -> AuthenticatedUser:
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> AuthenticatedUser:
-    """FastAPI dependency requiring a verified Supabase user.
-
-    Sync rather than async on purpose: JWKS resolution is a blocking HTTP call
-    inside PyJWT, so FastAPI running this in its threadpool keeps it off the
-    event loop.
-    """
+    """Get Current User."""
     if credentials is None or not credentials.credentials:
         raise _unauthorized("Missing bearer token.")
     return verify_token(credentials.credentials, get_settings())
@@ -195,12 +149,7 @@ def get_current_user(
 def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> AuthenticatedUser | None:
-    """As `get_current_user`, but returns None instead of raising when absent.
-
-    For endpoints that serve guests and signed-in users alike. An invalid token
-    still raises: silently treating a bad token as "guest" would hide expiry
-    from the client and look like data loss to the user.
-    """
+    """Get Optional User."""
     if credentials is None or not credentials.credentials:
         return None
     return verify_token(credentials.credentials, get_settings())
@@ -209,12 +158,7 @@ def get_optional_user(
 def require_admin_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """Guard for the model-variant administration endpoint.
-
-    A static token rather than a Supabase role check: this is an operator action,
-    not a user action, and it must stay usable from CI and from a shell without
-    provisioning an application user.
-    """
+    """Require Admin Token."""
     import secrets
 
     settings = get_settings()
@@ -232,7 +176,6 @@ def require_admin_token(
     if credentials is None or not credentials.credentials:
         raise _unauthorized("Missing admin bearer token.")
 
-    # compare_digest to keep the check constant-time.
     if not secrets.compare_digest(credentials.credentials, settings.admin_api_token):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

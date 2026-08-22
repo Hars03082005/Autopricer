@@ -185,9 +185,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 HERE = Path(__file__).resolve().parent
-DATA_DIR = HERE / "data"
-
-DATASETS = ["overall_only", "overall_plus_s5", "s1s4_plus_s5"]
+DATASETS = ["overall_only"]
 
 TRAIN_RATIO = 0.70
 VALID_RATIO = 0.15

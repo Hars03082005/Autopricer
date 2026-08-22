@@ -55,19 +55,17 @@ export default function SearchableDropdown({
   };
 
   return (
-    <div className="sdd" ref={containerRef}>
-      {}
+    <div className={`sdd${open ? ' sdd-open' : ''}`} ref={containerRef}>
       <button
         type="button"
         id={id}
-        className={`sdd-trigger${!value ? ' sdd-empty' : ''}${disabled ? ' sdd-disabled' : ''}`}
+        className={`sdd-trigger${!value ? ' sdd-empty-val' : ''}${disabled ? ' sdd-disabled' : ''}`}
         onClick={() => !disabled && setOpen(o => !o)}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span className="sdd-val">{value || placeholder}</span>
-        {}
         <svg
           className={`sdd-chevron${open ? ' sdd-chevron-open' : ''}`}
           width="14" height="14" viewBox="0 0 24 24"
@@ -77,10 +75,8 @@ export default function SearchableDropdown({
         </svg>
       </button>
 
-      {}
       {open && (
         <div className="sdd-panel" role="listbox">
-          {}
           <div className="sdd-search-row">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -104,10 +100,9 @@ export default function SearchableDropdown({
             )}
           </div>
 
-          {}
           <div className="sdd-list">
             {filtered.length === 0 ? (
-              <p className="sdd-empty">No results for "{query}"</p>
+              <div className="sdd-empty">No results for "{query}"</div>
             ) : filtered.map((opt, idx) => (
               <button
                 key={opt}
@@ -118,9 +113,9 @@ export default function SearchableDropdown({
                 role="option"
                 aria-selected={value === opt}
               >
-                {opt}
+                <span>{opt}</span>
                 {value === opt && (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e85d26" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
                 )}

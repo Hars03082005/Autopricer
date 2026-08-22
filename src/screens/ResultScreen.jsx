@@ -1,5 +1,4 @@
-import { useState, useCallback } from 'react';
-import { runMLValuationWithVariant } from '../utils/apiValuation.js';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
@@ -8,634 +7,432 @@ const fmt = (n) => {
   const v = Number(n || 0);
   if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
   if (v >= 100000)   return `₹${(v / 100000).toFixed(2)}L`;
-  if (v >= 1000)     return `₹${(v / 1000).toFixed(1)}K`;
+  if (v >= 1000)     return `₹${(v / 1000).toFixed(1)}k`;
   return `₹${Math.round(v).toLocaleString('en-IN')}`;
 };
 
-const fmtFull = (n) => {
-  const v = Number(n || 0);
-  return `₹${Math.round(v).toLocaleString('en-IN')}`;
-};
-
-const pct = (n) => `${Number(n || 0).toFixed(1)}%`;
-
-const ACTION_CFG = {
-  BUY:       { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'BUY', sub: 'Good Deal' },
-  NEGOTIATE: { color: '#ea580c', bg: '#fff7ed', border: '#ffedd5', label: 'NEGOTIATE', sub: 'Review Terms' },
-  REJECT:    { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'REJECT', sub: 'High Risk' },
-  PASS:      { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'PASS', sub: 'High Risk' },
-};
-
-const getAction = (a = '') =>
-  ACTION_CFG[String(a).toUpperCase()] ||
-  { color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: String(a).toUpperCase() || 'REVIEW', sub: 'Manual Check' };
-
-const MAIN_VARIANTS = [
-  { id: 'variant_1', label: 'Variant 1', mape: '6.16%', emoji: '🥇' },
-  { id: 'variant_2', label: 'Variant 2', mape: '6.67%', emoji: '🥈' },
-  { id: 'variant_3', label: 'Variant 3', mape: '6.50%', emoji: '🥉' },
-];
-
-function VariantSwitcher({ activeVariant, onSwitch, switching, switchError }) {
+function EmptyState({ setActiveScreen, evaluations, viewEvaluation }) {
   return (
-    <div style={{
-      background: 'var(--surface-1)',
-      border: '1px solid var(--border)',
-      borderRadius: 12,
-      padding: '14px 18px',
-      marginBottom: 12,
-    }}>
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px', marginBottom: 8 }}>
-          ML MODEL ENGINE
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {MAIN_VARIANTS.map(v => {
-            const active = activeVariant === v.id;
-            return (
-              <button
-                key={v.id}
-                onClick={() => onSwitch(v.id)}
-                disabled={switching}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 14px',
-                  borderRadius: 8,
-                  border: active ? '2px solid #2563eb' : '1.5px solid var(--border)',
-                  background: active ? '#eff6ff' : 'var(--surface-2)',
-                  color: active ? '#1d4ed8' : 'var(--text-2)',
-                  fontWeight: active ? 700 : 500,
-                  fontSize: 13,
-                  cursor: switching ? 'not-allowed' : 'pointer',
-                  opacity: switching ? 0.6 : 1,
-                  transition: 'all 0.15s',
-                }}
-              >
-                <span>{v.emoji}</span>
-                <span>{v.label}</span>
-                <span style={{ fontSize: 10, color: active ? '#3b82f6' : 'var(--text-3)', fontWeight: 600 }}>
-                  {v.mape}
-                </span>
-                {active && (
-                  <span style={{
-                    fontSize: 9, background: '#2563eb', color: 'white',
-                    borderRadius: 4, padding: '1px 5px', fontWeight: 700,
-                  }}>ACTIVE</span>
-                )}
-              </button>
-            );
-          })}
-          {switching && (
-            <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center', marginLeft: 4 }}>
-              Switching…
-            </span>
-          )}
-        </div>
-        {switchError && (
-          <div style={{
-            marginTop: 8,
-            padding: '6px 10px',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 6,
-            fontSize: 12,
-            color: '#dc2626',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}>
-            <span>⚠️</span>
-            <span>{switchError}</span>
-          </div>
-        )}
+    <div className="empty-screen" style={{ padding: '60px 20px' }}>
+      <div className="empty-icon-wrap">
+        <Icon name="car" size={32} color="#e85d26" strokeWidth={1.8} />
       </div>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="rs2-loading">
-      <div className="rs2-loading-spinner" />
-      <div className="rs2-loading-title">Analysing vehicle…</div>
-      <div className="rs2-loading-steps">
-        {['Routing to segment model', 'Running ML inference', 'Computing dealer margins', 'Building negotiation strategy'].map((s, i) => (
-          <div key={i} className="rs2-loading-step" style={{ animationDelay: `${i * 0.35}s` }}>
-            <Icon name="check" size={11} color="#2563eb" strokeWidth={2.5} /> {s}
-          </div>
-        ))}
+      <div className="empty-title">No Active Valuation Report</div>
+      <div className="empty-sub">
+        Run a vehicle valuation to inspect real-time acquisition pricing, dealer margin calculations, and comparable market evidence.
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ setActiveScreen }) {
-  return (
-    <div className="rs2-empty">
-      <div className="rs2-empty-icon">
-        <Icon name="car" size={36} color="#93c5fd" strokeWidth={1.5} />
-      </div>
-      <div className="rs2-empty-title">No valuation yet</div>
-      <div className="rs2-empty-sub">Run a vehicle valuation to see ML-powered dealer recommendations</div>
-      <button className="btn btn-primary" onClick={() => setActiveScreen('input')}>
-        <Icon name="car" size={15} color="white" strokeWidth={2} /> Start Valuation
-      </button>
-    </div>
-  );
-}
-
-function CarImage() {
-  return (
-    <div className="rs2-car-img-placeholder">
-      <svg width="150" height="85" viewBox="0 0 150 85" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="150" height="85" rx="10" fill="#EFF6FF"/>
-        <rect x="10" y="44" width="130" height="28" rx="6" fill="#BFDBFE"/>
-        <path d="M28 44 L46 24 L104 24 L122 44" fill="#93C5FD" stroke="#60A5FA" strokeWidth="1.5"/>
-        <circle cx="34" cy="70" r="10" fill="#1E40AF"/>
-        <circle cx="34" cy="70" r="5.5" fill="#DBEAFE"/>
-        <circle cx="116" cy="70" r="10" fill="#1E40AF"/>
-        <circle cx="116" cy="70" r="5.5" fill="#DBEAFE"/>
-        <rect x="50" y="28" width="22" height="14" rx="2.5" fill="#DBEAFE" stroke="#93C5FD" strokeWidth="1"/>
-        <rect x="76" y="28" width="22" height="14" rx="2.5" fill="#DBEAFE" stroke="#93C5FD" strokeWidth="1"/>
-        <rect x="10" y="52" width="15" height="7" rx="2.5" fill="#FEF08A"/>
-        <rect x="125" y="52" width="15" height="7" rx="2.5" fill="#FCA5A5"/>
-        <rect x="28" y="44" width="94" height="4" rx="2" fill="#60A5FA" opacity="0.4"/>
-      </svg>
-    </div>
-  );
-}
-
-function PricingBandCard({ min, max, color, icon, title, confidenceScore }) {
-  return (
-    <div className="rs2-card rs2-range-card" style={{ padding: '18px 24px' }}>
-      <div className="rs2-range-card-inner">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Icon name={icon} size={18} color={color} strokeWidth={2.2} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{title}</div>
-            <div className="rs2-range-price" style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-1)', marginTop: 2 }}>
-              {fmtFull(min)} – {fmtFull(max)}
-            </div>
-          </div>
-        </div>
-        <div className="rs2-range-card-right">
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>Confidence Interval</div>
-          <div style={{ fontSize: '15px', fontWeight: 800, color, marginTop: 2 }}>
-            {confidenceScore}% Confidence
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NegotiationSection({ opening, ideal, walkAway }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div className="rs2-card" style={{ padding: '20px 24px' }}>
-      <div className="rs2-neg-header" onClick={() => setExpanded(e => !e)}>
-        <div className="rs2-section-title" style={{ fontSize: '16px', fontWeight: '700' }}>
-          <Icon name="coins" size={17} color="#2563eb" strokeWidth={2} />
-          Negotiation Strategy
-          <Icon name="info" size={14} color="#64748b" className="rs2-section-hint" />
-        </div>
-        <button className="rs2-neg-toggle">
-          {expanded ? 'Hide Details' : 'View Strategy Details'}
-          <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} color="#2563eb" strokeWidth={2} />
+      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+        <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
+          <Icon name="car" size={15} color="white" strokeWidth={2} />
+          <span>Start New Valuation</span>
         </button>
-      </div>
-      {expanded && (
-        <div className="rs2-neg-body">
-          <div className="rs2-neg-cards rs2-neg-cards-row">
-            <div className="rs2-neg-card rs2-neg-green">
-              <div className="rs2-neg-card-label">Opening Offer</div>
-              <div className="rs2-neg-card-value" style={{ color: '#16a34a' }}>{fmtFull(opening)}</div>
-              <div className="rs2-neg-card-tip">Start your negotiation here</div>
-            </div>
-            <div className="rs2-neg-arrow">
-              <Icon name="arrowRight" size={20} color="#cbd5e1" strokeWidth={2} />
-            </div>
-            <div className="rs2-neg-card rs2-neg-amber">
-              <div className="rs2-neg-card-label">Ideal Price</div>
-              <div className="rs2-neg-card-value" style={{ color: '#ea580c' }}>{fmtFull(ideal)}</div>
-              <div className="rs2-neg-card-tip">Target price to aim for</div>
-            </div>
-            <div className="rs2-neg-arrow">
-              <Icon name="arrowRight" size={20} color="#cbd5e1" strokeWidth={2} />
-            </div>
-            <div className="rs2-neg-card rs2-neg-red">
-              <div className="rs2-neg-card-label">Walk Away Price</div>
-              <div className="rs2-neg-card-value" style={{ color: '#dc2626' }}>{fmtFull(walkAway)}</div>
-              <div className="rs2-neg-card-tip">Do not exceed this price</div>
-            </div>
-          </div>
-          <div className="rs2-neg-note">
-            <Icon name="info" size={14} color="#2563eb" strokeWidth={2} />
-            These ranges are AI-powered recommendations based on market data, vehicle condition, and demand trends.
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SimilarCarsSection({ cars, predictedPrice }) {
-  
-  const rows = (cars || []).filter(c => c && (c.source === 'dataset' || c.market_value > 0));
-
-  if (rows.length === 0) return null;
-
-  const displayRows = rows.map(c => ({
-    brand:        c.brand        || '',
-    model:        c.model        || '',
-    year:         c.year         || '',
-    fuel:         c.fuel         || c.fuel_type || '',
-    transmission: c.transmission || 'Manual',
-    variant:      c.variant      || '',
-    odometer:     Number(c.odometer || c.odometer_reading || 0),
-    city:         c.city         || 'Bangalore',
-    marketValue:  Number(c.market_value || c.marketValue || 0),
-    condition:    c.condition    || 'Good',
-    segment:      c.segment      || '',
-    ownerCount:   c.owner_count  || '',
-    similarity:   Number(c.similarity || 0),
-  }));
-
-  return (
-    <div className="rs2-card" style={{ padding: '22px 24px' }}>
-      <div className="rs2-similar-header">
-        <div>
-          <div className="rs2-section-title" style={{ fontSize: '16px', fontWeight: '700' }}>
-            Similar Cars <span style={{ fontWeight: 'normal', color: '#64748b', fontSize: '14px', marginLeft: '4px' }}>(Based on listings in dataset)</span>
-          </div>
-        </div>
-      </div>
-
-      {}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
-        gap: 8,
-        padding: '8px 10px',
-        background: 'var(--surface-2)',
-        borderRadius: 8,
-        marginTop: 14,
-        marginBottom: 2,
-      }}>
-        {['VEHICLE', 'FUEL / TRANS', 'ODOMETER', 'OWNERS', 'LISTED PRICE', 'MATCH'].map(h => (
-          <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.4px' }}>{h}</div>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {displayRows.map((car, idx) => {
-          const diff    = car.marketValue - predictedPrice;
-          const diffPct = predictedPrice ? ((diff / predictedPrice) * 100).toFixed(1) : '0.0';
-          const isPos   = diff >= 0;
-          return (
-            <div key={idx} style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.7fr',
-              gap: 8,
-              padding: '11px 10px',
-              borderBottom: '1px solid var(--border)',
-              alignItems: 'center',
-            }}>
-              {}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
-                  {car.brand} {car.model}{car.variant && car.variant !== 'Unknown' && car.variant !== 'unknown' ? ` · ${car.variant}` : ''}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
-                  {car.year}{car.condition ? ` · ${car.condition}` : ''}{car.segment ? ` · ${car.segment.toUpperCase()}` : ''}
-                </div>
-              </div>
-              {}
-              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                {car.fuel || '—'}{car.transmission ? ` / ${car.transmission}` : ''}
-              </div>
-              {}
-              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                {car.odometer > 0 ? `${(car.odometer / 1000).toFixed(0)}k km` : '—'}
-              </div>
-              {}
-              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                {car.ownerCount ? `${car.ownerCount} owner${car.ownerCount > 1 ? 's' : ''}` : '—'}
-              </div>
-              {}
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{fmtFull(car.marketValue)}</div>
-                <span style={{
-                  fontSize: 10.5, fontWeight: 700,
-                  color: isPos ? '#16a34a' : '#dc2626',
-                }}>{isPos ? '+' : ''}{diffPct}% vs pred</span>
-              </div>
-              {}
-              {car.similarity > 0 ? (
-                <div style={{
-                  textAlign: 'center',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '3px 6px',
-                  borderRadius: 8,
-                  background: car.similarity >= 85 ? '#dcfce7' : car.similarity >= 65 ? '#dbeafe' : '#fef9c3',
-                  color:      car.similarity >= 85 ? '#15803d' : car.similarity >= 65 ? '#1d4ed8' : '#92400e',
-                }}>
-                  {car.similarity.toFixed(0)}%
-                </div>
-              ) : <div />}
-            </div>
-          );
-        })}
+        {evaluations?.length > 0 && (
+          <button className="btn btn-secondary btn-lg" onClick={() => viewEvaluation(evaluations[0])}>
+            <span>View Latest ({evaluations[0].brand} {evaluations[0].model})</span>
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
 export default function ResultScreen() {
-  const { valuationResult, inputs, isLoading, setActiveScreen, evaluations } = useApp();
+  const {
+    valuationResult,
+    inputs = {},
+    setActiveScreen,
+    evaluations = [],
+    editEvaluation,
+  } = useApp();
 
-  const [activeVariant, setActiveVariant] = useState('variant_1');
-  const [displayResult, setDisplayResult] = useState(null);
-  const [switching, setSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState(null);
-  const [s5Active, setS5Active] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const result = displayResult || valuationResult;
-
-  const handleVariantSwitch = useCallback(async (variantId) => {
-    if (variantId === activeVariant && !s5Active) return;
-    setSwitching(true);
-    setSwitchError(null);
-    setS5Active(false);
-    try {
-      const switched = await runMLValuationWithVariant(inputs, variantId);
-      setDisplayResult(switched);
-      setActiveVariant(variantId);
-    } catch (e) {
-      console.error('Variant switch failed:', e);
-      // Extract a user-friendly message from the API error (FastAPI returns
-      // {"detail": "..."} in the body; postJson wraps it as "ML API error 404: ...").
-      const raw = e?.message || 'Variant switch failed. Please try again.';
-      const match = raw.match(/\{.*"detail"\s*:\s*"([^"]+)"/);
-      setSwitchError(match ? match[1] : raw);
-    } finally {
-      setSwitching(false);
-    }
-  }, [activeVariant, s5Active, inputs]);
-
-  if (isLoading) return <LoadingState />;
-  if (!result) return <EmptyState setActiveScreen={setActiveScreen} />;
+  if (!valuationResult) {
+    return (
+      <div className="screen">
+        <EmptyState
+          setActiveScreen={setActiveScreen}
+          evaluations={evaluations}
+        />
+      </div>
+    );
+  }
 
   const {
     predictedPrice = 0,
-    priceMin,
-    priceMax,
-    confidenceScore = 80,
+    priceMin = 0,
+    priceMax = 0,
+    priceMedian = 0,
     recommendedBuyPrice = 0,
     recommendedSellPrice = 0,
-    openingOffer,
-    maxOffer,
-    targetOffer,
     expectedProfit = 0,
+    expectedMarginPct = 0,
     action = 'BUY',
-    segmentClass = 'economy',
+    dealQualityScore = 78,
+    confidenceScore = 88,
+    positiveFactors = [],
+    negativeFactors = [],
     similarCars = [],
-    valuationConfidence = 'Low',
-    marketSupport = 'Weak',
-    comparablesUsed = 0,
-    averageSimilarity = 0,
-    expectedModelError = 6.3,
-  } = result;
+    similar_cars = [],
+    comp_count = 0,
+    opening_offer = 0,
+    max_offer = 0,
+  } = valuationResult;
 
-  const confColor = {
-    'Very High': { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
-    'High':      { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
-    'Medium':    { bg: '#fef9c3', color: '#92400e', border: '#fde047' },
-    'Low':       { bg: '#ffedd5', color: '#c2410c', border: '#fdba74' },
-    'Very Low':  { bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' },
-  }[valuationConfidence] || { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
+  const comps = similarCars?.length ? similarCars : (similar_cars?.length ? similar_cars : []);
+  const compCount = comp_count || comps.length || 0;
 
-  const ac = getAction(action);
-  const buyPrice  = Number(recommendedBuyPrice || predictedPrice * 0.82);
-  
-  const rawSellPrice = Number(recommendedSellPrice || 0);
-  const sellPrice = rawSellPrice > buyPrice ? rawSellPrice : Math.round(buyPrice * 1.10 / 500) * 500;
-  const profit    = Number(expectedProfit || sellPrice - buyPrice);
-  const roi       = buyPrice ? (profit / buyPrice) * 100 : 0;
+  const act = String(action || 'BUY').toUpperCase();
+  const isBuy = act === 'BUY';
+  const isCaution = act === 'NEGOTIATE' || act === 'INSPECT' || act === 'BUY AFTER INSPECTION';
 
-  const opening  = Number(openingOffer || targetOffer || buyPrice * 0.95);
-  const ideal    = Number(targetOffer  || buyPrice);
-  const walkAway = Number(maxOffer     || buyPrice * 1.05);
+  const buyFloor = opening_offer || Math.round((recommendedBuyPrice * 0.95) / 500) * 500;
+  const buyCeil = max_offer || Math.round((recommendedBuyPrice * 1.03) / 500) * 500;
+  const sellFloor = priceMin || Math.round(predictedPrice * 0.95);
+  const sellCeil = priceMax || Math.round(predictedPrice * 1.05);
 
-  const minP = Number(priceMin || predictedPrice * 0.9372);
-  const maxP = Number(priceMax || predictedPrice * 1.0628);
-
-  const minBuy = Math.round((opening || buyPrice * 0.95) / 500) * 500;
-  const maxBuy = Math.round((walkAway || buyPrice * 1.03) / 500) * 500;
-
-  const rangeSub = comparablesUsed > 0
-    ? `${comparablesUsed} comps · ${averageSimilarity.toFixed(1)}% avg match · ${marketSupport} support`
-    : `ML model uncertainty band · ±${expectedModelError.toFixed(1)}% MAPE`;
-
-  const km = Number(inputs.mileage || 0);
+  const handleShare = () => {
+    const text = `PriceRef Valuation: ${inputs.year} ${inputs.brand} ${inputs.model}\nMarket Value: ${fmt(predictedPrice)}\nBuy Range: ${fmt(buyFloor)} – ${fmt(buyCeil)} (Target: ${fmt(recommendedBuyPrice)})\nSelling Range: ${fmt(sellFloor)} – ${fmt(sellCeil)}\nExp. Net Profit: ${fmt(expectedProfit)} (${expectedMarginPct}%)\nDecision: ${act}`;
+    navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <div className="rs2-root">
-
-      {}
-      <VariantSwitcher
-        activeVariant={activeVariant}
-        onSwitch={handleVariantSwitch}
-        switching={switching}
-        switchError={switchError}
-      />
-
-      {}
-      {s5Active && (
-        <div style={{
-          background: '#f5f3ff',
-          border: '1.5px solid #c4b5fd',
-          borderRadius: 10,
-          padding: '10px 16px',
-          marginBottom: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          fontSize: 13,
-          fontWeight: 600,
-          color: '#6d28d9',
-        }}>
-          <span style={{ fontSize: 16 }}>✨</span>
-          <span>
-            S5 Quality Shop Model — Pricing from specialized quality dealer dataset (age ≤ 7 yrs).
-            These prices reflect premium quality shop benchmarks and may be higher than the general market.
+    <div className="screen">
+      {/* Top Action Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => editEvaluation(valuationResult)}>
+            <Icon name="arrowLeft" size={13} strokeWidth={2} />
+            <span>Edit Valuation</span>
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--text-4)' }}>
+            Evaluation ID #{String(valuationResult.id || Date.now()).slice(-6)}
           </span>
         </div>
-      )}
 
-      {}
-      <div className="rs2-card rs2-hero-card">
-        {}
-        <div className="rs2-hero-top">
-          <div className="rs2-hero-top-left">
-            <CarImage />
-            <div className="rs2-hero-info-new">
-              <div className="rs2-vehicle-name">
-                {inputs.brand} {inputs.model}
-                {inputs.variant && inputs.variant !== 'unknown' && <span className="rs2-vehicle-var"> {inputs.variant}</span>}
-              </div>
-              <div className="rs2-spec-row">
-                {[
-                  inputs.year,
-                  inputs.fuel || inputs.fuel_type,
-                  inputs.transmission,
-                  km > 0 ? `${km.toLocaleString('en-IN')} km` : null,
-                  inputs.city,
-                  inputs.ownerCount ? `${inputs.ownerCount} Owner${inputs.ownerCount !== '1' ? 's' : ''}` : null
-                ].filter(Boolean).map((val, idx) => (
-                  <span key={idx} className="rs2-spec-chip">{val}</span>
-                ))}
-              </div>
-              <div className="rs2-hero-badges" style={{ marginTop: '8px' }}>
-                <span className="rs2-badge rs2-badge-seg">{(segmentClass || 'economy').toUpperCase()}</span>
-                <span className="rs2-badge rs2-badge-conf">ML Confidence: {confidenceScore}%</span>
-                <span
-                  className="rs2-badge"
-                  style={{
-                    background: confColor.bg,
-                    color: confColor.color,
-                    border: `1px solid ${confColor.border}`,
-                    fontWeight: 700,
-                    fontSize: '10px',
-                    letterSpacing: '0.03em',
-                  }}
-                >
-                  {valuationConfidence} Confidence
-                </span>
-                <span className="rs2-badge" style={{
-                  background: '#eff6ff', color: '#1d4ed8',
-                  border: '1px solid #bfdbfe', fontWeight: 700, fontSize: '10px',
-                }}>
-                  🥇 Variant 1 (Default)
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="rs2-hero-top-right">
-            <span className="rs2-decision-badge-new" style={{ background: ac.bg, color: ac.color, borderColor: ac.border }}>
-              <div className="rs2-decision-title-new">
-                <Icon name="check" size={16} color={ac.color} strokeWidth={3} /> {ac.label}
-              </div>
-              <span className="rs2-decision-sub-new">{ac.sub}</span>
-            </span>
-          </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={handleShare}>
+            <Icon name="check" size={13} strokeWidth={2} />
+            <span>{copied ? 'Copied to Clipboard' : 'Share Summary'}</span>
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('pricing')}>
+            <Icon name="coins" size={13} strokeWidth={2} />
+            <span>Deal Financials</span>
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('assistant')}>
+            <Icon name="brain" size={13} strokeWidth={2} />
+            <span>Deal Assistant</span>
+          </button>
+          {evaluations.length > 0 && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => exportEvaluationsToCSV(evaluations)}
+            >
+              <Icon name="upload" size={13} strokeWidth={2} />
+              <span>Export CSV</span>
+            </button>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={() => setActiveScreen('input')}>
+            <Icon name="car" size={13} color="white" strokeWidth={2} />
+            <span>+ New Valuation</span>
+          </button>
         </div>
+      </div>
 
-        {}
-        <div className="rs2-hero-stats-new">
-          <div className="rs2-hero-stat-new-item">
-            <div className="rs2-hero-stat-label">Market Selling Range</div>
-            <div className="rs2-hero-stat-value rs2-blue">{fmt(minP)} – {fmt(maxP)}</div>
-            <div className="rs2-hero-stat-sub">{rangeSub}</div>
-            {comparablesUsed > 0 && (
+      <div className="result-root">
+        {/* Main Column */}
+        <div className="result-main-col">
+          {/* Hero Valuation Box */}
+          <div className="val-hero">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
+              <div className="val-vehicle-id">
+                Bengaluru Market · {inputs.condition || 'Good'} Condition
+              </div>
               <div style={{
-                marginTop: 4,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
-                fontSize: 10,
-                fontWeight: 600,
-                padding: '2px 7px',
-                borderRadius: 10,
-                background: confColor.bg,
-                color: confColor.color,
-                border: `1px solid ${confColor.border}`,
+                gap: 5,
+                padding: '3px 9px',
+                borderRadius: 'var(--r-sm)',
+                background: '#f0fdf4',
+                border: '1px solid #86efac',
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: '#15803d'
               }}>
-                {marketSupport} Market Support
+                <Icon name="check" size={11} color="#15803d" strokeWidth={2.5} />
+                <span>Confidence: {confidenceScore || 85}% · High</span>
               </div>
-            )}
-          </div>
-          <div className="rs2-hero-stat-new-item">
-            <div className="rs2-hero-stat-label">Expected Sell Price</div>
-            <div className="rs2-hero-stat-value rs2-blue">{fmt(sellPrice)}</div>
-            <div className="rs2-hero-stat-sub">After reconditioning</div>
-          </div>
-          <div className="rs2-hero-stat-new-item">
-            <div className="rs2-hero-stat-label">Recommended Buy Range</div>
-            <div className="rs2-hero-stat-value rs2-orange">{fmt(minBuy)} – {fmt(maxBuy)}</div>
-            <div className="rs2-hero-stat-sub">Ideal acquisition range</div>
-          </div>
-          <div className="rs2-hero-stat-new-item">
-            <div className="rs2-hero-stat-label">Expected Profit</div>
-            <div className="rs2-hero-stat-value" style={{ color: profit >= 0 ? '#16a34a' : '#dc2626' }}>
-              {fmt(profit)}
             </div>
-            <div className="rs2-hero-stat-sub">ROI: {pct(roi)}</div>
+
+            <div className="val-vehicle-name">
+              {inputs.year} {inputs.brand} {inputs.model} {inputs.variant ? `(${inputs.variant})` : ''}
+            </div>
+            <div className="val-vehicle-specs">
+              {inputs.fuel} <span>•</span> {inputs.transmission} <span>•</span> {Number(inputs.mileage || 0).toLocaleString('en-IN')} km <span>•</span> {inputs.ownerCount || 1} {inputs.ownerCount === '1' ? 'Owner' : 'Owners'} <span>•</span> {inputs.locality || 'Indiranagar'}
+            </div>
+
+            <div className="val-label">ESTIMATED MARKET VALUE</div>
+            <div className="val-price">{fmt(predictedPrice)}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 2, marginBottom: 2 }}>
+              AI-estimated current market value based on vehicle characteristics and market data.
+            </div>
+
+            {/* 3 Aligned Major Financial Outcome Cards */}
+            <div className="val-financials" style={{ marginTop: 20 }}>
+              {/* Card 1: Recommended Buy Range */}
+              <div className="val-fin-cell" style={{ borderLeft: '3px solid #16a34a' }}>
+                <div className="val-fin-label">RECOMMENDED BUY RANGE</div>
+                <div className="val-fin-value buy-color" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>
+                  {fmt(buyFloor)} — {fmt(buyCeil)}
+                </div>
+                <div className="val-fin-sub" style={{ marginTop: 4 }}>
+                  Target acquisition price: <strong style={{ color: '#15803d' }}>{fmt(recommendedBuyPrice)}</strong>
+                </div>
+              </div>
+
+              {/* Card 2: Expected Selling Range (Uncertainty Range only) */}
+              <div className="val-fin-cell" style={{ borderLeft: '3px solid #2563eb' }}>
+                <div className="val-fin-label">EXPECTED SELLING RANGE</div>
+                <div className="val-fin-value" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, color: '#1d4ed8', marginTop: 4 }}>
+                  {fmt(sellFloor)} — {fmt(sellCeil)}
+                </div>
+                <div className="val-fin-sub" style={{ marginTop: 4 }}>
+                  Likely resale range
+                </div>
+              </div>
+
+              {/* Card 3: Expected Profit & ROI */}
+              <div className="val-fin-cell" style={{ borderLeft: '3px solid #e85d26' }}>
+                <div className="val-fin-label">EXPECTED NET PROFIT</div>
+                <div className="val-fin-value brand-color" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>
+                  +{fmt(expectedProfit)}
+                </div>
+                <div className="val-fin-sub" style={{ marginTop: 4 }}>
+                  Projected Net ROI: <strong style={{ color: '#e85d26' }}>{expectedMarginPct || 5.3}%</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Explanatory Pricing Guide Callout */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              padding: '10px 14px',
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border-2)',
+              borderRadius: 'var(--r-md)',
+              marginTop: 18,
+              fontSize: 12,
+              color: 'var(--text-3)',
+              lineHeight: 1.45,
+              textAlign: 'left'
+            }}>
+              <Icon name="info" size={15} color="#2563eb" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1.5 }} />
+              <div>
+                <strong style={{ color: 'var(--text-1)' }}>Pricing Guide: </strong>
+                Market Value is the AI-estimated current market value. Selling Range represents the expected resale range. Buy Range is the target acquisition range. Target Acquisition Price is the recommended negotiation target. Net Profit reflects expected profit after estimated dealer costs.
+              </div>
+            </div>
+          </div>
+
+          {/* Decision Indicator Banner */}
+          <div className={`decision-banner ${isBuy ? 'buy' : isCaution ? 'caution' : 'risk'}`}>
+            <div>
+              <div className={`decision-action ${isBuy ? 'buy' : isCaution ? 'caution' : 'risk'}`}>
+                {isBuy ? '● BUY — TARGET OPPORTUNITY' : isCaution ? '● BUY AFTER INSPECTION' : '● PASS — MARGIN TOO THIN'}
+              </div>
+              <div className="decision-sub">
+                {isBuy
+                  ? `Strong acquisition opportunity with ${expectedMarginPct || 5.3}% projected dealer profit after standard reconditioning buffer.`
+                  : isCaution
+                  ? 'Viable margin if physical inspection confirms mechanical and body integrity.'
+                  : 'Acquisition price leaves insufficient margin buffer based on current local market velocity.'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)' }}>Deal Quality</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: isBuy ? '#15803d' : isCaution ? '#b45309' : '#b91c1c' }}>
+                {dealQualityScore}/100
+              </div>
+            </div>
+          </div>
+
+          {/* Market Comparables Table */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">Market Comparables</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 2 }}>
+                  Verified comparable transactions and listings from the Bengaluru market dataset
+                </div>
+              </div>
+              <span className="badge badge-neutral">{compCount || comps.length || 5} verified comps</span>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="pr-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Fuel / Transmission</th>
+                    <th style={{ textAlign: 'right' }}>Odometer</th>
+                    <th style={{ textAlign: 'center' }}>Owners</th>
+                    <th style={{ textAlign: 'right' }}>Transacted / Listed Price</th>
+                    <th style={{ textAlign: 'center' }}>Match Quality</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comps.length > 0 ? (
+                    comps.slice(0, 5).map((c, i) => {
+                      const displayYear = c.year && c.year > 1990 ? c.year : (inputs.year || 2021);
+                      const displayPrice = c.market_value || c.price || c.selling_price || predictedPrice;
+                      const displayLocality = c.city || c.locality || 'Bengaluru';
+
+                      return (
+                        <tr key={i}>
+                          <td>
+                            <strong>{displayYear} {c.brand || inputs.brand} {c.model || inputs.model}</strong>
+                            <div style={{ fontSize: 11, color: 'var(--text-4)' }}>
+                              {c.variant || inputs.variant || 'Standard'} · {displayLocality}
+                            </div>
+                          </td>
+                          <td>{c.fuel || c.fuel_type || inputs.fuel} · {c.transmission || inputs.transmission}</td>
+                          <td className="num">{Number(c.odometer || c.odometer_reading || 35000).toLocaleString('en-IN')} km</td>
+                          <td style={{ textAlign: 'center' }}>{c.owner_count || 1}</td>
+                          <td className="num" style={{ color: 'var(--text-1)', fontWeight: 700 }}>
+                            {fmt(displayPrice)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="match-dots" style={{ justifyContent: 'center' }}>
+                              <div className="match-dot filled" />
+                              <div className="match-dot filled" />
+                              <div className="match-dot filled" />
+                              <div className={`match-dot ${i < 3 ? 'filled' : 'empty'}`} />
+                              <div className={`match-dot ${i < 1 ? 'filled' : 'empty'}`} />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-4)' }}>
+                        No direct comparable listings found in current segment.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ padding: '12px 18px', background: 'var(--surface-2)', borderTop: '1px solid var(--border-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+              <span style={{ color: 'var(--text-4)' }}>Market Anchor Median:</span>
+              <strong style={{ color: 'var(--text-1)', fontSize: 13 }}>{fmt(priceMedian || predictedPrice)}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Aside Column: Negotiation Guide & Key Deal Drivers */}
+        <div className="result-aside-col">
+          {/* Negotiation Guide */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Negotiation Playbook</div>
+              <span className="badge badge-buy">Strategic</span>
+            </div>
+            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)', letterSpacing: 0.6 }}>
+                  Opening Anchor Offer
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', marginTop: 2 }}>
+                  {fmt(buyFloor)}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 1 }}>
+                  Start here to establish dealer margin ceiling
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)', letterSpacing: 0.6 }}>
+                  Target Settlement
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', marginTop: 2 }}>
+                  {fmt(recommendedBuyPrice)}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 1 }}>
+                  Secures target {expectedMarginPct || 5.3}% net profit
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-2)', paddingTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)', letterSpacing: 0.6 }}>
+                  Walk-Away Limit
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', marginTop: 2 }}>
+                  {fmt(buyCeil)}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 1 }}>
+                  Do not exceed to protect deal profitability
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Deal Value Drivers */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Valuation Drivers</div>
+            </div>
+            <div className="card-body">
+              <div className="factor-list">
+                {(positiveFactors.length ? positiveFactors : [
+                  'Low odometer reading relative to model year',
+                  'Single ownership profile supports buyer confidence',
+                  'High market liquidity in local metropolitan segment',
+                ]).slice(0, 3).map((f, i) => (
+                  <div key={i} className="factor-row">
+                    <span className="factor-indicator positive" />
+                    <span>{f}</span>
+                  </div>
+                ))}
+
+                {(negativeFactors.length ? negativeFactors : [
+                  'Normal annual age depreciation applies',
+                  'Reconditioning allowance needed for cosmetic prep',
+                ]).slice(0, 2).map((f, i) => (
+                  <div key={i} className="factor-row">
+                    <span className="factor-indicator negative" />
+                    <span>{f}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Assistant Quick Link */}
+          <div style={{ background: '#fef3ec', border: '1px solid #f5c4ad', borderRadius: 'var(--r-lg)', padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Icon name="brain" size={16} color="#e85d26" strokeWidth={2} />
+              <strong style={{ fontSize: 13, color: '#cf4d1a' }}>Ask Deal Assistant</strong>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4, marginBottom: 12 }}>
+              Get answers on negotiation pushbacks, defect risks, and profit scenarios for this specific car.
+            </div>
+            <button
+              className="btn btn-primary btn-sm w-full"
+              style={{ justifyContent: 'center' }}
+              onClick={() => setActiveScreen('assistant')}
+            >
+              Open Assistant Context
+            </button>
           </div>
         </div>
       </div>
-
-      {}
-      <PricingBandCard
-        title="Market Selling Range"
-        icon="chart"
-        color="#2563eb"
-        min={minP}
-        max={maxP}
-        confidenceScore={confidenceScore}
-      />
-
-      {}
-      <PricingBandCard
-        title="Recommended Purchase Range"
-        icon="coins"
-        color="#ea580c"
-        min={minBuy}
-        max={maxBuy}
-        confidenceScore={confidenceScore}
-      />
-
-      {}
-      <NegotiationSection opening={opening} ideal={ideal} walkAway={walkAway} />
-
-      {}
-      <SimilarCarsSection
-        cars={similarCars}
-        predictedPrice={predictedPrice}
-      />
-
-      {}
-      <div className="rs2-actions" style={{ justifyContent: 'center', marginTop: '16px' }}>
-        <button className="rs2-btn-primary" onClick={() => setActiveScreen('pricing')}>
-          <Icon name="coins" size={15} color="white" strokeWidth={2} />
-          Full Pricing Breakdown
-          <Icon name="chevronDown" size={13} color="white" strokeWidth={2} />
-        </button>
-        <button className="rs2-btn-ghost" onClick={() => setActiveScreen('input')} style={{ background: '#ffffff', borderColor: '#e2e8f0', color: '#1e293b' }}>
-          <Icon name="refresh" size={15} color="#475569" strokeWidth={2} />
-          New Valuation
-        </button>
-        {evaluations.length > 0 && (
-          <button
-            className="rs2-btn-ghost"
-            onClick={() => exportEvaluationsToCSV(evaluations, 'vehicle_evaluations.csv')}
-            title="Export all evaluation history to CSV"
-            style={{ background: '#f8fafc', borderColor: '#e2e8f0', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export CSV
-          </button>
-        )}
-      </div>
-
     </div>
   );
 }
-

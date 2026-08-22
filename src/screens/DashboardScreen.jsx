@@ -8,498 +8,299 @@ import {
   ResponsiveContainer, ScatterChart, Scatter, AreaChart, Area, Cell,
 } from 'recharts';
 
-const TABS   = ['Overview', 'Brands', 'Profit', 'Trends'];
-const COLORS  = ['#f75d34','#2563eb','#16a34a','#d97706','#7c3aed','#0891b2','#be185d','#059669','#9333ea','#c2410c'];
-const ACTION_COLORS = { BUY:'#16a34a', NEGOTIATE:'#d97706', REJECT:'#dc2626', 'MANUAL REVIEW':'#94a3b8' };
-
 const fmtL = (n) => {
-  const v = Number(n||0);
-  if (v >= 100000) return `₹${(v/100000).toFixed(2)}L`;
-  return formatINR(v);
+  const v = Number(n || 0);
+  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
+  if (v >= 100000)   return `₹${(v / 100000).toFixed(2)}L`;
+  if (v >= 1000)     return `₹${(v / 1000).toFixed(0)}k`;
+  return `₹${Math.round(v).toLocaleString('en-IN')}`;
 };
-
-function price_ok(price, range) {
-  if (range === 'Under ₹5L')   return price < 500000;
-  if (range === '₹5L–₹10L')   return price >= 500000  && price <= 1000000;
-  if (range === '₹10L–₹30L')  return price >= 1000000 && price <= 3000000;
-  if (range === 'Above ₹30L') return price > 3000000;
-  return true;
-}
 
 const Tip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="chart-tip">
-      <div className="chart-tip-label">{label || payload[0]?.payload?.brand || payload[0]?.payload?.city || payload[0]?.payload?.vehicle}</div>
-      {payload.map((p,i) => (
-        <div key={i}>{p.name}: <strong>{typeof p.value==='number' && /price|profit|value/i.test(p.name) ? fmtL(p.value) : p.value}</strong></div>
+      <div className="chart-tip-label">{label || payload[0]?.payload?.brand || payload[0]?.payload?.name || payload[0]?.payload?.vehicle}</div>
+      {payload.map((p, i) => (
+        <div key={i}>
+          {p.name}: <strong>{typeof p.value === 'number' && /price|profit|value/i.test(p.name) ? fmtL(p.value) : p.value}</strong>
+        </div>
       ))}
     </div>
   );
 };
 
-function EmptyAnalytics({ setActiveScreen }) {
-  return (
-    <div className="empty-screen">
-      <div className="home-empty-icon">
-        <Icon name="chart" size={28} color="#94a3b8" strokeWidth={1.8} />
-      </div>
-      <div className="empty-title">No analytics yet</div>
-      <div className="empty-sub">
-        Analytics are powered by real evaluations. Run ML valuations to populate charts with live data.
-      </div>
-      <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
-        <Icon name="car" size={16} color="white" strokeWidth={2} />
-        Run ML Evaluation
-      </button>
-    </div>
-  );
-}
-
 export default function DashboardScreen() {
-  const { evaluations, dashFilters, setDashFilters, setActiveScreen, clearEvaluations } = useApp();
-  const [activeTab, setActiveTab]       = useState('Overview');
-  const [confirmClear, setConfirmClear] = useState(false);
-  const upd = (k, v) => setDashFilters(p => ({ ...p, [k]: v }));
+  const { evaluations, setActiveScreen, clearEvaluations } = useApp();
+  const [timeFilter, setTimeFilter] = useState('ALL');
+  const [brandFilter, setBrandFilter] = useState('All');
 
-  const brands    = useMemo(() => ['All',...Array.from(new Set(evaluations.map(v=>v.brand).filter(Boolean))).sort()], [evaluations]);
-  const cities    = useMemo(() => ['All',...Array.from(new Set(evaluations.map(v=>v.city).filter(Boolean))).sort()], [evaluations]);
-  const priceRanges = ['All','Under ₹5L','₹5L–₹10L','₹10L–₹30L','Above ₹30L'];
+  const filtered = useMemo(() => {
+    return evaluations.filter(v => {
+      if (brandFilter !== 'All' && v.brand !== brandFilter) return false;
+      return true;
+    });
+  }, [evaluations, brandFilter]);
 
-  const filtered = useMemo(() => evaluations.filter(v => {
-    if (dashFilters.brand !== 'All' && v.brand !== dashFilters.brand) return false;
-    if (dashFilters.city  !== 'All' && v.city  !== dashFilters.city)  return false;
-    if (!price_ok(Number(v.marketValue||0), dashFilters.priceRange))  return false;
-    return true;
-  }), [evaluations, dashFilters]);
+  const brands = useMemo(() => {
+    return ['All', ...Array.from(new Set(evaluations.map(v => v.brand).filter(Boolean))).sort()];
+  }, [evaluations]);
 
   const metrics = useMemo(() => {
     const count = filtered.length;
-    const avgPrice  = count ? Math.round(filtered.reduce((s,v) => s + Number(v.marketValue||0), 0) / count) : 0;
-    const avgMargin = count ? (filtered.reduce((s,v) => s + Number(v.marginPct||0), 0) / count).toFixed(1) : '0';
-    const avgProfit = count ? Math.round(filtered.reduce((s,v) => s + Number(v.expectedProfit||0), 0) / count) : 0;
-    const buyCount  = filtered.filter(v=>v.action==='BUY').length;
-    const convRate  = count ? Math.round((buyCount/count)*100) : 0;
+    const totalPipeline = filtered.reduce((s, v) => s + Number(v.marketValue || 0), 0);
+    const avgValue = count ? Math.round(totalPipeline / count) : 0;
+    const totalProfit = filtered.reduce((s, v) => s + Number(v.expectedProfit || 0), 0);
+    const avgProfit = count ? Math.round(totalProfit / count) : 0;
+    const buyCount = filtered.filter(v => (v.action === 'BUY' || (v.dealQualityScore || 0) >= 65)).length;
+    const buyRate = count ? Math.round((buyCount / count) * 100) : 0;
 
-    const brandProfitMap = {};
-    filtered.forEach(v => {
-      if (!v.brand || v.brand === 'Unknown') return;
-      brandProfitMap[v.brand] = (brandProfitMap[v.brand] || 0) + Number(v.expectedProfit || 0);
-    });
-    let mostProfitableBrand = 'N/A';
-    let maxBrandProfit = 0;
-    Object.entries(brandProfitMap).forEach(([brand, profit]) => {
-      if (profit > maxBrandProfit) {
-        maxBrandProfit = profit;
-        mostProfitableBrand = brand;
-      }
-    });
-
-    const segmentLiquidityMap = {};
-    const segmentCountMap = {};
-    filtered.forEach(v => {
-      const seg = v.segmentClass || 'economy';
-      const liq = Number(v.resaleLiquidityScore || 50);
-      segmentLiquidityMap[seg] = (segmentLiquidityMap[seg] || 0) + liq;
-      segmentCountMap[seg] = (segmentCountMap[seg] || 0) + 1;
-    });
-    let fastestSellingSegment = 'N/A';
-    let maxAvgLiquidity = -Infinity;
-    Object.entries(segmentLiquidityMap).forEach(([seg, totalLiq]) => {
-      const avgLiq = totalLiq / segmentCountMap[seg];
-      if (avgLiq > maxAvgLiquidity) {
-        maxAvgLiquidity = avgLiq;
-        fastestSellingSegment = seg.charAt(0).toUpperCase() + seg.slice(1);
-      }
-    });
-
-    const highRiskCount = filtered.filter(v => Number(v.riskScore || 0) > 60).length;
-
-    const avgConfidence = count ? Math.round(filtered.reduce((s,v) => s + Number(v.confidenceScore||0), 0) / count) : 0;
-
-    const monthlyPipeline = filtered.reduce((s,v) => s + Number(v.buyPrice||0), 0);
-
+    // Brand performance
     const brandMap = {};
     filtered.forEach(v => {
       if (!v.brand) return;
-      brandMap[v.brand] ||= { brand:v.brand, count:0, totalVal:0, profit:0 };
-      brandMap[v.brand].count++;
-      brandMap[v.brand].totalVal += Number(v.marketValue||0);
-      brandMap[v.brand].profit   += Number(v.expectedProfit||0);
+      brandMap[v.brand] ||= { brand: v.brand, count: 0, profit: 0, avgValue: 0 };
+      brandMap[v.brand].count += 1;
+      brandMap[v.brand].profit += Number(v.expectedProfit || 0);
+      brandMap[v.brand].avgValue += Number(v.marketValue || 0);
     });
-    const brandPerf = Object.values(brandMap)
-      .map(b => ({ brand:b.brand, count:b.count, avgVal:Math.round(b.totalVal/b.count), avgProfit:Math.round(b.profit/b.count) }))
-      .sort((a,b) => b.avgVal-a.avgVal)
-      .slice(0,10);
+    const brandChartData = Object.values(brandMap)
+      .map(b => ({
+        brand: b.brand,
+        evals: b.count,
+        avgProfitL: +(b.profit / b.count / 100000).toFixed(2),
+        avgValL: +(b.avgValue / b.count / 100000).toFixed(2),
+      }))
+      .sort((a, b) => b.evals - a.evals)
+      .slice(0, 7);
 
-    const cityMap = {};
+    // Funnel counts
+    const buyTotal = filtered.filter(v => v.action === 'BUY').length;
+    const inspectTotal = filtered.filter(v => v.action === 'NEGOTIATE' || v.action === 'INSPECT' || v.action === 'BUY AFTER INSPECTION').length;
+    const passTotal = filtered.filter(v => v.action === 'REJECT' || v.action === 'PASS').length;
+
+    // Price distribution bins
+    const priceBins = [
+      { name: '< ₹5L', count: 0 },
+      { name: '₹5L–10L', count: 0 },
+      { name: '₹10L–20L', count: 0 },
+      { name: '₹20L–35L', count: 0 },
+      { name: '> ₹35L', count: 0 },
+    ];
     filtered.forEach(v => {
-      if (!v.city) return;
-      cityMap[v.city] ||= { city:v.city, count:0, profit:0 };
-      cityMap[v.city].count++;
-      cityMap[v.city].profit += Number(v.expectedProfit||0);
+      const val = Number(v.marketValue || 0);
+      if (val < 500000) priceBins[0].count += 1;
+      else if (val <= 1000000) priceBins[1].count += 1;
+      else if (val <= 2000000) priceBins[2].count += 1;
+      else if (val <= 3500000) priceBins[3].count += 1;
+      else priceBins[4].count += 1;
     });
-    const cityProf = Object.values(cityMap).map(c => ({...c, avgProfit:Math.round(c.profit/c.count)})).sort((a,b)=>b.avgProfit-a.avgProfit).slice(0,8);
-
-    const actionDist = ['BUY','NEGOTIATE','REJECT','MANUAL REVIEW'].map(a => ({
-      action: a.replace(' REVIEW',''), count: filtered.filter(v=>v.action===a).length,
-    })).filter(a=>a.count>0);
-
-    const scatter = filtered
-      .filter(v => v.marketValue>0 && v.kmDriven>0)
-      .map(v => ({ x:Math.round(Number(v.kmDriven||0)/1000), y:Math.round(Number(v.marketValue||0)/100000*10)/10, action:v.action }));
-
-    const profitBuckets = [
-      { range:'<₹0',     min:-Infinity, max:0         },
-      { range:'₹0-25K',  min:0,         max:25000     },
-      { range:'₹25-50K', min:25000,     max:50000     },
-      { range:'₹50-80K', min:50000,     max:80000     },
-      { range:'₹80K+',   min:80000,     max:Infinity  },
-    ].map(b => ({ range:b.range, count:filtered.filter(v=>{ const p=Number(v.expectedProfit||0); return p>b.min && p<=b.max; }).length }));
 
     return {
       count,
-      avgPrice,
-      avgMargin,
+      totalPipeline,
+      avgValue,
+      totalProfit,
       avgProfit,
       buyCount,
-      convRate,
-      mostProfitableBrand,
-      maxBrandProfit,
-      fastestSellingSegment,
-      highRiskCount,
-      avgConfidence,
-      monthlyPipeline,
-      brandPerf,
-      cityProf,
-      actionDist,
-      scatter,
-      profitBuckets
+      buyRate,
+      brandChartData,
+      buyTotal,
+      inspectTotal,
+      passTotal,
+      priceBins,
     };
   }, [filtered]);
 
-  if (evaluations.length === 0) {
+  if (!evaluations.length) {
     return (
       <div className="screen">
-        <EmptyAnalytics setActiveScreen={setActiveScreen} />
+        <div className="empty-screen">
+          <div className="empty-icon-wrap">
+            <Icon name="chart" size={32} color="#e85d26" strokeWidth={1.8} />
+          </div>
+          <div className="empty-title">Market Intelligence Empty</div>
+          <div className="empty-sub">
+            Real-time dealership intelligence builds up as you evaluate vehicles. Run ML valuations to populate charts, margins, and funnel analytics.
+          </div>
+          <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
+            <Icon name="car" size={15} color="white" strokeWidth={2} />
+            <span>Start First Valuation</span>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="screen screen-wide">
-      <div className="page-header">
+    <div className="screen">
+      {/* Header & Controls */}
+      <div className="analytics-header">
         <div>
-          <div className="page-title">Analytics</div>
-          <div className="page-subtitle">
-            {filtered.length} evaluations · Live data from your ML valuations
-          </div>
+          <div className="page-title">Market & Acquisition Intelligence</div>
+          <div className="page-subtitle">Aggregate metrics, margin distributions, and brand liquidity across evaluated inventory.</div>
         </div>
-        <div className="page-header-actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => setActiveScreen('input')}>
-            + Evaluate
-          </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Brand select */}
+          <select
+            className="form-select"
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            style={{ width: 140, padding: '6px 10px', fontSize: 12.5 }}
+          >
+            {brands.map(b => (
+              <option key={b} value={b}>{b === 'All' ? 'All Brands' : b}</option>
+            ))}
+          </select>
+
+          {/* Time Filter buttons */}
+          <div className="time-filter-group">
+            {['7D', '30D', '90D', 'ALL'].map(t => (
+              <button
+                key={t}
+                className={`time-filter-btn ${timeFilter === t ? 'active' : ''}`}
+                onClick={() => setTimeFilter(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => exportEvaluationsToCSV(filtered.length > 0 ? filtered : evaluations)}
-            title="Download all evaluation data as CSV"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => exportEvaluationsToCSV(filtered)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export CSV
+            <Icon name="upload" size={13} strokeWidth={2} />
+            <span>Export CSV</span>
           </button>
-          {evaluations.length > 0 && !confirmClear && (
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={() => setConfirmClear(true)}
-            >
-              Clear History
-            </button>
-          )}
-          {confirmClear && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>Clear all data?</span>
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => { clearEvaluations(); setConfirmClear(false); }}
-              >
-                Yes, clear
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setConfirmClear(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
-      {}
-      <div className="analytics-filters">
-        <select className="filter-select" value={dashFilters.brand} onChange={e => upd('brand',e.target.value)}>
-          {brands.map(b => <option key={b}>{b}</option>)}
-        </select>
-        <select className="filter-select" value={dashFilters.city} onChange={e => upd('city',e.target.value)}>
-          {cities.map(c => <option key={c}>{c}</option>)}
-        </select>
-        <select className="filter-select" value={dashFilters.priceRange} onChange={e => upd('priceRange',e.target.value)}>
-          {priceRanges.map(r => <option key={r}>{r}</option>)}
-        </select>
-      </div>
+      {/* 6 Top Metric Tiles */}
+      <div className="metric-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 20 }}>
+        <div className="metric-tile">
+          <div className="metric-label">Evaluations</div>
+          <div className="metric-value">{metrics.count}</div>
+          <div className="metric-sub">Total pipeline assets</div>
+        </div>
 
-      {}
-      <div className="kpi-grid">
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Evaluations</div>
-            <div className="kpi-icon" style={{ background:'#dbeafe' }}>
-              <Icon name="clipboard" size={14} color="#2563eb" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{metrics.count}</div>
-          <div className="kpi-tile-sub">{metrics.buyCount} BUY signals</div>
+        <div className="metric-tile">
+          <div className="metric-label">Qualified Deals</div>
+          <div className="metric-value" style={{ color: '#16a34a' }}>{metrics.buyCount}</div>
+          <div className="metric-sub">Score &ge; 65 / BUY action</div>
         </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Avg Market Value</div>
-            <div className="kpi-icon" style={{ background:'#fff4f0' }}>
-              <Icon name="trendUp" size={14} color="#f75d34" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{fmtL(metrics.avgPrice)}</div>
-          <div className="kpi-tile-sub">Per valuation</div>
+
+        <div className="metric-tile">
+          <div className="metric-label">Average Market Value</div>
+          <div className="metric-value">{fmtL(metrics.avgValue)}</div>
+          <div className="metric-sub">Per vehicle average</div>
         </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Avg Profit</div>
-            <div className="kpi-icon" style={{ background:'#dcfce7' }}>
-              <Icon name="coins" size={14} color="#16a34a" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ color:'#16a34a' }}>{fmtL(metrics.avgProfit)}</div>
-          <div className="kpi-tile-sub">{metrics.avgMargin}% avg margin</div>
+
+        <div className="metric-tile">
+          <div className="metric-label">Average Profit</div>
+          <div className="metric-value" style={{ color: '#e85d26' }}>+{fmtL(metrics.avgProfit)}</div>
+          <div className="metric-sub">Projected net per vehicle</div>
         </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">BUY Rate</div>
-            <div className="kpi-icon" style={{ background:'#f3e8ff' }}>
-              <Icon name="shield" size={14} color="#7c3aed" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{metrics.convRate}%</div>
-          <div className="kpi-tile-sub">Conversion signal rate</div>
+
+        <div className="metric-tile">
+          <div className="metric-label">Buy Rate</div>
+          <div className="metric-value" style={{ color: '#16a34a' }}>{metrics.buyRate}%</div>
+          <div className="metric-sub">Conversion of pipeline</div>
         </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Most Profitable Brand</div>
-            <div className="kpi-icon" style={{ background:'#fef3c7' }}>
-              <Icon name="store" size={14} color="#d97706" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ fontSize: '18px', padding: '3px 0' }}>{metrics.mostProfitableBrand}</div>
-          <div className="kpi-tile-sub">Max profit cumulative</div>
-        </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Fastest Segment</div>
-            <div className="kpi-icon" style={{ background:'#ecfdf5' }}>
-              <Icon name="lightning" size={14} color="#059669" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ fontSize: '18px', padding: '3px 0' }}>{metrics.fastestSellingSegment}</div>
-          <div className="kpi-tile-sub">Highest resale liquidity</div>
-        </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">High Risk Vehicles</div>
-            <div className="kpi-icon" style={{ background:'#fef2f2' }}>
-              <Icon name="warning" size={14} color="#dc2626" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ color:'#dc2626' }}>{metrics.highRiskCount}</div>
-          <div className="kpi-tile-sub">Score &gt; 60 risk factor</div>
-        </div>
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Avg Confidence</div>
-            <div className="kpi-icon" style={{ background:'#e0f2fe' }}>
-              <Icon name="brain" size={14} color="#0284c7" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{metrics.avgConfidence}%</div>
-          <div className="kpi-tile-sub">ML uncertainty score</div>
+
+        <div className="metric-tile">
+          <div className="metric-label">Total Pipeline Value</div>
+          <div className="metric-value">{fmtL(metrics.totalPipeline)}</div>
+          <div className="metric-sub">Aggregate gross value</div>
         </div>
       </div>
 
-      {}
-      <div className="cd-card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px' }}>
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Active Acquisition Pipeline</div>
-          <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: 2 }}>Monthly volume computed from active valuations</div>
+      {/* Opportunity Funnel Card */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header">
+          <div className="card-title">Opportunity Funnel</div>
+          <span style={{ fontSize: 11.5, color: 'var(--text-4)' }}>Decision Distribution</span>
         </div>
-        <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.5px' }}>
-          {fmtL(metrics.monthlyPipeline)}
-        </div>
-      </div>
-
-      {}
-      <div className="analytics-tabs">
-        {TABS.map(t => (
-          <button
-            key={t}
-            className={`analytics-tab ${activeTab===t?'active':''}`}
-            onClick={() => setActiveTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {}
-      {activeTab === 'Overview' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))', gap:16 }}>
-          {}
-          <div className="chart-card">
-            <div className="chart-card-title">Decision Distribution</div>
-            <div className="chart-card-sub">BUY / NEGOTIATE / REJECT breakdown</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={metrics.actionDist}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="action" tick={{ fill:'#475569', fontSize:12 }} />
-                <YAxis tick={{ fill:'#94a3b8', fontSize:11 }} />
-                <Tooltip content={<Tip />} />
-                <Bar dataKey="count" name="Count" radius={[6,6,0,0]}>
-                  {metrics.actionDist.map((d,i) => (
-                    <Cell key={i} fill={ACTION_COLORS[d.action==='REVIEW'?'MANUAL REVIEW':d.action] || '#94a3b8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {}
-          <div className="chart-card">
-            <div className="chart-card-title">Profit Distribution</div>
-            <div className="chart-card-sub">Number of deals by profit range</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={metrics.profitBuckets}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="range" tick={{ fill:'#475569', fontSize:11 }} />
-                <YAxis tick={{ fill:'#94a3b8', fontSize:11 }} />
-                <Tooltip content={<Tip />} />
-                <Bar dataKey="count" name="Deals" fill="#16a34a" radius={[6,6,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {}
-          {metrics.scatter.length > 1 && (
-            <div className="chart-card">
-              <div className="chart-card-title">Odometer vs Market Value</div>
-              <div className="chart-card-sub">Depreciation pattern across inventory</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <ScatterChart>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="x" name="Odometer (k km)" tick={{ fill:'#94a3b8', fontSize:11 }} />
-                  <YAxis dataKey="y" name="Market Value (₹L)" tick={{ fill:'#94a3b8', fontSize:11 }} />
-                  <Tooltip cursor={{ strokeDasharray:'3 3' }} />
-                  <Scatter data={metrics.scatter} fill="#f75d34" opacity={0.7} />
-                </ScatterChart>
-              </ResponsiveContainer>
+        <div className="card-body">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, textAlign: 'center' }}>
+            <div style={{ padding: 14, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 'var(--r-md)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#15803d' }}>BUY (Target Deals)</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#15803d', marginTop: 4 }}>{metrics.buyTotal}</div>
+              <div style={{ fontSize: 11, color: '#16a34a', marginTop: 2 }}>
+                {metrics.count ? Math.round((metrics.buyTotal / metrics.count) * 100) : 0}% of evaluations
+              </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {activeTab === 'Brands' && (
-        <div className="chart-card">
-          <div className="chart-card-title">Brand Performance</div>
-          <div className="chart-card-sub">Average market value by brand</div>
-          <ResponsiveContainer width="100%" height={Math.max(200, metrics.brandPerf.length*40)}>
-            <BarChart data={metrics.brandPerf} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fill:'#94a3b8', fontSize:11 }} tickFormatter={v=>`₹${(v/100000).toFixed(1)}L`} />
-              <YAxis dataKey="brand" type="category" tick={{ fill:'#475569', fontSize:12 }} width={90} />
-              <Tooltip content={<Tip />} />
-              <Bar dataKey="avgVal" name="Avg Market Value" radius={[0,6,6,0]}>
-                {metrics.brandPerf.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+            <div style={{ padding: 14, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--r-md)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#b45309' }}>INSPECT / NEGOTIATE</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#b45309', marginTop: 4 }}>{metrics.inspectTotal}</div>
+              <div style={{ fontSize: 11, color: '#d97706', marginTop: 2 }}>
+                {metrics.count ? Math.round((metrics.inspectTotal / metrics.count) * 100) : 0}% of evaluations
+              </div>
+            </div>
 
-      {activeTab === 'Profit' && (
-        <div style={{ display:'grid', gap:16 }}>
-          <div className="chart-card">
-            <div className="chart-card-title">City Profitability</div>
-            <div className="chart-card-sub">Average dealer profit per city</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={metrics.cityProf}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="city" tick={{ fill:'#475569', fontSize:12 }} />
-                <YAxis tick={{ fill:'#94a3b8', fontSize:11 }} tickFormatter={v=>`₹${Math.round(v/1000)}K`} />
-                <Tooltip content={<Tip />} />
-                <Bar dataKey="avgProfit" name="Avg Profit" fill="#16a34a" radius={[6,6,0,0]}>
-                  {metrics.cityProf.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="chart-card">
-            <div className="chart-card-title">Brand Profit Ranking</div>
-            <div className="chart-card-sub">Average net profit per brand</div>
-            <ResponsiveContainer width="100%" height={Math.max(180, metrics.brandPerf.length*36)}>
-              <BarChart data={metrics.brandPerf} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" tick={{ fill:'#94a3b8', fontSize:11 }} tickFormatter={v=>`₹${Math.round(v/1000)}K`} />
-                <YAxis dataKey="brand" type="category" tick={{ fill:'#475569', fontSize:12 }} width={90} />
-                <Tooltip content={<Tip />} />
-                <Bar dataKey="avgProfit" name="Avg Profit" radius={[0,6,6,0]}>
-                  {metrics.brandPerf.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ padding: 14, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 'var(--r-md)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#b91c1c' }}>PASS (Thin Margin / High Risk)</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#b91c1c', marginTop: 4 }}>{metrics.passTotal}</div>
+              <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>
+                {metrics.count ? Math.round((metrics.passTotal / metrics.count) * 100) : 0}% of evaluations
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {activeTab === 'Trends' && (
-        <div className="chart-card">
-          <div className="chart-card-title">Evaluation Activity</div>
-          <div className="chart-card-sub">Cumulative evaluations over time</div>
-          {(() => {
-            const trendData = evaluations
-              .slice()
-              .reverse()
-              .map((v, i) => ({
-                idx: i + 1,
-                marketValue: Math.round(Number(v.marketValue||0)/100000*10)/10,
-                profit: Math.round(Number(v.expectedProfit||0)),
-              }));
-            return (
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="idx" tick={{ fill:'#94a3b8', fontSize:11 }} />
-                  <YAxis yAxisId="left" tick={{ fill:'#94a3b8', fontSize:11 }} tickFormatter={v=>`₹${v}L`} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fill:'#94a3b8', fontSize:11 }} tickFormatter={v=>`₹${Math.round(v/1000)}K`} />
+      {/* 2-Chart Grid */}
+      <div className="analytics-grid">
+        {/* Brand Performance */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Brand Pipeline Volume</div>
+            <span style={{ fontSize: 11, color: 'var(--text-4)' }}>Evaluation count by make</span>
+          </div>
+          <div className="card-body" style={{ height: 250, minHeight: 250, width: '100%', position: 'relative' }}>
+            {metrics.brandChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220} minHeight={200}>
+                <BarChart data={metrics.brandChartData} margin={{ top: 10, right: 10, left: -15, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="brand" tick={{ fontSize: 11, fill: 'var(--text-4)' }} interval={0} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--text-4)' }} allowDecimals={false} />
                   <Tooltip content={<Tip />} />
-                  <Area yAxisId="left" type="monotone" dataKey="marketValue" name="Market Value (₹L)" stroke="#2563eb" fill="#dbeafe" strokeWidth={2} />
-                  <Area yAxisId="right" type="monotone" dataKey="profit" name="Profit (₹)" stroke="#16a34a" fill="#dcfce7" strokeWidth={2} />
-                </AreaChart>
+                  <Bar dataKey="evals" name="Evaluations" fill="#1e2d3d" radius={[4, 4, 0, 0]}>
+                    {metrics.brandChartData.map((_, idx) => (
+                      <Cell key={idx} fill={idx === 0 ? '#e85d26' : '#1e2d3d'} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
-            );
-          })()}
+            ) : (
+              <div className="empty-screen" style={{ minHeight: 180 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-4)' }}>No brand data available</span>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Price Distribution */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Valuation Price Distribution</div>
+            <span style={{ fontSize: 11, color: 'var(--text-4)' }}>Inventory brackets</span>
+          </div>
+          <div className="card-body" style={{ height: 250, minHeight: 250, width: '100%', position: 'relative' }}>
+            <ResponsiveContainer width="100%" height={220} minHeight={200}>
+              <AreaChart data={metrics.priceBins} margin={{ top: 10, right: 10, left: -15, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-4)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--text-4)' }} allowDecimals={false} />
+                <Tooltip content={<Tip />} />
+                <Area type="monotone" dataKey="count" name="Vehicles" stroke="#e85d26" strokeWidth={2} fill="#fdf0ea" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

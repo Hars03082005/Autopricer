@@ -5,6 +5,7 @@ import {
   fetchHistory,
   createHistoryEntry,
   clearHistory as clearHistoryApi,
+  deleteHistoryEntry,
   ApiError,
 } from '../lib/apiClient.js';
 
@@ -363,6 +364,95 @@ export function AppProvider({ children }) {
     }
   }, [isCloudUser, localHistory, cloudHistory]);
 
+  const deleteEvaluation = useCallback(async (id) => {
+    setLocalHistory(prev => prev.filter(item => item.id !== id));
+    setCloudHistory(prev => (prev === null ? null : { ...prev, rows: prev.rows.filter(item => item.id !== id) }));
+
+    if (!isCloudUser) return;
+    try {
+      await deleteHistoryEntry(id);
+      setHistoryError(null);
+    } catch (error) {
+      setHistoryError(`Could not delete valuation from cloud (${error.message}).`);
+    }
+  }, [isCloudUser]);
+
+  const viewEvaluation = useCallback((evaluation) => {
+    if (!evaluation) return;
+    const marketValue = toNumber(evaluation.marketValue ?? evaluation.predictedPrice, 0);
+    const buyPrice = toNumber(evaluation.buyPrice ?? evaluation.recommendedBuyPrice, 0);
+    const sellPrice = toNumber(evaluation.sellPrice ?? evaluation.recommendedSellPrice, 0);
+    const profit = toNumber(evaluation.expectedProfit, 0);
+    const margin = toNumber(evaluation.marginPct ?? 10, 10);
+
+    setValuationResult({
+      ...evaluation,
+      predictedPrice: marketValue,
+      priceMin: Math.round(marketValue * 0.94),
+      priceMax: Math.round(marketValue * 1.06),
+      priceMedian: marketValue,
+      recommendedBuyPrice: buyPrice,
+      recommendedSellPrice: sellPrice || Math.round(marketValue * 1.05),
+      expectedProfit: profit,
+      expectedMarginPct: margin,
+      action: evaluation.action || 'BUY',
+      dealQualityScore: evaluation.dealQualityScore ?? evaluation.dealQuality ?? 75,
+      positiveFactors: evaluation.positiveFactors || [],
+      negativeFactors: evaluation.negativeFactors || [],
+      similarCars: evaluation.similarCars || [],
+      opening_offer: Math.round((buyPrice * 0.95) / 500) * 500,
+      target_offer: buyPrice,
+      max_offer: Math.round((buyPrice * 1.03) / 500) * 500,
+      recon_cost: 18000,
+      holding_cost: 5000,
+      doc_cost: 4500,
+      risk_buffer: 3000,
+    });
+
+    setInputs({
+      brand: evaluation.brand || 'Honda',
+      model: evaluation.model || 'City',
+      variant: evaluation.variant || '',
+      year: String(evaluation.year || '2021'),
+      fuel: evaluation.fuel || 'Petrol',
+      transmission: evaluation.transmission || 'Manual',
+      mileage: String(evaluation.odometer ?? evaluation.mileage ?? '28000'),
+      ownerCount: String(evaluation.ownerCount || '1'),
+      city: 'Bangalore',
+      locality: evaluation.locality || 'Indiranagar',
+      condition: evaluation.condition || 'Good',
+      color: evaluation.color || 'White',
+      targetMarginPct: String(margin || '10'),
+      repairBuffer: String(evaluation.repairBuffer || '25000'),
+      sellerAskingPrice: String(evaluation.sellerAskingPrice || '0'),
+    });
+
+    setActiveScreen('result');
+  }, [setActiveScreen]);
+
+  const editEvaluation = useCallback((evaluation) => {
+    if (!evaluation) return;
+    setInputs({
+      brand: evaluation.brand || 'Honda',
+      model: evaluation.model || 'City',
+      variant: evaluation.variant || '',
+      year: String(evaluation.year || '2021'),
+      fuel: evaluation.fuel || 'Petrol',
+      transmission: evaluation.transmission || 'Manual',
+      mileage: String(evaluation.odometer ?? evaluation.mileage ?? '28000'),
+      ownerCount: String(evaluation.ownerCount || '1'),
+      city: 'Bangalore',
+      locality: evaluation.locality || 'Indiranagar',
+      condition: evaluation.condition || 'Good',
+      color: evaluation.color || 'White',
+      targetMarginPct: String(evaluation.marginPct || '10'),
+      repairBuffer: String(evaluation.repairBuffer || '25000'),
+      sellerAskingPrice: String(evaluation.sellerAskingPrice || '0'),
+    });
+
+    setActiveScreen('input');
+  }, [setActiveScreen]);
+
   const updateEnhancedInspection = useCallback((field, value) => {
     setEnhancedInspection(prev => ({ ...prev, [field]: value }));
   }, []);
@@ -378,13 +468,15 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       activeScreen, setActiveScreen,
       role,
-      inputs, updateInput, fillFromVIN,
+      inputs, setInputs, updateInput, fillFromVIN,
       conditionScore, setConditionScore,
       valuationResult, setValuationResult,
       enhancedResult, setEnhancedResult,
       enhancedInspection, setEnhancedInspection, updateEnhancedInspection, updateVendorType,
       reverseResult, setReverseResult,
-      evaluations, addEvaluation, clearEvaluations, historyError,
+      evaluations, addEvaluation, appendEvaluation: addEvaluation, clearEvaluations, deleteEvaluation,
+      viewEvaluation, editEvaluation, setSelectedVehicle: viewEvaluation,
+      historyError,
       isLoading, setIsLoading,
       dashFilters, setDashFilters,
     }}>

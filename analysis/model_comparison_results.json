@@ -1,0 +1,86 @@
+{
+  "conclusion": "3. LightGBM remains best, but CatBoost provides complementary predictions.",
+  "metrics": {
+    "LightGBM_5Seed": {
+      "n": 3748,
+      "mae": 39533.88542948261,
+      "rmse": 95241.25345608762,
+      "mape": 6.8253704397031685,
+      "r2": 0.9652986440819591,
+      "bias": -4290.501731405674,
+      "med": 20929.742422042822
+    },
+    "CatBoost": {
+      "n": 3748,
+      "mae": 45828.70828142753,
+      "rmse": 157785.7685016679,
+      "mape": 7.384197448119459,
+      "r2": 0.9653807235063188,
+      "bias": -5160.476451332994,
+      "med": 24967.61854789767
+    },
+    "XGBoost": {
+      "n": 3748,
+      "mae": 229489.5033226054,
+      "rmse": 342841.1210866609,
+      "mape": 46.1069180687446,
+      "r2": 0.39656888814894875,
+      "bias": 34200.09647228522,
+      "med": 168342.625
+    }
+  },
+  "best_configs": {
+    "CatBoost": {
+      "depth": 8,
+      "l2_leaf_reg": 3.0,
+      "learning_rate": 0.04
+    },
+    "XGBoost": {
+      "max_depth": 6,
+      "learning_rate": 0.04,
+      "subsample": 0.85,
+      "colsample_bytree": 0.75,
+      "min_child_weight": 20.0
+    }
+  },
+  "correlations": {
+    "predictions": {
+      "LightGBM": {
+        "LightGBM": 1.0,
+        "CatBoost": 0.9599200178403264,
+        "XGBoost": 0.6550327593139054
+      },
+      "CatBoost": {
+        "LightGBM": 0.9599200178403264,
+        "CatBoost": 1.0,
+        "XGBoost": 0.6625130947779483
+      },
+      "XGBoost": {
+        "LightGBM": 0.6550327593139054,
+        "CatBoost": 0.6625130947779483,
+        "XGBoost": 1.0
+      }
+    },
+    "residuals": {
+      "LightGBM": {
+        "LightGBM": 1.0,
+        "CatBoost": 0.680630819927243,
+        "XGBoost": 0.4264489389103551
+      },
+      "CatBoost": {
+        "LightGBM": 0.680630819927243,
+        "CatBoost": 1.0,
+        "XGBoost": 0.518811548282763
+      },
+      "XGBoost": {
+        "LightGBM": 0.4264489389103551,
+        "CatBoost": 0.518811548282763,
+        "XGBoost": 1.0
+      }
+    },
+    "opp_sign_percentages": {
+      "LGBM_vs_CB": 20.01067235859125,
+      "LGBM_vs_XGB": 45.117395944503734
+    }
+  }
+}

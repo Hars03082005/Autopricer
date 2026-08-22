@@ -1,4 +1,4 @@
-﻿# AutoQuant Production Dockerfile
+# AutoQuant Production Dockerfile
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY package*.json ./
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl &
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY backend/ ./backend/
+COPY data/ ./data/
 COPY model_registry/ ./model_registry/
 COPY scripts/ ./scripts/
 COPY tests/ ./tests/

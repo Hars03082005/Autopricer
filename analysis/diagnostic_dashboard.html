@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Underprediction vs Overprediction — Price & Brand Breakdown — PriceRef</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #131b2e;
+      --card-border: #1f2d4d;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --under: #ef4444; /* Red: Model predicts lower than actual (Underpredicting) */
+      --over: #3b82f6;  /* Blue: Model predicts higher than actual (Overpredicting) */
+      --balanced: #10b981; /* Green */
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .header {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #38bdf8;
+    }
+    .header .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 12px;
+    }
+    .tab-btn {
+      background: rgba(30, 41, 59, 0.6);
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: #38bdf8;
+      color: #0b0f19;
+      border-color: #38bdf8;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .summary-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .summary-value {
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+    .text-under { color: var(--under); }
+    .text-over { color: var(--over); }
+    .text-green { color: var(--balanced); }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin: 28px 0 16px 0;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    .chart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .chart-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .chart-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .chart-box {
+      position: relative;
+      height: 380px;
+      width: 100%;
+    }
+    .table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    th {
+      background: rgba(30, 41, 59, 0.7);
+      color: #94a3b8;
+      padding: 12px 14px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(31, 41, 61, 0.7);
+      color: #e2e8f0;
+    }
+    tr:hover td {
+      background: rgba(56, 189, 248, 0.05);
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-under { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-over { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .legend-box {
+      display: flex;
+      gap: 20px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>PriceRef Error & Bias Diagnostic Dashboard</h1>
+      <div class="subtitle">Detailed Underprediction vs. Overprediction Breakdown by Price Segment & Vehicle Brand (3,748 Cars)</div>
+    </div>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-title">Total Validation Cars</div>
+      <div class="summary-value">3,748</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-title">Cars Underpredicted (Actual > Pred)</div>
+      <div class="summary-value text-under">1,900 <span style="font-size: 13px; font-weight: normal;">(50.7%)</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-title">Cars Overpredicted (Pred > Actual)</div>
+      <div class="summary-value text-over">1,843 <span style="font-size: 13px; font-weight: normal;">(49.2%)</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-title">Overall Average Rupee Bias</div>
+      <div class="summary-value text-under">+₹12,776</div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 1: PRICE SEGMENT ANALYSIS ==================== -->
+  <div class="section-title">1. Lakh-by-Lakh Price Segment Breakdown</div>
+
+  <div class="charts-grid">
+
+    <!-- CHART 1: Average Rupee Difference (Under vs Over by Price) -->
+    <div class="chart-card">
+      <div class="chart-title">Average Rupee Gap per Lakh Segment (Actual - Predicted)</div>
+      <div class="chart-desc">Red Bars (Above 0) = Underpredicting (Model predicts TOO LOW) | Blue Bars (Below 0) = Overpredicting (Model predicts TOO HIGH)</div>
+      <div class="chart-box">
+        <canvas id="chartBiasLakh"></canvas>
+      </div>
+      <div class="legend-box">
+        <div class="legend-item"><div class="dot" style="background: var(--under)"></div> <strong>Red Bars (Above 0):</strong> Underpredicting (Model is cheaper than market)</div>
+        <div class="legend-item"><div class="dot" style="background: var(--over)"></div> <strong>Blue Bars (Below 0):</strong> Overpredicting (Model is higher than market)</div>
+      </div>
+    </div>
+
+    <!-- CHART 2: Actual vs Predicted Price Comparison -->
+    <div class="chart-card">
+      <div class="chart-title">Average Actual Price vs. Average Predicted Price (Lakh to Lakh)</div>
+      <div class="chart-desc">Side-by-side comparison of real market selling price vs model prediction</div>
+      <div class="chart-box">
+        <canvas id="chartActualVsPredLakh"></canvas>
+      </div>
+    </div>
+
+    <!-- CHART 3: Percentage Underpredicted vs Overpredicted by Price -->
+    <div class="chart-card">
+      <div class="chart-title">Percentage of Cars Underpredicted vs. Overpredicted in Each Price Segment</div>
+      <div class="chart-desc">Shows the proportion of cars receiving lower-than-actual vs higher-than-actual valuations</div>
+      <div class="chart-box">
+        <canvas id="chartPctSplit"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TABLE 1: PRICE SEGMENT TABLE -->
+  <div class="table-card">
+    <div class="chart-title" style="margin-bottom: 12px;">Price Segment Breakdown Table (Lakh to Lakh)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Price Segment</th>
+          <th>Car Count</th>
+          <th>Avg Actual Price</th>
+          <th>Avg Predicted Price</th>
+          <th>Avg Error Gap (Actual - Pred)</th>
+          <th>% Underpredicted</th>
+          <th>% Overpredicted</th>
+          <th>Avg MAE</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td><strong>₹0–1L</strong></td>
+          <td>13</td>
+          <td>₹84,491</td>
+          <td>₹108,031</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-23,540
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">0.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">100.0%</span></td>
+          <td>₹23,540 (30.4%)</td>
+          <td><span class="badge badge-over">OVERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹1–2L</strong></td>
+          <td>203</td>
+          <td>₹167,428</td>
+          <td>₹185,069</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-17,641
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">28.6%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">70.4%</span></td>
+          <td>₹24,473 (14.8%)</td>
+          <td><span class="badge badge-over">OVERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹2–3L</strong></td>
+          <td>472</td>
+          <td>₹256,321</td>
+          <td>₹270,993</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-14,672
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">32.2%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">67.6%</span></td>
+          <td>₹26,095 (10.2%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹3–4L</strong></td>
+          <td>595</td>
+          <td>₹352,416</td>
+          <td>₹360,402</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-7,986
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">41.7%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">58.3%</span></td>
+          <td>₹29,176 (8.3%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹4–5L</strong></td>
+          <td>557</td>
+          <td>₹449,428</td>
+          <td>₹448,410</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹1,017
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">49.7%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">50.3%</span></td>
+          <td>₹33,357 (7.4%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹5–6L</strong></td>
+          <td>451</td>
+          <td>₹549,645</td>
+          <td>₹542,397</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹7,248
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">56.5%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">43.0%</span></td>
+          <td>₹41,210 (7.5%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹6–7L</strong></td>
+          <td>352</td>
+          <td>₹652,362</td>
+          <td>₹644,398</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹7,963
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">55.7%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">44.3%</span></td>
+          <td>₹50,562 (7.7%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹7–8L</strong></td>
+          <td>256</td>
+          <td>₹753,202</td>
+          <td>₹747,259</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹5,943
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">57.8%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">42.2%</span></td>
+          <td>₹70,003 (9.3%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹8–9L</strong></td>
+          <td>190</td>
+          <td>₹849,509</td>
+          <td>₹849,223</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹287
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">55.3%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">44.7%</span></td>
+          <td>₹71,001 (8.3%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹9–10L</strong></td>
+          <td>147</td>
+          <td>₹953,187</td>
+          <td>₹949,149</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹4,038
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">55.1%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">44.9%</span></td>
+          <td>₹83,061 (8.7%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹10–12L</strong></td>
+          <td>195</td>
+          <td>₹1,096,737</td>
+          <td>₹1,068,067</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹28,671
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">62.6%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">37.4%</span></td>
+          <td>₹106,978 (9.7%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹12–15L</strong></td>
+          <td>188</td>
+          <td>₹1,348,948</td>
+          <td>₹1,263,581</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹85,367
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">78.2%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">21.8%</span></td>
+          <td>₹121,872 (9.0%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹15–20L</strong></td>
+          <td>100</td>
+          <td>₹1,675,085</td>
+          <td>₹1,532,201</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹142,884
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">84.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">16.0%</span></td>
+          <td>₹160,632 (9.4%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>₹20L+</strong></td>
+          <td>25</td>
+          <td>₹2,665,659</td>
+          <td>₹2,261,288</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹404,371
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">92.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">8.0%</span></td>
+          <td>₹644,515 (23.9%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== SECTION 2: BRAND ANALYSIS ==================== -->
+  <div class="section-title">2. Brand-by-Brand Error & Bias Breakdown</div>
+
+  <div class="charts-grid">
+
+    <!-- CHART 4: Average Rupee Difference by Brand -->
+    <div class="chart-card">
+      <div class="chart-title">Average Rupee Gap by Brand (Actual - Predicted)</div>
+      <div class="chart-desc">Which brands are we systematically underpredicting (Red) or overpredicting (Blue)? (Brands with N ≥ 10)</div>
+      <div class="chart-box" style="height: 480px;">
+        <canvas id="chartBrandBias"></canvas>
+      </div>
+      <div class="legend-box">
+        <div class="legend-item"><div class="dot" style="background: var(--under)"></div> <strong>Red Bars (Above 0):</strong> Underpredicting brand (e.g. BMW, Toyota, Mercedes)</div>
+        <div class="legend-item"><div class="dot" style="background: var(--over)"></div> <strong>Blue Bars (Below 0):</strong> Overpredicting brand (e.g. Chevrolet, Datsun, Ford)</div>
+      </div>
+    </div>
+
+    <!-- CHART 5: Actual vs Predicted Price Comparison by Brand -->
+    <div class="chart-card">
+      <div class="chart-title">Average Actual Price vs. Average Predicted Price by Brand</div>
+      <div class="chart-desc">Side-by-side comparison of actual selling prices vs model predictions for every brand</div>
+      <div class="chart-box" style="height: 480px;">
+        <canvas id="chartBrandActualPred"></canvas>
+      </div>
+    </div>
+
+    <!-- CHART 6: Brand-wise Under vs Over Prediction Split (%) -->
+    <div class="chart-card">
+      <div class="chart-title">Percentage of Cars Underpredicted vs. Overpredicted by Brand</div>
+      <div class="chart-desc">What percentage of cars within each brand are under-valued vs over-valued?</div>
+      <div class="chart-box" style="height: 480px;">
+        <canvas id="chartBrandPctSplit"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TABLE 2: BRAND BREAKDOWN TABLE -->
+  <div class="table-card">
+    <div class="chart-title" style="margin-bottom: 12px;">Complete Brand Breakdown Table (Ranked from Most Underpredicted to Most Overpredicted)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Brand Name</th>
+          <th>Car Count</th>
+          <th>Avg Actual Price</th>
+          <th>Avg Predicted Price</th>
+          <th>Avg Error Gap (Actual - Pred)</th>
+          <th>% Underpredicted</th>
+          <th>% Overpredicted</th>
+          <th>Avg MAE</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td><strong>Bmw</strong></td>
+          <td>10</td>
+          <td>₹3,417,700</td>
+          <td>₹2,613,980</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹803,720
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">70.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">30.0%</span></td>
+          <td>₹840,820 (21.4%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Volkswagen</strong></td>
+          <td>133</td>
+          <td>₹649,002</td>
+          <td>₹618,949</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹30,053
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">61.7%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">38.3%</span></td>
+          <td>₹53,115 (7.9%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Kia</strong></td>
+          <td>187</td>
+          <td>₹1,113,774</td>
+          <td>₹1,086,678</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹27,097
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">55.1%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">44.9%</span></td>
+          <td>₹95,728 (8.7%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Skoda</strong></td>
+          <td>92</td>
+          <td>₹834,318</td>
+          <td>₹810,658</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹23,660
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">62.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">38.0%</span></td>
+          <td>₹79,518 (11.3%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Fiat</strong></td>
+          <td>12</td>
+          <td>₹238,104</td>
+          <td>₹215,342</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹22,762
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">66.7%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">33.3%</span></td>
+          <td>₹35,046 (13.2%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Mahindra</strong></td>
+          <td>199</td>
+          <td>₹923,314</td>
+          <td>₹902,006</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹21,308
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">51.3%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">48.7%</span></td>
+          <td>₹97,092 (10.3%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Hyundai</strong></td>
+          <td>830</td>
+          <td>₹583,922</td>
+          <td>₹564,942</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹18,981
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">58.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">41.9%</span></td>
+          <td>₹49,322 (8.6%)</td>
+          <td><span class="badge badge-under">UNDERPREDICTING</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Renault</strong></td>
+          <td>289</td>
+          <td>₹451,219</td>
+          <td>₹445,773</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹5,446
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">47.1%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">52.9%</span></td>
+          <td>₹40,069 (9.0%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Honda</strong></td>
+          <td>216</td>
+          <td>₹509,423</td>
+          <td>₹504,193</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹5,231
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">48.6%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">51.4%</span></td>
+          <td>₹39,288 (7.9%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Datsun</strong></td>
+          <td>37</td>
+          <td>₹243,995</td>
+          <td>₹240,700</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹3,295
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">51.4%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">48.6%</span></td>
+          <td>₹18,295 (6.9%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Ford</strong></td>
+          <td>215</td>
+          <td>₹422,050</td>
+          <td>₹420,393</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹1,657
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">52.1%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">47.9%</span></td>
+          <td>₹35,969 (9.4%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Tata</strong></td>
+          <td>373</td>
+          <td>₹622,693</td>
+          <td>₹621,235</td>
+          <td style="font-weight: 700; color: #f87171">
+            +₹1,458
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">50.9%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">49.1%</span></td>
+          <td>₹45,821 (8.0%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Mg</strong></td>
+          <td>52</td>
+          <td>₹1,201,304</td>
+          <td>₹1,201,652</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-348
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">46.2%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">53.8%</span></td>
+          <td>₹118,491 (9.6%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Maruti Suzuki</strong></td>
+          <td>894</td>
+          <td>₹484,799</td>
+          <td>₹485,249</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-450
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">43.4%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">56.2%</span></td>
+          <td>₹38,914 (8.7%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Chevrolet</strong></td>
+          <td>27</td>
+          <td>₹193,344</td>
+          <td>₹196,226</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-2,882
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">40.7%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">59.3%</span></td>
+          <td>₹25,652 (15.6%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Nissan</strong></td>
+          <td>78</td>
+          <td>₹485,680</td>
+          <td>₹489,544</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-3,864
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">34.6%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">65.4%</span></td>
+          <td>₹40,481 (7.7%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Toyota</strong></td>
+          <td>59</td>
+          <td>₹968,632</td>
+          <td>₹979,710</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-11,079
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">39.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">61.0%</span></td>
+          <td>₹151,464 (15.1%)</td>
+          <td><span class="badge badge-green">BALANCED / ACCURATE</span></td>
+        </tr>
+        
+        <tr>
+          <td><strong>Jeep</strong></td>
+          <td>20</td>
+          <td>₹1,351,535</td>
+          <td>₹1,437,690</td>
+          <td style="font-weight: 700; color: #60a5fa">
+            ₹-86,155
+          </td>
+          <td><span style="color: #f87171; font-weight: 600;">65.0%</span></td>
+          <td><span style="color: #60a5fa; font-weight: 600;">35.0%</span></td>
+          <td>₹252,625 (13.7%)</td>
+          <td><span class="badge badge-over">OVERPREDICTING</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const segs = [{"segment": "\u20b90\u20131L", "count": 13, "avg_actual": 84491, "avg_predicted": 108031, "avg_difference": -23540, "mae": 23540, "mape": 30.4, "pct_under": 0.0, "pct_over": 100.0, "status": "OVERPREDICTING"}, {"segment": "\u20b91\u20132L", "count": 203, "avg_actual": 167428, "avg_predicted": 185069, "avg_difference": -17641, "mae": 24473, "mape": 14.8, "pct_under": 28.6, "pct_over": 70.4, "status": "OVERPREDICTING"}, {"segment": "\u20b92\u20133L", "count": 472, "avg_actual": 256321, "avg_predicted": 270993, "avg_difference": -14672, "mae": 26095, "mape": 10.2, "pct_under": 32.2, "pct_over": 67.6, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b93\u20134L", "count": 595, "avg_actual": 352416, "avg_predicted": 360402, "avg_difference": -7986, "mae": 29176, "mape": 8.3, "pct_under": 41.7, "pct_over": 58.3, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b94\u20135L", "count": 557, "avg_actual": 449428, "avg_predicted": 448410, "avg_difference": 1017, "mae": 33357, "mape": 7.4, "pct_under": 49.7, "pct_over": 50.3, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b95\u20136L", "count": 451, "avg_actual": 549645, "avg_predicted": 542397, "avg_difference": 7248, "mae": 41210, "mape": 7.5, "pct_under": 56.5, "pct_over": 43.0, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b96\u20137L", "count": 352, "avg_actual": 652362, "avg_predicted": 644398, "avg_difference": 7963, "mae": 50562, "mape": 7.7, "pct_under": 55.7, "pct_over": 44.3, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b97\u20138L", "count": 256, "avg_actual": 753202, "avg_predicted": 747259, "avg_difference": 5943, "mae": 70003, "mape": 9.3, "pct_under": 57.8, "pct_over": 42.2, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b98\u20139L", "count": 190, "avg_actual": 849509, "avg_predicted": 849223, "avg_difference": 287, "mae": 71001, "mape": 8.3, "pct_under": 55.3, "pct_over": 44.7, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b99\u201310L", "count": 147, "avg_actual": 953187, "avg_predicted": 949149, "avg_difference": 4038, "mae": 83061, "mape": 8.7, "pct_under": 55.1, "pct_over": 44.9, "status": "BALANCED / ACCURATE"}, {"segment": "\u20b910\u201312L", "count": 195, "avg_actual": 1096737, "avg_predicted": 1068067, "avg_difference": 28671, "mae": 106978, "mape": 9.7, "pct_under": 62.6, "pct_over": 37.4, "status": "UNDERPREDICTING"}, {"segment": "\u20b912\u201315L", "count": 188, "avg_actual": 1348948, "avg_predicted": 1263581, "avg_difference": 85367, "mae": 121872, "mape": 9.0, "pct_under": 78.2, "pct_over": 21.8, "status": "UNDERPREDICTING"}, {"segment": "\u20b915\u201320L", "count": 100, "avg_actual": 1675085, "avg_predicted": 1532201, "avg_difference": 142884, "mae": 160632, "mape": 9.4, "pct_under": 84.0, "pct_over": 16.0, "status": "UNDERPREDICTING"}, {"segment": "\u20b920L+", "count": 25, "avg_actual": 2665659, "avg_predicted": 2261288, "avg_difference": 404371, "mae": 644515, "mape": 23.9, "pct_under": 92.0, "pct_over": 8.0, "status": "UNDERPREDICTING"}];
+    const segLabels = segs.map(s => s.segment);
+
+    const brands = [{"brand": "Bmw", "count": 10, "avg_actual": 3417700, "avg_predicted": 2613980, "avg_difference": 803720, "mae": 840820, "mape": 21.4, "pct_under": 70.0, "pct_over": 30.0, "status": "UNDERPREDICTING"}, {"brand": "Volkswagen", "count": 133, "avg_actual": 649002, "avg_predicted": 618949, "avg_difference": 30053, "mae": 53115, "mape": 7.9, "pct_under": 61.7, "pct_over": 38.3, "status": "UNDERPREDICTING"}, {"brand": "Kia", "count": 187, "avg_actual": 1113774, "avg_predicted": 1086678, "avg_difference": 27097, "mae": 95728, "mape": 8.7, "pct_under": 55.1, "pct_over": 44.9, "status": "UNDERPREDICTING"}, {"brand": "Skoda", "count": 92, "avg_actual": 834318, "avg_predicted": 810658, "avg_difference": 23660, "mae": 79518, "mape": 11.3, "pct_under": 62.0, "pct_over": 38.0, "status": "UNDERPREDICTING"}, {"brand": "Fiat", "count": 12, "avg_actual": 238104, "avg_predicted": 215342, "avg_difference": 22762, "mae": 35046, "mape": 13.2, "pct_under": 66.7, "pct_over": 33.3, "status": "UNDERPREDICTING"}, {"brand": "Mahindra", "count": 199, "avg_actual": 923314, "avg_predicted": 902006, "avg_difference": 21308, "mae": 97092, "mape": 10.3, "pct_under": 51.3, "pct_over": 48.7, "status": "UNDERPREDICTING"}, {"brand": "Hyundai", "count": 830, "avg_actual": 583922, "avg_predicted": 564942, "avg_difference": 18981, "mae": 49322, "mape": 8.6, "pct_under": 58.0, "pct_over": 41.9, "status": "UNDERPREDICTING"}, {"brand": "Renault", "count": 289, "avg_actual": 451219, "avg_predicted": 445773, "avg_difference": 5446, "mae": 40069, "mape": 9.0, "pct_under": 47.1, "pct_over": 52.9, "status": "BALANCED / ACCURATE"}, {"brand": "Honda", "count": 216, "avg_actual": 509423, "avg_predicted": 504193, "avg_difference": 5231, "mae": 39288, "mape": 7.9, "pct_under": 48.6, "pct_over": 51.4, "status": "BALANCED / ACCURATE"}, {"brand": "Datsun", "count": 37, "avg_actual": 243995, "avg_predicted": 240700, "avg_difference": 3295, "mae": 18295, "mape": 6.9, "pct_under": 51.4, "pct_over": 48.6, "status": "BALANCED / ACCURATE"}, {"brand": "Ford", "count": 215, "avg_actual": 422050, "avg_predicted": 420393, "avg_difference": 1657, "mae": 35969, "mape": 9.4, "pct_under": 52.1, "pct_over": 47.9, "status": "BALANCED / ACCURATE"}, {"brand": "Tata", "count": 373, "avg_actual": 622693, "avg_predicted": 621235, "avg_difference": 1458, "mae": 45821, "mape": 8.0, "pct_under": 50.9, "pct_over": 49.1, "status": "BALANCED / ACCURATE"}, {"brand": "Mg", "count": 52, "avg_actual": 1201304, "avg_predicted": 1201652, "avg_difference": -348, "mae": 118491, "mape": 9.6, "pct_under": 46.2, "pct_over": 53.8, "status": "BALANCED / ACCURATE"}, {"brand": "Maruti Suzuki", "count": 894, "avg_actual": 484799, "avg_predicted": 485249, "avg_difference": -450, "mae": 38914, "mape": 8.7, "pct_under": 43.4, "pct_over": 56.2, "status": "BALANCED / ACCURATE"}, {"brand": "Chevrolet", "count": 27, "avg_actual": 193344, "avg_predicted": 196226, "avg_difference": -2882, "mae": 25652, "mape": 15.6, "pct_under": 40.7, "pct_over": 59.3, "status": "BALANCED / ACCURATE"}, {"brand": "Nissan", "count": 78, "avg_actual": 485680, "avg_predicted": 489544, "avg_difference": -3864, "mae": 40481, "mape": 7.7, "pct_under": 34.6, "pct_over": 65.4, "status": "BALANCED / ACCURATE"}, {"brand": "Toyota", "count": 59, "avg_actual": 968632, "avg_predicted": 979710, "avg_difference": -11079, "mae": 151464, "mape": 15.1, "pct_under": 39.0, "pct_over": 61.0, "status": "BALANCED / ACCURATE"}, {"brand": "Jeep", "count": 20, "avg_actual": 1351535, "avg_predicted": 1437690, "avg_difference": -86155, "mae": 252625, "mape": 13.7, "pct_under": 65.0, "pct_over": 35.0, "status": "OVERPREDICTING"}];
+    const brandLabels = brands.map(b => b.brand);
+
+    // ================== PRICE SEGMENT CHARTS ==================
+    // Chart 1: Price Bias
+    new Chart(document.getElementById('chartBiasLakh'), {
+      type: 'bar',
+      data: {
+        labels: segLabels,
+        datasets: [{
+          label: 'Average Rupee Difference (Actual - Predicted)',
+          data: segs.map(s => s.avg_difference),
+          backgroundColor: segs.map(s => s.avg_difference >= 0 ? '#ef4444' : '#3b82f6'),
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const val = ctx.raw;
+                if (val > 0) return ` Underpredicting by ₹${val.toLocaleString()}`;
+                if (val < 0) return ` Overpredicting by ₹${Math.abs(val).toLocaleString()}`;
+                return ` Exact match`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: {
+            title: { display: true, text: 'Rupee Gap (₹) [+ Underpredict, - Overpredict]', color: '#94a3b8' },
+            grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' }
+          }
+        }
+      }
+    });
+
+    // Chart 2: Price Actual vs Pred
+    new Chart(document.getElementById('chartActualVsPredLakh'), {
+      type: 'bar',
+      data: {
+        labels: segLabels,
+        datasets: [
+          { label: 'Avg Actual Price (₹)', data: segs.map(s => s.avg_actual), backgroundColor: '#10b981', borderRadius: 6 },
+          { label: 'Avg Predicted Price (₹)', data: segs.map(s => s.avg_predicted), backgroundColor: '#f59e0b', borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: { title: { display: true, text: 'Price (₹)', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+
+    // Chart 3: Price % Split
+    new Chart(document.getElementById('chartPctSplit'), {
+      type: 'bar',
+      data: {
+        labels: segLabels,
+        datasets: [
+          { label: '% Underpredicted (Model predicts lower)', data: segs.map(s => s.pct_under), backgroundColor: '#ef4444', borderRadius: 4 },
+          { label: '% Overpredicted (Model predicts higher)', data: segs.map(s => s.pct_over), backgroundColor: '#3b82f6', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { stacked: true, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: { stacked: true, max: 100, title: { display: true, text: 'Percentage of Cars (%)', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+
+    // ================== BRAND CHARTS ==================
+    // Chart 4: Brand Bias
+    new Chart(document.getElementById('chartBrandBias'), {
+      type: 'bar',
+      data: {
+        labels: brandLabels,
+        datasets: [{
+          label: 'Average Rupee Difference (Actual - Predicted)',
+          data: brands.map(b => b.avg_difference),
+          backgroundColor: brands.map(b => b.avg_difference >= 0 ? '#ef4444' : '#3b82f6'),
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const val = ctx.raw;
+                if (val > 0) return ` Underpredicting by ₹${val.toLocaleString()}`;
+                if (val < 0) return ` Overpredicting by ₹${Math.abs(val).toLocaleString()}`;
+                return ` Exact match`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Rupee Gap (₹) [+ Underpredict, - Overpredict]', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { weight: '600' } } }
+        }
+      }
+    });
+
+    // Chart 5: Brand Actual vs Pred
+    new Chart(document.getElementById('chartBrandActualPred'), {
+      type: 'bar',
+      data: {
+        labels: brandLabels,
+        datasets: [
+          { label: 'Avg Actual Price (₹)', data: brands.map(b => b.avg_actual), backgroundColor: '#10b981', borderRadius: 6 },
+          { label: 'Avg Predicted Price (₹)', data: brands.map(b => b.avg_predicted), backgroundColor: '#f59e0b', borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { title: { display: true, text: 'Price (₹)', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { weight: '600' } } }
+        }
+      }
+    });
+
+    // Chart 6: Brand % Split
+    new Chart(document.getElementById('chartBrandPctSplit'), {
+      type: 'bar',
+      data: {
+        labels: brandLabels,
+        datasets: [
+          { label: '% Underpredicted (Model predicts lower)', data: brands.map(b => b.pct_under), backgroundColor: '#ef4444', borderRadius: 4 },
+          { label: '% Overpredicted (Model predicts higher)', data: brands.map(b => b.pct_over), backgroundColor: '#3b82f6', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { stacked: true, max: 100, title: { display: true, text: 'Percentage of Cars (%)', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+          y: { stacked: true, grid: { display: false }, ticks: { color: '#cbd5e1', font: { weight: '600' } } }
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

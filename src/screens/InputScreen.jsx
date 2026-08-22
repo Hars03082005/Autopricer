@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { LOCALITIES } from '../utils/mockData.js';
-import { fetchBrands, fetchCatalog, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
+import { fetchBrands, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
+import { DATASET_CATALOG } from '../utils/variantCatalog.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
+import Icon from '../components/Icon.jsx';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS        = Array.from({ length: 25 }, (_, i) => String(CURRENT_YEAR - i));
@@ -11,29 +13,17 @@ const TRANSMISSIONS = ['Manual', 'Automatic', 'CVT', 'DCT', 'AMT', 'IMT'];
 const OWNERS       = ['1', '2', '3', '4+'];
 
 const COLORS = [
-  { name: 'White',  hex: '#f0f0f0', border: '#d0d0d0' },
-  { name: 'Silver', hex: '#c0c0c0', border: '#a0a0a0' },
-  { name: 'Grey',   hex: '#787878', border: '#555'     },
-  { name: 'Black',  hex: '#1a1a1a', border: '#000'     },
-  { name: 'Blue',   hex: '#1e5fa3', border: '#1447a0'  },
-  { name: 'Red',    hex: '#c01b1b', border: '#a01818'  },
-  { name: 'Brown',  hex: '#6d4c41', border: '#4e342e'  },
-  { name: 'Beige',  hex: '#d7ccc8', border: '#bcaaa4'  },
-  { name: 'Gold',   hex: '#d4a024', border: '#b88820'  },
-  { name: 'Green',  hex: '#2e7a32', border: '#226026'  },
-  { name: 'Orange', hex: '#d4531c', border: '#b84418'  },
-  { name: 'Maroon', hex: '#78003f', border: '#5c0030'  },
+  { name: 'White',  hex: '#f5f5f5', border: '#d4d4d4' },
+  { name: 'Silver', hex: '#d1d5db', border: '#9ca3af' },
+  { name: 'Grey',   hex: '#6b7280', border: '#4b5563' },
+  { name: 'Black',  hex: '#1f2937', border: '#111827' },
+  { name: 'Blue',   hex: '#2563eb', border: '#1d4ed8' },
+  { name: 'Red',    hex: '#dc2626', border: '#b91c1c' },
+  { name: 'Brown',  hex: '#78350f', border: '#451a03' },
+  { name: 'Beige',  hex: '#e5e7eb', border: '#d1d5db' },
+  { name: 'Orange', hex: '#ea580c', border: '#c2410c' },
+  { name: 'Green',  hex: '#16a34a', border: '#15803d' },
 ];
-
-const LUXURY_BRANDS  = new Set(['BMW','Mercedes-Benz','Audi','Lexus','Volvo','Land Rover','Jaguar','Porsche','Tesla']);
-const PREMIUM_BRANDS = new Set(['Toyota','Honda','Volkswagen','Skoda','Kia','MG','Jeep','Ford','Renault','Nissan']);
-
-function getSegment(brand) {
-  if (!brand) return null;
-  if (LUXURY_BRANDS.has(brand))  return 'luxury';
-  if (PREMIUM_BRANDS.has(brand)) return 'premium';
-  return 'economy';
-}
 
 function healthScore(inputs) {
   if (!inputs.brand) return 0;
@@ -45,679 +35,497 @@ function healthScore(inputs) {
   const ageS  = age <= 2 ? 100 : age <= 4 ? 85 : age <= 6 ? 70 : age <= 8 ? 55 : age <= 10 ? 40 : 25;
   const kmS   = km < 20000 ? 100 : km < 40000 ? 85 : km < 60000 ? 70 : km < 90000 ? 55 : km < 120000 ? 40 : 20;
   const ownS  = own === 1 ? 100 : own === 2 ? 70 : own === 3 ? 45 : 20;
-  const condS = { Excellent:100, Good:75, Average:45, Poor:20 }[cond] ?? 60;
+  const condS = { Excellent: 100, Good: 75, Average: 45, Poor: 20 }[cond] ?? 60;
 
   return Math.round(ageS * 0.25 + kmS * 0.30 + ownS * 0.20 + condS * 0.25);
 }
 
 function healthMeta(score) {
-  if (score >= 75) return { label: 'Strong Candidate',     color: '#15803d', fill: '#22c55e' };
-  if (score >= 55) return { label: 'Viable Deal',          color: '#b45309', fill: '#f59e0b' };
-  if (score >= 35) return { label: 'Review Carefully',     color: '#c2410c', fill: '#f97316' };
-  return              { label: 'High Risk Asset',       color: '#be123c', fill: '#f43f5e' };
+  if (score >= 75) return { label: 'High Confidence Asset', color: '#16a34a', bg: '#f0fdf4' };
+  if (score >= 55) return { label: 'Viable Opportunity',   color: '#d97706', bg: '#fffbeb' };
+  if (score >= 35) return { label: 'Requires Inspection',  color: '#ea580c', bg: '#fff7ed' };
+  return              { label: 'High Holding Risk',       color: '#dc2626', bg: '#fef2f2' };
 }
 
-function formatReg(v) {
-  return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
-}
-
-function formatLakh(n) {
-  const v = Number(n || 0);
-  return v >= 100000 ? `₹${(v / 100000).toFixed(2)}L` : v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '';
-}
-
-function FieldLabel({ children, required }) {
-  return (
-    <label className="vws-label">
-      {children}
-      {required && <span className="vws-req" aria-hidden>*</span>}
-    </label>
-  );
-}
-
-// ── Tokens stripped from ALL variant names across all brands ────────────────
-// Engine/fuel: petrol, diesel, revotron, kryotec, etc.
-// Transmission: amt, dct, ivt, 6dca, 7dca, etc.
-// Color names: purple, red, ivory, dark, etc. (stripped after multi-word phrases)
-// Edition labels: handled via PHRASE_STRIP in normalizeVariant
-const STRIP_TOKENS = new Set([
-  // Fuel / engine tech
-  'petrol', 'diesel', 'crdi', 'lpg', 'electric', 'ev', 'vtvt', 'tdci', 'mpi', 'dci', 'ddis',
-  'tsi', 'tdi', 'gdi', 'tgdi', 'cdti', 'idtec', 'ivtec', 'boostjet', 'hybrid',
-  'ecoboost', 'ti', 'vct', 'tvct', 'dicor', 'xtec',
-  // Tata / Mahindra engine codes
-  'revotron', 'revotorq', 'kryotec', 'kryojet', 'hyperion',
-  // Transmission: mt, amt, at (Ford/Hyundai), dct, cvt, etc.
-  'mt', 'amt', 'at', 'dct', 'cvt', 'ivt', 'dsg', 'ags', 'automatic', 'manual', 'shvs',
-  // Emission / misc qual
-  'bs6', 'bs4', 'bsiv', 'bs3', 'dsl', 'ptl', 'str',
-  // Feature notes in variant strings (not trim names)
-  'airbag', 'airbags',
-  // Seating descriptors from KUV100 (6 str = 6 seater)
-  'str',
-  // Null / unknown
-  'unknown', 'nan', 'null', 'none', 'car', 'model', 'variant',
-  // Drivetrain
-  '2wd', '4wd', 'awd', '4x2', '4x4',
-]); 
-
-// Multi-word phrases to strip BEFORE tokenising (order: longest / most specific first)
-const PHRASE_STRIP = [
-  // Tata engine+gearbox combos
-  'revotron 7dca dark edition', 'revotron 7dca', 'revotron 6dca', 'revotron 6 dca',
-  'revotron 6amt',  'revotron 6 amt', 'revotron 6mt',
-  'revotorq 6amt', 'revotorq 6 amt', 'revotorq 6mt',
-  // Standalone gearbox codes with numbers
-  '6 dca', '7dca', '6dca', '7 dca',
-  '6 dct', '6dct', '5dct', '7dct',
-  '6amt', '6 amt', '7amt', '7 amt', '6mt', '5mt', '5 mt', '6 mt',
-  // Ford engine names
-  'ti vct', 'ti-vct', 'ecoboost tdci',
-  // KUV100 seating suffix  
-  '6 str', '7 str', '5 str', '8 str',
-  // Special editions (most specific → least)
-  'halo dark edition', 'halo edition',
-  'dark edition', 'special edition', 'anniversary edition',
-  'camo edition', 'dazzle pack', 'dazzle sunroof',
-  'kaziranga edition', 'kaziranga',
-  'rhythm pack',
-  'dual tone', 'dual-tone', 'dualtone',
-  'outside fitted',
-  // Tata DCA suffix alone (e.g. "creative dca", "fearless sunroof dca")
-  // Only strip lone 'dca' here; multi-word already handled above
-  'dca',
-  // Icng (CNG fitted outside)
-  'icng',
-  // DT = abbreviation for dual tone
-  'dt',
-  // Standalone 'edition' leftover (e.g. "knight edition" → "knight edition" kept since knight is meaningful)
-  'edition',
-];
-
-function normalizeVariant(raw, modelName = '') {
-  if (!raw || typeof raw !== 'string') return '';
-  let text = raw.toLowerCase().trim();
-  if (!text || ['unknown', 'nan', 'null', 'none', '-', 'base model'].includes(text)) return '';
-
-  // Remove model-name words from variant string (avoid "nexon nexon xz+")
-  if (modelName) {
-    modelName.toLowerCase().split(/\s+/).forEach(word => {
-      if (word.length > 2) text = text.replace(new RegExp('\\b' + word + '\\b', 'g'), ' ');
-    });
-  }
-
-  // Strip engine displacement and cc values (1.2l, 1500cc, etc.)
-  text = text.replace(/\b\d+\.\d+l?\b|\b\d{3,4}cc?\b|\b\d+\.\d+\b/gi, ' ');
-
-  // ── CRITICAL RULE: ALL + means "Plus" tier in Indian car naming ────
-  // "fearless + sunroof" = Fearless Plus with Sunroof  ≠  "fearless sunroof"
-  // "zxi+" = ZXI Plus  |  "k4+" = K4 Plus  |  "titanium+" = Titanium Plus
-  // Convert every + (with or without spaces) to " plus "
-  text = text.replace(/\s*\+\s*/g, ' plus ');
-
-  // Remove remaining punctuation (parens, slashes, dashes, etc.)
-  text = text.replace(/[()[\]/\-,_.]/g, ' ');
-
-  // ── Phase 1: Strip multi-word noise phrases ─────────────────────────
-  PHRASE_STRIP.forEach(phrase => {
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]+');
-    text = text.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), ' ');
-  });
-
-  // ── Phase 2: Strip standalone color words ──────────────────────────
-  const COLOR_WORDS = [
-    'purple', 'ivory', 'dark', 'red', 'blue', 'black', 'white',
-    'grey', 'gray', 'silver', 'gold', 'green', 'orange', 'maroon',
-    'brown', 'beige', 'metallic', 'pearl', 'solid',
-  ];
-  COLOR_WORDS.forEach(color => {
-    text = text.replace(new RegExp('(?<![a-z])' + color + '(?![a-z])', 'g'), ' ');
-  });
-
-  // ── Phase 3: Token-level strip (engine tech, transmission, emission) ─
-  const tokens = text.split(/\s+/).filter(t => t && !STRIP_TOKENS.has(t) && !/^\d+$/.test(t));
-  if (tokens.length === 0) return '';
-
-  let res = tokens.join(' ').toUpperCase();
-
-  // ── Phase 4: Restore canonical bracket notation (Hyundai SX(O)) ────
-  res = res.replace(/\bSX\s+O\b/g, 'SX (O)')
-           .replace(/\bS\s+O\b/g,  'S (O)')
-           .replace(/\bZX\s+O\b/g, 'ZX (O)');
-
-  // ── Phase 5: Reconstitute PLUS → + for ALL standard Indian brands ──
-  // Order matters: longest / most specific patterns first
-  res = res
-    // Maruti grade letters: ZXI+, VXI+, LXI+, ZDI+, VDI+
-    .replace(/\bZXI\s+PLUS\b/g,  'ZXI+')
-    .replace(/\bVXI\s+PLUS\b/g,  'VXI+')
-    .replace(/\bLXI\s+PLUS\b/g,  'LXI+')
-    .replace(/\bZDI\s+PLUS\b/g,  'ZDI+')
-    .replace(/\bVDI\s+PLUS\b/g,  'VDI+')
-    // Tata old-gen grade names: XZ+, XZA+, XT+, XM+
-    .replace(/\bXZA\s+PLUS\b/g,  'XZA+')
-    .replace(/\bXZ\s+PLUS\b/g,   'XZ+')
-    .replace(/\bXT\s+PLUS\b/g,   'XT+')
-    .replace(/\bXMA\s+PLUS\b/g,  'XMA+')
-    .replace(/\bXM\s+PLUS\b/g,   'XM+')
-    // Tata new-gen persona names: Fearless+, Creative+, Pure+, Smart+
-    .replace(/\bFEARLESS\s+PLUS\b/g,     'FEARLESS+')
-    .replace(/\bCREATIVE\s+PLUS\b/g,     'CREATIVE+')
-    .replace(/\bPURE\s+PLUS\b/g,         'PURE+')
-    .replace(/\bSMART\s+PLUS\b/g,        'SMART+')
-    .replace(/\bACCOMPLISHED\s+PLUS\b/g, 'ACCOMPLISHED+')
-    .replace(/\bADVENTURE\s+PLUS\b/g,    'ADVENTURE+')
-    // Ford EcoSport: Titanium+, Trend+
-    .replace(/\bTITANIUM\s+PLUS\b/g,  'TITANIUM+')
-    .replace(/\bTREND\s+PLUS\b/g,     'TREND+')
-    // Hyundai: D-Lite+, Magna+, Era+, Sportz+, Asta+
-    .replace(/\bD[\s-]LITE\s+PLUS\b/g, 'D-LITE+')
-    .replace(/\bMAGNA\s+PLUS\b/g,      'MAGNA+')
-    .replace(/\bERA\s+PLUS\b/g,        'ERA+')
-    .replace(/\bSPORTZ\s+PLUS\b/g,     'SPORTZ+')
-    .replace(/\bASTA\s+PLUS\b/g,       'ASTA+')
-    // Mahindra KUV100: K4+, K6+, K8+
-    .replace(/\bK(\d)\s+PLUS\b/g,  'K$1+')
-    // Maruti Grand Vitara / Hyundai: Alpha+, Zeta+
-    .replace(/\bALPHA\s+PLUS\b/g, 'ALPHA+')
-    .replace(/\bZETA\s+PLUS\b/g,  'ZETA+')
-    // Generic catch-all: short trim codes like S+, N+, E+, SX+, HTX+, GTX+
-    .replace(/\b([A-Z]{1,4})\s+PLUS\b/g, '$1+');
-
-  return res.replace(/\s{2,}/g, ' ').trim();
+function titleCase(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 export default function InputScreen() {
-
   const {
-    inputs, updateInput,
-    setValuationResult, setActiveScreen, setIsLoading, addEvaluation,
+    inputs = {},
+    setInputs,
+    updateInput,
+    setValuationResult,
+    setActiveScreen,
+    addEvaluation,
+    appendEvaluation,
   } = useApp();
 
-  const [brandCatalog, setBrandCatalog]   = useState({});
-  const [datasetCatalog, setDatasetCatalog] = useState({});
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [brandsMap, setBrandsMap]   = useState({});
+  const [optYears, setOptYears]     = useState(YEARS);
+  const [optFuels, setOptFuels]     = useState(FUELS);
+  const [optTrans, setOptTrans]     = useState(TRANSMISSIONS);
 
-  const [availableFuels, setAvailableFuels]           = useState(FUELS);
-  const [availableTransmissions, setAvailableTransmissions] = useState(TRANSMISSIONS);
-  const [availableYears, setAvailableYears]           = useState(YEARS);
-  const [optionsLoading, setOptionsLoading]           = useState(false);
-
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const brandList   = useMemo(() => Object.keys(brandCatalog).sort(), [brandCatalog]);
-  const modelList   = useMemo(() => brandCatalog[inputs.brand] || [], [brandCatalog, inputs.brand]);
-  
-  const variantList = useMemo(() => {
-    if (!inputs.brand || !inputs.model) return [];
-
-    const brandKey = inputs.brand.trim().toLowerCase();
-    const modelKey = inputs.model.trim().toLowerCase();
-
-    let brandModels = datasetCatalog[brandKey];
-    if (!brandModels) {
-      
-      const foundB = Object.keys(datasetCatalog).find(k => k.includes(brandKey) || brandKey.includes(k));
-      if (foundB) brandModels = datasetCatalog[foundB];
+  const upd = (k, v) => {
+    if (typeof setInputs === 'function') {
+      setInputs(prev => ({ ...prev, [k]: v }));
+    } else if (typeof updateInput === 'function') {
+      updateInput(k, v);
     }
+  };
 
-    if (brandModels) {
-      let rawVariants = brandModels[modelKey];
-      if (!rawVariants) {
-        const foundM = Object.keys(brandModels).find(m => m.includes(modelKey) || modelKey.includes(m));
-        if (foundM) rawVariants = brandModels[foundM];
-      }
-      if (Array.isArray(rawVariants) && rawVariants.length > 0) {
-        const uniqueSet = new Set();
-        rawVariants.forEach(v => {
-          const nv = normalizeVariant(v, inputs.model);
-          if (nv && nv.length > 0) uniqueSet.add(nv);
-          else if (v && typeof v === 'string' && !['unknown', 'nan', 'null', 'none'].includes(v.toLowerCase().trim())) {
-            uniqueSet.add(v.trim().toUpperCase());
-          }
-        });
-        return Array.from(uniqueSet).sort((a, b) => a.localeCompare(b));
-      }
-    }
-
-    return [];
-  }, [inputs.brand, inputs.model, datasetCatalog]);
-
-  const segment  = getSegment(inputs.brand);
-  const score    = healthScore(inputs);
-  const meta     = healthMeta(score);
-  const required = [inputs.brand, inputs.model, inputs.year, inputs.mileage, inputs.fuel, inputs.city].filter(Boolean).length;
-  const isReady  = required === 6;
-
+  // Load brands and options on mount
   useEffect(() => {
-    let alive = true;
-    fetchBrands()
-      .then(b => { if (alive) setBrandCatalog(b); })
-      .catch(() => { if (alive) setError('Backend unavailable — run: uvicorn backend.main:app --reload'); })
-      .finally(() => { if (alive) setLoading(false); });
-    fetchCatalog()
-      .then(cat => { if (alive && cat) setDatasetCatalog(cat); })
-      .catch(() => {});
-    return () => { alive = false; };
+    let active = true;
+    (async () => {
+      try {
+        const [brandsData, optList] = await Promise.all([fetchBrands(), fetchOptions()]);
+        if (!active) return;
+        if (brandsData && typeof brandsData === 'object') {
+          setBrandsMap(brandsData);
+        }
+        if (optList?.years?.length) setOptYears(optList.years);
+        if (optList?.fuel_types?.length) setOptFuels(optList.fuel_types);
+        if (optList?.transmissions?.length) setOptTrans(optList.transmissions);
+      } catch (err) {
+        console.warn('[InputScreen] options fetch notice:', err.message);
+      }
+    })();
+    return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    if (!inputs.brand) return;
+  // Compute Brand list
+  const brandList = useMemo(() => {
+    const fromApi = Object.keys(brandsMap);
+    if (fromApi.length > 0) return fromApi.sort();
+    const fromCatalog = Object.keys(DATASET_CATALOG).map(titleCase);
+    return fromCatalog.length ? fromCatalog.sort() : ['Honda', 'Hyundai', 'Maruti', 'Tata', 'Toyota', 'Mahindra', 'KIA', 'BMW', 'Mercedes-Benz', 'Audi'];
+  }, [brandsMap]);
 
-    let cancelled = false;
-    setOptionsLoading(true);
-
-    fetchOptions({ brand: inputs.brand, model: inputs.model || undefined, variant: inputs.variant || undefined })
-      .then(opts => {
-        if (cancelled) return;
-        setAvailableFuels(opts.fuel_types?.length   ? opts.fuel_types   : FUELS);
-        setAvailableTransmissions(opts.transmissions?.length ? opts.transmissions : TRANSMISSIONS);
-        setAvailableYears(opts.years?.length         ? opts.years        : YEARS);
-
-        if (inputs.fuel && !opts.fuel_types?.includes(inputs.fuel))
-          updateInput('fuel', '');
-        if (inputs.transmission && !opts.transmissions?.includes(inputs.transmission))
-          updateInput('transmission', '');
-        if (inputs.year && !opts.years?.includes(inputs.year))
-          updateInput('year', '');
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAvailableFuels(FUELS);
-          setAvailableTransmissions(TRANSMISSIONS);
-          setAvailableYears(YEARS);
-        }
-      })
-      .finally(() => { if (!cancelled) setOptionsLoading(false); });
-
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputs.brand, inputs.model, inputs.variant]);
-
-  const onBrand = (b) => {
-    if (!b) {
-      setAvailableFuels(FUELS);
-      setAvailableTransmissions(TRANSMISSIONS);
-      setAvailableYears(YEARS);
-    }
-    updateInput('brand', b);
-    updateInput('model', '');
-    updateInput('variant', '');
-    updateInput('fuel', '');
-    updateInput('transmission', '');
-    updateInput('year', '');
-  };
-
-  const onModel = (m) => {
-    updateInput('model', m);
-    updateInput('variant', '');
-    updateInput('fuel', '');
-    updateInput('transmission', '');
-    updateInput('year', '');
-  };
-
-  const onVariant = (v) => {
-    updateInput('variant', v);
+  // Compute Model list based on selected brand
+  const modelList = useMemo(() => {
+    if (!inputs.brand) return [];
     
-  };
+    // Check API brandsMap first
+    const brandKey = Object.keys(brandsMap).find(b => b.toLowerCase() === inputs.brand.toLowerCase());
+    if (brandKey && Array.isArray(brandsMap[brandKey]) && brandsMap[brandKey].length > 0) {
+      return brandsMap[brandKey].sort();
+    }
 
-  const onSubmit = async () => {
-    if (!isReady) return;
+    // Check dataset catalog
+    const catalogBrandKey = Object.keys(DATASET_CATALOG).find(b => b.toLowerCase() === inputs.brand.toLowerCase());
+    if (catalogBrandKey && DATASET_CATALOG[catalogBrandKey]) {
+      const models = Object.keys(DATASET_CATALOG[catalogBrandKey]).map(titleCase);
+      if (models.length > 0) return models.sort();
+    }
+
+    return ['City', 'Creta', 'Swift', 'Nexon', 'Innova Crysta', 'Thar', 'Seltos', 'Fortuner', '3 Series', 'C-Class'];
+  }, [inputs.brand, brandsMap]);
+
+  // Compute Variant list based on selected brand & model
+  const variantList = useMemo(() => {
+    if (!inputs.brand || !inputs.model) return [];
+    
+    const catalogBrandKey = Object.keys(DATASET_CATALOG).find(b => b.toLowerCase() === inputs.brand.toLowerCase());
+    if (catalogBrandKey && DATASET_CATALOG[catalogBrandKey]) {
+      const modelKey = Object.keys(DATASET_CATALOG[catalogBrandKey]).find(m => m.toLowerCase() === inputs.model.toLowerCase());
+      if (modelKey && Array.isArray(DATASET_CATALOG[catalogBrandKey][modelKey])) {
+        const rawVariants = DATASET_CATALOG[catalogBrandKey][modelKey];
+        if (rawVariants.length > 0) {
+          return rawVariants.map(v => v.toUpperCase()).sort();
+        }
+      }
+    }
+
+    return ['Standard', 'Base Trim', 'V MT', 'VX MT', 'ZX', 'ZX CVT', 'SX', 'SX(O)'];
+  }, [inputs.brand, inputs.model]);
+
+  const score = useMemo(() => healthScore(inputs), [inputs]);
+  const meta  = useMemo(() => healthMeta(score), [score]);
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (!inputs.brand) {
+      setError('Please select a vehicle brand');
+      return;
+    }
+    if (!inputs.model) {
+      setError('Please select a vehicle model');
+      return;
+    }
+
     setError('');
-    setSubmitting(true);
-    setIsLoading(true);
-    setValuationResult(null);
-    setActiveScreen('result');
+    setLoading(true);
     try {
       const payload = {
         ...inputs,
-        
-        model: inputs.model,
-        variant: inputs.variant || 'unknown',
+        city: 'Bangalore',
+        sellerType: inputs.sellerType || 'Individual',
       };
-      const result = await runMLValuation(payload);
-
-      setValuationResult(result);
-      addEvaluation({ ...inputs }, result, 'Single Vehicle');
-    } catch {
-      setActiveScreen('input');
-      setError('ML backend unavailable. Run: uvicorn backend.main:app --reload');
+      const res = await runMLValuation(payload);
+      if (typeof setValuationResult === 'function') {
+        setValuationResult(res);
+      }
+      const saveFn = addEvaluation || appendEvaluation;
+      if (typeof saveFn === 'function') {
+        await saveFn(payload, res, 'Single Vehicle');
+      }
+      if (typeof setActiveScreen === 'function') {
+        setActiveScreen('result');
+      }
+    } catch (err) {
+      setError(err?.message || 'Valuation service encountered an issue. Please retry.');
     } finally {
-      setSubmitting(false);
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="vws-root">
-
-      {}
-      <div className="vws-form">
-
-        {}
-        <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Vehicle Valuation Parameters</h2>
-          <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Configure all inputs side-by-side to estimate buy and sell pricing bands.</p>
+    <div className="screen">
+      <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div className="page-title">New Vehicle Valuation</div>
+          <div className="page-subtitle">Input vehicle specs, physical condition, and target dealer parameters for instant ML valuation.</div>
         </div>
-
-        {}
-        <div className="vws-row-4">
-          <div className="vws-field">
-            <FieldLabel required>Brand</FieldLabel>
-            {loading ? (
-              <div className="vws-skeleton" style={{ height: 38 }} />
-            ) : (
-              <SearchableDropdown
-                options={brandList}
-                value={inputs.brand}
-                onChange={onBrand}
-                placeholder="Brand"
-                searchPlaceholder="Search brands…"
-              />
-            )}
-          </div>
-          <div className="vws-field">
-            <FieldLabel required>Model</FieldLabel>
-            <SearchableDropdown
-              options={modelList}
-              value={inputs.model}
-              onChange={onModel}
-              placeholder="Model"
-              disabled={!inputs.brand || modelList.length === 0}
-              searchPlaceholder="Search models…"
-            />
-          </div>
-          <div className="vws-field">
-            <FieldLabel required>Year</FieldLabel>
-            <SearchableDropdown
-              options={availableYears}
-              value={inputs.year}
-              onChange={v => updateInput('year', v)}
-              placeholder={optionsLoading ? 'Loading…' : 'Year'}
-              disabled={optionsLoading}
-            />
-          </div>
-          <div className="vws-field">
-            <FieldLabel>Variant</FieldLabel>
-            <SearchableDropdown
-              options={variantList}
-              value={inputs.variant}
-              onChange={onVariant}
-              placeholder="Variant"
-              disabled={!inputs.model || variantList.length === 0}
-              searchPlaceholder="Search variants…"
-            />
-          </div>
-        </div>
-
-        {}
-        <div className="vws-row-4">
-          <div className="vws-field">
-            <FieldLabel required>Odometer Reading</FieldLabel>
-            <div className="vws-odo-wrap" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <input
-                className="vws-input"
-                type="number"
-                value={inputs.mileage || ''}
-                onChange={e => updateInput('mileage', e.target.value)}
-                placeholder="Odometer"
-                min={0}
-                style={{ width: '100%', paddingRight: '36px' }}
-              />
-              <span className="vws-odo-unit" style={{ position: 'absolute', right: '12px', fontSize: '12px', color: 'var(--text-3)' }}>km</span>
-            </div>
-          </div>
-          <div className="vws-field">
-            <FieldLabel required>Fuel Type</FieldLabel>
-            <select
-              className="vws-input field-select"
-              value={inputs.fuel || ''}
-              onChange={e => updateInput('fuel', e.target.value)}
-              disabled={optionsLoading}
-            >
-              <option value="">{optionsLoading ? 'Loading…' : 'Select Fuel'}</option>
-              {availableFuels.map(f => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
-          <div className="vws-field">
-            <FieldLabel>Transmission</FieldLabel>
-            <select
-              className="vws-input field-select"
-              value={inputs.transmission || ''}
-              onChange={e => updateInput('transmission', e.target.value)}
-              disabled={optionsLoading}
-            >
-              <option value="">{optionsLoading ? 'Loading…' : 'Select Transmission'}</option>
-              {availableTransmissions.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div className="vws-field">
-            <FieldLabel>Owners</FieldLabel>
-            <select
-              className="vws-input field-select"
-              value={inputs.ownerCount || ''}
-              onChange={e => updateInput('ownerCount', e.target.value)}
-            >
-              <option value="">Select Owners</option>
-              {OWNERS.map(o => (
-                <option key={o} value={o.replace('+','')}>{o}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {}
-        <div className="vws-row-4">
-          <div className="vws-field">
-            <FieldLabel>Color</FieldLabel>
-            <div style={{ position: 'relative' }}>
-              {inputs.color && (
-                <span style={{
-                  position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                  width: 14, height: 14, borderRadius: '50%', pointerEvents: 'none',
-                  background: COLORS.find(c => c.name === inputs.color)?.hex || '#ccc',
-                  border: `1.5px solid ${COLORS.find(c => c.name === inputs.color)?.border || '#aaa'}`,
-                  zIndex: 1,
-                }} />
-              )}
-              <select
-                className="vws-input field-select"
-                value={inputs.color || ''}
-                onChange={e => updateInput('color', e.target.value)}
-                style={{ paddingLeft: inputs.color ? 30 : 10 }}
-              >
-                <option value="">Select color</option>
-                {COLORS.map(c => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="vws-field">
-            <FieldLabel>Target Margin %</FieldLabel>
-            <div className="vws-money-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <input
-                className="vws-input"
-                type="number"
-                min={8}
-                max={30}
-                step={1}
-                value={inputs.targetMarginPct || 10}
-                onChange={e => updateInput('targetMarginPct', e.target.value)}
-                placeholder="10"
-                style={{ paddingRight: 24 }}
-              />
-              <span style={{ position: 'absolute', right: 12, fontSize: 12, color: 'var(--text-3)' }}>%</span>
-            </div>
-          </div>
-          <div className="vws-field">
-            <FieldLabel>Locality</FieldLabel>
-            <SearchableDropdown
-              options={LOCALITIES}
-              value={inputs.locality || 'Indiranagar'}
-              onChange={v => updateInput('locality', v)}
-              placeholder="Select Locality"
-              searchPlaceholder="Search locality…"
-            />
-          </div>
-          <div className="vws-field">
-            <FieldLabel>Registration No.</FieldLabel>
-            <input
-              className="vws-input vws-mono"
-              type="text"
-              value={inputs.vin || ''}
-              onChange={e => updateInput('vin', formatReg(e.target.value))}
-              placeholder="MH 01 AB 1234"
-              maxLength={11}
-            />
-          </div>
-        </div>
-
-        {}
-        {error && (
-          <div className="vws-error" style={{ marginTop: 12 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-              <path d="M12 9v4M12 17h.01"/>
-            </svg>
-            {error}
-          </div>
-        )}
-
-      </div>{}
-
-      {}
-      <div className="vws-panel">
-        <div className="vws-panel-inner">
-
-          {}
-          <div className="vwsp-heading">Valuation Summary</div>
-
-          {}
-          <div className="vwsp-card">
-            <div className="vwsp-vehicle-name">
-              {inputs.brand && inputs.model
-                ? `${inputs.brand} ${inputs.model}`
-                : <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>No vehicle selected</span>}
-            </div>
-            {inputs.year && (
-              <div className="vwsp-vehicle-sub">
-                {[inputs.year, inputs.variant].filter(Boolean).join(' · ')}
-              </div>
-            )}
-            <div className="vwsp-tags">
-              {inputs.fuel         && <span className="vwsp-tag">{inputs.fuel}</span>}
-              {inputs.transmission && <span className="vwsp-tag">{inputs.transmission}</span>}
-              {inputs.ownerCount   && <span className="vwsp-tag">{inputs.ownerCount} Owner{inputs.ownerCount !== '1' ? 's' : ''}</span>}
-              {Number(inputs.mileage) > 0 && (
-                <span className="vwsp-tag">{(Number(inputs.mileage)/1000).toFixed(0)}k km</span>
-              )}
-              {inputs.condition    && <span className="vwsp-tag">{inputs.condition}</span>}
-              {inputs.city         && <span className="vwsp-tag">{inputs.city}</span>}
-            </div>
-          </div>
-
-          {}
-          {inputs.brand && (
-            <div className="vwsp-card">
-              <div className="vwsp-stat-label">Deal Health Preview</div>
-              <div className="vwsp-health-bar">
-                <div
-                  className="vwsp-health-fill"
-                  style={{ width: `${score}%`, background: meta.fill }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: meta.color }}>{meta.label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{score}/100</span>
-              </div>
-            </div>
-          )}
-
-          {}
-          {segment && (
-            <div className="vwsp-grid">
-              <div className="vwsp-stat">
-                <div className="vwsp-stat-label">Segment</div>
-                <div className="vwsp-stat-val" style={{
-                  color: segment === 'luxury' ? '#7c3aed' : segment === 'premium' ? '#b45309' : '#2563eb',
-                }}>
-                  {segment.toUpperCase()}
-                </div>
-              </div>
-              <div className="vwsp-stat">
-                <div className="vwsp-stat-label">Fields Filled</div>
-                <div className="vwsp-stat-val">{required}/6</div>
-              </div>
-              {inputs.sellerAskingPrice > 0 && (
-                <div className="vwsp-stat">
-                  <div className="vwsp-stat-label">Asking Price</div>
-                  <div className="vwsp-stat-val">{formatLakh(inputs.sellerAskingPrice)}</div>
-                </div>
-              )}
-              <div className="vwsp-stat">
-                <div className="vwsp-stat-label">Target Margin</div>
-                <div className="vwsp-stat-val">{inputs.targetMarginPct || 10}%</div>
-              </div>
-            </div>
-          )}
-
-          {}
-          {!isReady && inputs.brand && (
-            <div className="vwsp-checklist">
-              <div className="vwsp-check-head">Required fields</div>
-              {[
-                { key: 'brand',   label: 'Brand' },
-                { key: 'model',   label: 'Model' },
-                { key: 'year',    label: 'Year' },
-                { key: 'mileage', label: 'Odometer' },
-                { key: 'fuel',    label: 'Fuel type' },
-                { key: 'city',    label: 'City' },
-              ].map(f => {
-                const done = !!inputs[f.key];
-                return (
-                  <div key={f.key} className={`vwsp-check-row${done ? ' done' : ''}`}>
-                    <span className="vwsp-check-icon">
-                      {done
-                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
-                    </span>
-                    {f.label}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ flex: 1 }} />
-
-          {}
-          <div className="vwsp-cta">
-
-            <button
-              className="vws-cta-btn"
-              onClick={onSubmit}
-              disabled={!isReady || submitting}
-            >
-              {}
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
-              {submitting ? 'Analysing…' : 'Analyse with ML'}
-            </button>
-            <div className="vws-cta-sub">
-              CatBoost · LightGBM · XGBoost ensemble
-            </div>
-          </div>
-
-        </div>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => setActiveScreen('enhanced-input')}
+        >
+          <Icon name="zap" size={13} strokeWidth={2} />
+          <span>Full Inspection Form (Enhanced)</span>
+        </button>
       </div>
 
+      {error && (
+        <div className="toast toast-error" style={{ marginBottom: 18 }}>
+          <Icon name="warning" size={16} color="#dc2626" strokeWidth={2} />
+          <div>{error}</div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="nv-root">
+        {/* Left Column: Form Sections */}
+        <div className="nv-form-col">
+          {/* SECTION 1: Vehicle Identity */}
+          <div className="nv-section">
+            <div className="nv-section-header">
+              <div className="nv-section-num">1</div>
+              <div className="nv-section-title">Vehicle Identity</div>
+            </div>
+            <div className="nv-section-body">
+              <div className="nv-grid">
+                <div className="form-group">
+                  <label className="form-label form-label-req">Brand</label>
+                  <SearchableDropdown
+                    options={brandList}
+                    value={inputs.brand}
+                    onChange={(val) => {
+                      upd('brand', val);
+                      upd('model', '');
+                      upd('variant', '');
+                    }}
+                    placeholder="Select brand"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label form-label-req">Model</label>
+                  <SearchableDropdown
+                    options={modelList}
+                    value={inputs.model}
+                    onChange={(val) => {
+                      upd('model', val);
+                      upd('variant', '');
+                    }}
+                    placeholder={inputs.brand ? "Select model" : "Select brand first"}
+                    disabled={!inputs.brand}
+                  />
+                </div>
+              </div>
+
+              <div className="nv-grid" style={{ marginTop: 12 }}>
+                <div className="form-group">
+                  <label className="form-label form-label-req">Variant / Trim</label>
+                  <SearchableDropdown
+                    options={variantList}
+                    value={inputs.variant}
+                    onChange={(val) => upd('variant', val)}
+                    placeholder={inputs.model ? "Select variant" : "Select model first"}
+                    disabled={!inputs.model}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label form-label-req">Manufacturing Year</label>
+                  <select
+                    className="form-select"
+                    value={inputs.year}
+                    onChange={(e) => upd('year', e.target.value)}
+                  >
+                    {optYears.map((yr) => (
+                      <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: Physical & Technical Condition */}
+          <div className="nv-section">
+            <div className="nv-section-header">
+              <div className="nv-section-num">2</div>
+              <div className="nv-section-title">Physical & Technical Condition</div>
+            </div>
+            <div className="nv-section-body">
+              <div className="nv-grid-4">
+                <div className="form-group">
+                  <label className="form-label form-label-req">Odometer (km)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="e.g. 35000"
+                    value={inputs.mileage}
+                    onChange={(e) => upd('mileage', e.target.value)}
+                    min="0"
+                    max="2000000"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label form-label-req">Previous Owners</label>
+                  <select
+                    className="form-select"
+                    value={inputs.ownerCount}
+                    onChange={(e) => upd('ownerCount', e.target.value)}
+                  >
+                    {OWNERS.map((o) => (
+                      <option key={o} value={o}>{o} {o === '1' ? 'Owner' : 'Owners'}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label form-label-req">Fuel Type</label>
+                  <select
+                    className="form-select"
+                    value={inputs.fuel}
+                    onChange={(e) => upd('fuel', e.target.value)}
+                  >
+                    {optFuels.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label form-label-req">Transmission</label>
+                  <select
+                    className="form-select"
+                    value={inputs.transmission}
+                    onChange={(e) => upd('transmission', e.target.value)}
+                  >
+                    {optTrans.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="nv-grid" style={{ marginTop: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">Overall Condition</label>
+                  <select
+                    className="form-select"
+                    value={inputs.condition || 'Good'}
+                    onChange={(e) => upd('condition', e.target.value)}
+                  >
+                    <option value="Excellent">Excellent (Like new, zero blemishes)</option>
+                    <option value="Good">Good (Minor wear, well maintained)</option>
+                    <option value="Average">Average (Wear visible, needs recon)</option>
+                    <option value="Poor">Poor (Major cosmetic/mechanical work)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Vehicle Color</label>
+                  <div className="color-swatch-grid">
+                    {COLORS.map((c) => (
+                      <div
+                        key={c.name}
+                        className={`color-swatch ${(inputs.color || 'White').toLowerCase() === c.name.toLowerCase() ? 'selected' : ''}`}
+                        style={{ background: c.hex, borderColor: c.border }}
+                        title={c.name}
+                        onClick={() => upd('color', c.name)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: Locality & Deal Parameters */}
+          <div className="nv-section">
+            <div className="nv-section-header" style={{ background: '#fef3ec' }}>
+              <div className="nv-section-num" style={{ background: '#e85d26' }}>3</div>
+              <div className="nv-section-title" style={{ color: '#cf4d1a' }}>Locality & Acquisition Parameters</div>
+            </div>
+            <div className="nv-section-body">
+              <div className="nv-grid-3">
+                <div className="form-group">
+                  <label className="form-label">Locality / RTO Zone</label>
+                  <SearchableDropdown
+                    options={LOCALITIES}
+                    value={inputs.locality || 'Indiranagar'}
+                    onChange={(v) => upd('locality', v)}
+                    placeholder="Select Locality"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Target Margin (%)</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <input
+                      type="range"
+                      min="5"
+                      max="25"
+                      step="0.5"
+                      value={inputs.targetMarginPct || 10}
+                      onChange={(e) => upd('targetMarginPct', e.target.value)}
+                      style={{ flex: 1, accentColor: '#e85d26' }}
+                    />
+                    <span style={{ fontWeight: 800, fontSize: 13.5, color: '#e85d26', width: 42, textAlign: 'right' }}>
+                      {inputs.targetMarginPct || 10}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Recon Buffer (₹)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={inputs.repairBuffer || 25000}
+                    onChange={(e) => upd('repairBuffer', e.target.value)}
+                    placeholder="25000"
+                    step="5000"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Primary Action Button */}
+            <div className="nv-cta">
+              <button
+                type="submit"
+                className="btn btn-primary btn-xl"
+                disabled={loading}
+                style={{ flex: 1 }}
+              >
+                {loading ? (
+                  <>
+                    <div className="loading-spinner" style={{ width: 16, height: 16, borderWidth: 2, borderColor: '#fff', borderTopColor: 'transparent' }} />
+                    <span>Analyzing Vehicle & Computing Margins...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="car" size={17} color="white" strokeWidth={2} />
+                    <span>ANALYZE VEHICLE</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Asset Readiness Preview */}
+        <div className="nv-preview-col">
+          <div className="card" style={{ position: 'sticky', top: 72 }}>
+            <div className="card-header">
+              <div className="card-title">Asset Readiness</div>
+              <span className="badge" style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.color}40` }}>
+                {meta.label}
+              </span>
+            </div>
+
+            <div className="card-body">
+              {/* Score ring */}
+              <div className="health-gauge-wrap">
+                <div className="health-score-ring">
+                  <svg width="80" height="80" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" strokeWidth="6" />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="34"
+                      fill="none"
+                      stroke={meta.color}
+                      strokeWidth="6"
+                      strokeDasharray={2 * Math.PI * 34}
+                      strokeDashoffset={2 * Math.PI * 34 * (1 - score / 100)}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="health-score-num">{score}</div>
+                </div>
+                <div className="health-label">Asset Health Score / 100</div>
+              </div>
+
+              {/* Summary details */}
+              <div style={{ marginTop: 16, borderTop: '1px solid var(--border-2)', paddingTop: 14 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-4)', letterSpacing: 0.6, marginBottom: 8 }}>
+                  Evaluation Target
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', marginBottom: 4 }}>
+                  {inputs.year} {inputs.brand || '—'} {inputs.model || ''}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
+                  {inputs.variant || 'Select Variant'} · {inputs.fuel} · {inputs.transmission}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Usage:</span>
+                  <strong style={{ color: 'var(--text-1)' }}>{Number(inputs.mileage || 0).toLocaleString('en-IN')} km</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Ownership:</span>
+                  <strong style={{ color: 'var(--text-1)' }}>{inputs.ownerCount} {inputs.ownerCount === '1' ? 'Owner' : 'Owners'}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Locality:</span>
+                  <strong style={{ color: 'var(--text-1)' }}>{inputs.locality || 'Indiranagar'}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Target Margin:</span>
+                  <strong style={{ color: '#e85d26' }}>{inputs.targetMarginPct || 10}%</strong>
+                </div>
+              </div>
+
+              {/* Clean Business-Only Notice */}
+              <div style={{ marginTop: 18, padding: 12, background: 'var(--surface-2)', borderRadius: 'var(--r-md)', border: '1px solid var(--border-2)' }}>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="check" size={13} color="#16a34a" strokeWidth={2.5} />
+                  <span>Market Valuation Ready</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 4 }}>
+                  Real-time acquisition pricing based on verified transaction data and condition adjustments.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

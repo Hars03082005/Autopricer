@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { formatINR } from '../utils/mockData.js';
 import { exportEvaluationsToCSV } from '../utils/csvExporter.js';
 import Icon from '../components/Icon.jsx';
 import {
@@ -9,10 +8,23 @@ import {
   ResponsiveContainer, Tooltip, Cell,
 } from 'recharts';
 
-const BRAND_COLORS = [
-  '#f75d34','#2563eb','#16a34a','#d97706','#7c3aed',
-  '#0891b2','#be185d','#059669','#9333ea','#c2410c',
-];
+const fmtL = (n) => {
+  const v = Number(n || 0);
+  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
+  if (v >= 100000)   return `₹${(v / 100000).toFixed(2)}L`;
+  if (v >= 1000)     return `₹${(v / 1000).toFixed(0)}k`;
+  return `₹${Math.round(v).toLocaleString('en-IN')}`;
+};
+
+const fmtDate = (iso) => {
+  if (!iso) return 'Today';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  } catch {
+    return 'Recent';
+  }
+};
 
 function ChartTip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -20,33 +32,25 @@ function ChartTip({ active, payload, label }) {
     <div className="chart-tip">
       <div className="chart-tip-label">{label}</div>
       {payload.map((p, i) => (
-        <div key={i}>{p.name}: <strong>{p.value}L</strong></div>
+        <div key={i}>{p.name}: <strong>₹{p.value}L</strong></div>
       ))}
     </div>
   );
 }
 
-function EmptyHome({ setActiveScreen }) {
-  return (
-    <div className="home-empty">
-      <div className="home-empty-icon">
-        <Icon name="car" size={28} color="#f75d34" strokeWidth={1.8} />
-      </div>
-      <div className="home-empty-title">No valuations yet</div>
-      <div className="home-empty-desc">
-        Value your first vehicle and this dashboard will fill up with deal signals,
-        profit estimates, and brand trends from your own evaluations.
-      </div>
-      <button className="btn btn-primary btn-lg" onClick={() => setActiveScreen('input')}>
-        <Icon name="car" size={16} color="white" strokeWidth={2} />
-        Start First Valuation
-      </button>
-    </div>
-  );
+function ActionBadge({ action }) {
+  const act = String(action || 'REVIEW').toUpperCase();
+  if (act === 'BUY') {
+    return <span className="badge badge-buy"><Icon name="check" size={10} color="#15803d" strokeWidth={2.5} /> BUY</span>;
+  }
+  if (act === 'NEGOTIATE' || act === 'INSPECT' || act === 'BUY AFTER INSPECTION') {
+    return <span className="badge badge-caution">INSPECT</span>;
+  }
+  return <span className="badge badge-risk">PASS</span>;
 }
 
 export default function HomeScreen() {
-  const { setActiveScreen, evaluations } = useApp();
+  const { setActiveScreen, evaluations, viewEvaluation, editEvaluation, deleteEvaluation } = useApp();
   const { currentUser } = useAuth();
 
   const greeting = useMemo(() => {
@@ -58,15 +62,10 @@ export default function HomeScreen() {
 
   const data = useMemo(() => {
     const records = [...evaluations];
-    const projectedProfit = records.reduce((s, v) => s + Number(v.expectedProfit || 0), 0);
-    const pipeline       = records.reduce((s, v) => s + Number(v.marketValue || 0), 0);
-    const buyCount       = records.filter(v => v.action === 'BUY').length;
-    const avgProfit      = records.length ? Math.round(projectedProfit / records.length) : 0;
-
-    const topOpportunities = [...records]
-      .filter(v => v.marketValue > 0)
-      .sort((a, b) => (b.dealQualityScore || 0) - (a.dealQualityScore || 0))
-      .slice(0, 6);
+    const totalProfit = records.reduce((s, v) => s + Number(v.expectedProfit || 0), 0);
+    const pipelineValue = records.reduce((s, v) => s + Number(v.marketValue || 0), 0);
+    const buyOpportunities = records.filter(v => (v.action === 'BUY' || (v.dealQualityScore || 0) >= 65));
+    const activeCount = buyOpportunities.length;
 
     const brandAgg = {};
     records.forEach(v => {
@@ -76,230 +75,278 @@ export default function HomeScreen() {
       brandAgg[v.brand].count += 1;
     });
     const marketPulse = Object.values(brandAgg)
-      .map(b => ({ brand: b.brand, avgResaleL: +(b.total / b.count / 100000).toFixed(1) }))
-      .sort((a, b) => b.avgResaleL - a.avgResaleL)
-      .slice(0, 8);
-
-    const riskCount = records.filter(v => Number(v.riskScore || 0) >= 65).length;
-    const recent = records.slice(0, 8);
+      .map(b => ({ brand: b.brand, avgValueL: +(b.total / b.count / 100000).toFixed(2) }))
+      .sort((a, b) => b.avgValueL - a.avgValueL)
+      .slice(0, 6);
 
     return {
-      kpis: {
-        evaluations: records.length,
-        buy: buyCount,
-        avgProfit,
-        pipelineL: +(pipeline / 100000).toFixed(1),
-      },
-      topOpportunities,
+      records,
+      totalProfit,
+      pipelineValue,
+      activeCount,
       marketPulse,
-      riskCount,
-      recent,
     };
   }, [evaluations]);
 
-  const getActionClass = (action = '') => {
-    const a = String(action).toUpperCase();
-    if (a === 'BUY') return 'buy';
-    if (a === 'NEGOTIATE') return 'negotiate';
-    if (a === 'REJECT') return 'reject';
-    return 'review';
-  };
-
-  const fmtL = (n) => {
-    if (!n) return '₹0';
-    if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
-    return formatINR(n);
-  };
-
   return (
-    <div className="screen screen-wide home-screen">
-      {}
-      <div className="home-greeting page-header">
+    <div className="screen">
+      {/* Dashboard Top Greeting & Action Header */}
+      <div className="dash-greeting">
         <div>
-          <div className="home-greeting-name">
-            {greeting}, {currentUser?.name?.split(' ')[0] || 'Dealer'} 👋
-          </div>
-          <div className="home-greeting-sub">
-            {evaluations.length === 0
-              ? 'Run your first valuation to get started.'
-              : `${data.kpis.evaluations} evaluations · ${data.kpis.buy} BUY signals · ₹${data.kpis.pipelineL}L pipeline`
-            }
-          </div>
+          <div className="page-title">{greeting}, {currentUser?.name?.split(' ')[0] || 'Dealer'}</div>
+          <div className="page-subtitle">PriceRef Valuation Terminal · Bengaluru Market Context</div>
         </div>
-        <div className="page-header-actions home-cta-row">
-          <button className="btn btn-primary" onClick={() => setActiveScreen('input')}>
-            <Icon name="car" size={15} color="white" strokeWidth={2} />
-            New Valuation
-          </button>
-          <button className="btn btn-secondary" onClick={() => setActiveScreen('dashboard')}>
-            <Icon name="chart" size={15} color="#475569" strokeWidth={2} />
-            Analytics
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {evaluations.length > 0 && (
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={() => exportEvaluationsToCSV(evaluations)}
-              title="Download all stored evaluations as CSV"
+              title="Export all evaluations to CSV"
             >
-              Export CSV
+              <Icon name="upload" size={13} strokeWidth={2} />
+              <span>Export CSV</span>
             </button>
           )}
+          <button className="btn btn-primary btn-sm" onClick={() => setActiveScreen('input')}>
+            <Icon name="car" size={13} color="white" strokeWidth={2} />
+            <span>New Valuation</span>
+          </button>
         </div>
       </div>
 
-      {}
-      <div className="kpi-grid">
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Total Evaluations</div>
-            <div className="kpi-icon" style={{ background: '#dbeafe' }}>
-              <Icon name="clipboard" size={14} color="#2563eb" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">{data.kpis.evaluations}</div>
-          <div className="kpi-tile-sub">Vehicles valued so far</div>
+      {/* 4 Pipeline Stat Tiles */}
+      <div className="pipeline-grid">
+        <div className="pipeline-tile">
+          <div className="pipeline-tile-label">Total Evaluations</div>
+          <div className="pipeline-tile-value">{evaluations.length}</div>
+          <div className="pipeline-tile-sub">Vehicles processed</div>
         </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">BUY Signals</div>
-            <div className="kpi-icon" style={{ background: '#dcfce7' }}>
-              <Icon name="shield" size={14} color="#16a34a" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ color: '#16a34a' }}>{data.kpis.buy}</div>
-          <div className="kpi-tile-sub">Deals worth pursuing</div>
+        <div className="pipeline-tile">
+          <div className="pipeline-tile-label">Active Opportunities</div>
+          <div className="pipeline-tile-value" style={{ color: '#16a34a' }}>{data.activeCount}</div>
+          <div className="pipeline-tile-sub">High deal quality (Score &ge; 65)</div>
         </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Avg. Net Profit</div>
-            <div className="kpi-icon" style={{ background: '#fff4f0' }}>
-              <Icon name="coins" size={14} color="#f75d34" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value" style={{ color: data.kpis.avgProfit > 0 ? '#16a34a' : '#0f172a' }}>
-            {fmtL(data.kpis.avgProfit)}
-          </div>
-          <div className="kpi-tile-sub">Per vehicle evaluated</div>
+        <div className="pipeline-tile">
+          <div className="pipeline-tile-label">Potential Profit</div>
+          <div className="pipeline-tile-value" style={{ color: '#e85d26' }}>{fmtL(data.totalProfit)}</div>
+          <div className="pipeline-tile-sub">Projected dealer margin</div>
         </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <div className="kpi-tile-label">Pipeline Value</div>
-            <div className="kpi-icon" style={{ background: '#f3e8ff' }}>
-              <Icon name="lightning" size={14} color="#7c3aed" strokeWidth={2} />
-            </div>
-          </div>
-          <div className="kpi-tile-value">₹{data.kpis.pipelineL}L</div>
-          <div className="kpi-tile-sub">Combined market values</div>
+        <div className="pipeline-tile">
+          <div className="pipeline-tile-label">Pipeline Value</div>
+          <div className="pipeline-tile-value">{fmtL(data.pipelineValue)}</div>
+          <div className="pipeline-tile-sub">Total inventory market value</div>
         </div>
       </div>
 
-      {evaluations.length === 0 ? (
-        <div className="card">
-          <EmptyHome setActiveScreen={setActiveScreen} />
-        </div>
-      ) : (
-        <div className="home-main-grid">
-          {}
-          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Recent Evaluations</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>Your last {data.recent.length} valuations</div>
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setActiveScreen('dashboard')}>
-                View all
+      {/* Main Valuation Pipeline Table */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">Valuation Pipeline</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 2 }}>
+              Comprehensive inventory valuation records with direct acquisition actions
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {evaluations.length > 0 && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => exportEvaluationsToCSV(evaluations)}
+              >
+                <Icon name="upload" size={12} strokeWidth={2} />
+                <span>Export CSV</span>
               </button>
+            )}
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveScreen('input')}
+            >
+              + Evaluate Car
+            </button>
+          </div>
+        </div>
+
+        {evaluations.length === 0 ? (
+          <div className="empty-screen" style={{ padding: '40px 20px' }}>
+            <div className="empty-icon-wrap">
+              <Icon name="car" size={26} color="#e85d26" strokeWidth={1.8} />
             </div>
-            <div className="home-eval-table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Vehicle</th>
-                    <th>Market Value</th>
-                    <th>Action</th>
-                    <th>Deal Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recent.map(v => (
-                    <tr key={v.id}>
+            <div className="empty-title">No evaluations in pipeline</div>
+            <div className="empty-sub">
+              Start by running a valuation. Your pipeline will populate with real-time acquisition pricing, profit margins, and deal quality scores.
+            </div>
+            <button className="btn btn-primary btn-md" onClick={() => setActiveScreen('input')}>
+              <Icon name="car" size={14} color="white" strokeWidth={2} />
+              <span>Start First Valuation</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="pr-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 80 }}>STATUS</th>
+                  <th>VEHICLE</th>
+                  <th>YEAR</th>
+                  <th>VARIANT</th>
+                  <th style={{ textAlign: 'right' }}>MARKET VALUE</th>
+                  <th style={{ textAlign: 'right' }}>BUY RANGE</th>
+                  <th style={{ textAlign: 'right' }}>EXPECTED PROFIT</th>
+                  <th style={{ textAlign: 'center' }}>DECISION</th>
+                  <th style={{ textAlign: 'center' }}>DATE</th>
+                  <th style={{ textAlign: 'center', minWidth: 150 }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {evaluations.map((v, i) => {
+                  const buyLow = v.opening_offer || Math.round(((v.buyPrice || v.recommendedBuyPrice || 0) * 0.95) / 500) * 500;
+                  const buyHigh = v.max_offer || Math.round(((v.buyPrice || v.recommendedBuyPrice || 0) * 1.03) / 500) * 500;
+
+                  return (
+                    <tr key={v.id || i}>
                       <td>
-                        <div className="vehicle-name">{v.brand} {v.model}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
-                          {v.year} · {v.fuel} · {(Number(v.kmDriven || 0)/1000).toFixed(0)}k km
-                        </div>
-                      </td>
-                      <td className="price-cell">{fmtL(v.marketValue)}</td>
-                      <td>
-                        <span className={`home-action-pill ${getActionClass(v.action)}`}>
-                          {v.action}
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-4)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                          COMPLETED
                         </span>
                       </td>
-                      <td style={{ fontWeight: 700, color: 'var(--text-1)' }}>
-                        {v.dealQualityScore || '-'}/100
+                      <td>
+                        <div style={{ fontWeight: 700, color: 'var(--text-1)' }}>{v.brand} {v.model}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-4)' }}>
+                          {Number(v.odometer || v.mileage || 0).toLocaleString('en-IN')} km · {v.fuel || 'Petrol'}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 600, color: 'var(--text-2)' }}>{v.year}</td>
+                      <td>
+                        <div style={{ fontSize: 12, color: 'var(--text-2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {v.variant || 'Standard'}
+                        </div>
+                      </td>
+                      <td className="num" style={{ fontWeight: 800 }}>{fmtL(v.marketValue)}</td>
+                      <td className="num" style={{ color: '#15803d', fontWeight: 600 }}>
+                        {fmtL(buyLow)} – {fmtL(buyHigh)}
+                      </td>
+                      <td className="num" style={{ color: '#e85d26', fontWeight: 700 }}>
+                        +{fmtL(v.expectedProfit)}
+                        <span style={{ fontSize: 10.5, color: 'var(--text-4)', marginLeft: 3 }}>
+                          ({Number(v.marginPct || 10).toFixed(0)}%)
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <ActionBadge action={v.action} />
+                      </td>
+                      <td style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-4)' }}>
+                        {fmtDate(v.createdAt)}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 9px', fontSize: 11.5, fontWeight: 700 }}
+                            onClick={() => viewEvaluation(v)}
+                            title="View complete valuation report"
+                          >
+                            VIEW
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px 8px', fontSize: 11.5, color: 'var(--text-3)' }}
+                            onClick={() => editEvaluation(v)}
+                            title="Edit valuation inputs"
+                          >
+                            EDIT
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px 6px', fontSize: 12, color: '#dc2626' }}
+                            onClick={() => {
+                              if (confirm(`Remove ${v.year} ${v.brand} ${v.model} from valuation history?`)) {
+                                deleteEvaluation(v.id);
+                              }
+                            }}
+                            title="Remove evaluation"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+        )}
+      </div>
 
-          {}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {}
-            <div className="card">
-              <div className="card-header">
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Top Opportunities</div>
-                <button className="btn btn-ghost btn-sm" onClick={() => setActiveScreen('input')}>+ Evaluate</button>
-              </div>
-              <div className="home-opportunity-list">
-                {data.topOpportunities.slice(0, 5).map(v => (
-                  <div key={v.id} className="home-opp-card">
-                    <div>
-                      <div className="home-opp-vehicle">{v.brand} {v.model} {v.year}</div>
-                      <div className="home-opp-meta">
-                        {v.city} · {v.fuel} · Deal {v.dealQualityScore || 0}/100
-                      </div>
-                    </div>
-                    <div className="home-opp-right">
-                      <div className="home-opp-price">{fmtL(v.expectedProfit)}</div>
-                      <span className={`home-action-pill ${getActionClass(v.action)}`}>
-                        {v.action}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {}
-            {data.marketPulse.length > 0 && (
-              <div className="card">
-                <div className="card-header">
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Brand Values (Avg ₹L)</div>
-                </div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={data.marketPulse} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                    <YAxis dataKey="brand" type="category" tick={{ fill: '#475569', fontSize: 11 }} width={60} />
-                    <Tooltip content={<ChartTip />} />
-                    <Bar dataKey="avgResaleL" name="Avg Market Value" radius={[0, 4, 4, 0]}>
-                      {data.marketPulse.map((_, i) => (
-                        <Cell key={i} fill={BRAND_COLORS[i % BRAND_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+      {/* Bottom Grid: Brand Average Resale Value & Decision Funnel */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {/* Brand Resale Pulse */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Brand Average Resale Value</div>
+            <span style={{ fontSize: 11, color: 'var(--text-4)' }}>Bengaluru Market Intelligence</span>
+          </div>
+          <div className="card-body" style={{ height: 250, minHeight: 250, width: '100%', position: 'relative' }}>
+            {data.marketPulse.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220} minHeight={200}>
+                <BarChart data={data.marketPulse} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="brand" tick={{ fontSize: 11, fill: 'var(--text-4)' }} interval={0} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--text-4)' }} tickFormatter={v => `₹${v}L`} />
+                  <Tooltip content={<ChartTip />} />
+                  <Bar dataKey="avgValueL" name="Avg Value" radius={[4, 4, 0, 0]}>
+                    {data.marketPulse.map((_, idx) => (
+                      <Cell key={idx} fill={idx === 0 ? '#e85d26' : '#1e2d3d'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-screen" style={{ minHeight: 180 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-4)' }}>Run valuations to populate brand benchmark chart</div>
               </div>
             )}
           </div>
         </div>
-      )}
+
+        {/* Acquisition Call Breakdown */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Pipeline Opportunity Health</div>
+            <span style={{ fontSize: 11, color: 'var(--text-4)' }}>Decision Distribution</span>
+          </div>
+          <div className="card-body">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'center', marginBottom: 14 }}>
+              <div style={{ padding: 12, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 'var(--r-md)' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#15803d' }}>BUY</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#15803d', marginTop: 2 }}>
+                  {evaluations.filter(e => e.action === 'BUY').length}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#16a34a' }}>Target Deals</div>
+              </div>
+              <div style={{ padding: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--r-md)' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#b45309' }}>INSPECT</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#b45309', marginTop: 2 }}>
+                  {evaluations.filter(e => ['NEGOTIATE', 'INSPECT', 'BUY AFTER INSPECTION'].includes(e.action)).length}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#d97706' }}>Negotiate / Inspect</div>
+              </div>
+              <div style={{ padding: 12, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 'var(--r-md)' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#b91c1c' }}>PASS</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#b91c1c', marginTop: 2 }}>
+                  {evaluations.filter(e => e.action === 'PASS' || e.action === 'MANUAL REVIEW').length}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#dc2626' }}>Thin Margin / Risk</div>
+              </div>
+            </div>
+
+            <div style={{ padding: 12, background: 'var(--surface-2)', borderRadius: 'var(--r-md)', border: '1px solid var(--border-2)', fontSize: 12, color: 'var(--text-3)' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-1)', marginBottom: 2 }}>Acquisition Intelligence</div>
+              <div>Deals marked as BUY have sufficient margin buffer (&ge;10%) after accounting for holding and standard reconditioning allowances.</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

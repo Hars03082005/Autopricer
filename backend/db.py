@@ -1,17 +1,4 @@
-"""Supabase (PostgREST) access layer.
-
-Every function here takes the caller's access token and issues the request *as*
-that user: `apikey` carries the public anon key and `Authorization` carries the
-user's JWT, so Postgres evaluates row-level security on each statement. The
-explicit `user_id` filters below are therefore belt-and-braces — RLS is the thing
-that actually guarantees one dealer cannot read another's valuations, and it
-holds even if a filter here is wrong.
-
-PostgREST is reached over HTTPS rather than a direct Postgres connection on
-purpose: Supabase's pooler limits are easy to exhaust from a horizontally-scaled
-container, and an HTTP client needs no connection lifecycle management across
-replica restarts.
-"""
+"""Supabase DB Layer."""
 
 from __future__ import annotations
 
@@ -32,7 +19,7 @@ _client: httpx.AsyncClient | None = None
 
 
 async def startup() -> None:
-    """Create the shared HTTP client. Called from the FastAPI lifespan."""
+    """DB Startup."""
     global _client
     if _client is not None:
         return
@@ -45,8 +32,6 @@ async def startup() -> None:
     _client = httpx.AsyncClient(
         base_url=settings.postgrest_url,
         timeout=httpx.Timeout(settings.request_timeout_seconds, connect=5.0),
-        # Bounded pool: a replica is capped at one uvicorn worker, so a large
-        # pool would only queue work deeper rather than complete it faster.
         limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         headers={"Accept": "application/json"},
     )
@@ -54,7 +39,7 @@ async def startup() -> None:
 
 
 async def shutdown() -> None:
-    """Close the shared HTTP client. Called from the FastAPI lifespan."""
+    """DB Shutdown."""
     global _client
     if _client is not None:
         await _client.aclose()
@@ -71,7 +56,6 @@ def _require_client(settings: Settings) -> httpx.AsyncClient:
             ),
         )
     if _client is None:
-        # Only reachable if startup() did not run — a wiring bug, not a user error.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database client is not initialised.",
@@ -91,12 +75,7 @@ def _user_headers(access_token: str, settings: Settings, *, prefer: str | None =
 
 
 def _handle_error(response: httpx.Response, operation: str) -> None:
-    """Translate a PostgREST error into an HTTPException.
-
-    PostgREST error bodies contain schema details (column names, constraint
-    names, the failing SQL hint). Those are logged but not returned to the
-    caller, which would otherwise be a free schema disclosure.
-    """
+    """Handle DB Error."""
     if response.is_success:
         return
 
@@ -115,8 +94,6 @@ def _handle_error(response: httpx.Response, operation: str) -> None:
     )
 
     if response.status_code in (401, 403):
-        # RLS rejected the statement, or the token expired between verification
-        # and use. Either way the client should re-authenticate.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not permitted to access this record.",
@@ -129,7 +106,6 @@ def _handle_error(response: httpx.Response, operation: str) -> None:
         )
 
     if response.status_code == 404 or body.get("code") == "42P01":
-        # 42P01 = undefined_table: migrations have not been applied.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -181,9 +157,6 @@ async def _request(
     return response
 
 
-# ── Evaluations ──────────────────────────────────────────────────────────────
-
-
 async def list_evaluations(
     *, user_id: str, access_token: str, limit: int
 ) -> list[dict[str, Any]]:
@@ -217,8 +190,6 @@ async def insert_evaluation(
         settings=settings,
         operation="insert_evaluation",
         json_body=row,
-        # return=representation so the caller gets the server-assigned id and
-        # created_at without a follow-up read.
         prefer="return=representation",
     )
     payload = response.json()
@@ -255,16 +226,11 @@ async def delete_evaluation(*, user_id: str, evaluation_id: str, access_token: s
         access_token=access_token,
         settings=settings,
         operation="delete_evaluation",
-        # Filtering on user_id as well as id so a guessed id from another
-        # account is a no-op rather than a deletion, independently of RLS.
         params={"id": f"eq.{evaluation_id}", "user_id": f"eq.{user_id}"},
         prefer="return=representation",
     )
     payload = response.json()
     return len(payload) if isinstance(payload, list) else 0
-
-
-# ── Profiles ─────────────────────────────────────────────────────────────────
 
 
 async def get_profile(*, user_id: str, access_token: str) -> dict[str, Any] | None:
@@ -287,8 +253,6 @@ async def upsert_profile(
     *, user_id: str, access_token: str, fields: dict[str, Any]
 ) -> dict[str, Any]:
     settings = get_settings()
-    # id is forced from the verified token, never taken from the request body, so
-    # a caller cannot write a profile row belonging to someone else.
     row = {**fields, "id": user_id}
     response = await _request(
         "POST",
@@ -311,7 +275,7 @@ async def upsert_profile(
 
 
 async def ping(*, access_token: str) -> bool:
-    """Cheap connectivity/schema check used by /health when a token is supplied."""
+    """DB Ping."""
     settings = get_settings()
     if not settings.database_enabled:
         return False

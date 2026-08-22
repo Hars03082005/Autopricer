@@ -34,7 +34,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8000"
-      ACTIVE_VARIANT_ID: variant_1
+      ACTIVE_VARIANT_ID: final
       LOG_LEVEL: info
 
       # Same-origin through the frontend proxy needs no CORS. This list is for

@@ -1,11 +1,3 @@
-// API base resolution moved to src/lib/runtimeConfig.js so that this module, the
-// API client and the Supabase client all agree on one answer, and so the value
-// can be injected at container start instead of baked in by Vite at build time.
-//
-// The previous implementation also hardcoded a fallback to
-// price-prediction-backend.onrender.com for any unrecognised hostname, which
-// meant a fork deployed anywhere else silently sent its users' vehicle data to
-// a third party's backend.
 import { getApiBase } from '../lib/runtimeConfig.js';
 
 function toNumber(value, fallback = 0) {
@@ -60,7 +52,6 @@ function normalizeCondition(value) {
 
 function normalizeColor(value) {
   const text = String(value || '').trim().toLowerCase();
-  // Map common variants to canonical lowercase color names the model knows
   const colorMap = {
     'white': 'white', 'pearl white': 'white', 'solid white': 'white',
     'silver': 'silver', 'silver metallic': 'silver', 'grey': 'grey', 'gray': 'grey',
@@ -253,7 +244,7 @@ export async function fetchCatalog(variantId) {
   return data.catalog || {};
 }
 
-/** Fetch models+variants for a single brand from the dataset catalog */
+/** Fetch models+variants for a single brand */
 export async function fetchBrandModels(brand) {
   const response = await fetch(`${getApiBase()}/api/catalog/${encodeURIComponent(brand)}`);
   if (!response.ok) {
@@ -263,11 +254,7 @@ export async function fetchBrandModels(brand) {
   return data || { brand, models: {} };
 }
 
-/**
- * Fetch the available fuel types, transmissions, and manufacture years
- * that actually exist in the dataset for the given brand/model/variant.
- * Returns { fuel_types, transmissions, years } with safe fallbacks.
- */
+/** Fetch available options for brand/model/variant. */
 export async function fetchOptions({ brand, model, variant } = {}) {
   const params = new URLSearchParams();
   if (brand)   params.set('brand',   brand);
@@ -293,9 +280,7 @@ export async function runMLValuation(inputs) {
   return normalizeApiResult(data, inputs);
 }
 
-/**
- * Run valuation with a specific model variant.
- */
+/** Run ML Valuation. */
 export async function runMLValuationWithVariant(inputs, variantId) {
   const payload = {
     ...payloadFromInputs(inputs),
@@ -305,11 +290,7 @@ export async function runMLValuationWithVariant(inputs, variantId) {
   return normalizeApiResult(data, inputs);
 }
 
-/**
- * Run valuation using the S5 quality shop model (variant_4).
- * Only call this when the vehicle qualifies: vehicle age <= 7 years.
- * Falls back to variant_1 (+8% premium) when model is not in the S5 catalog.
- */
+/** Run S5 Valuation. */
 export async function runS5Valuation(inputs) {
   const payload = {
     ...payloadFromInputs(inputs),
@@ -390,10 +371,8 @@ export async function fetchRegistry() {
 }
 
 export async function activateVariant(variantId) {
-  const token = import.meta.env.VITE_ADMIN_API_TOKEN || 'priceref_admin_token_production_32chars_min';
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
   };
   const response = await fetch(`${getApiBase()}/api/registry/${encodeURIComponent(variantId)}/activate`, {
     method: 'POST',
