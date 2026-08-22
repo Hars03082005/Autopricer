@@ -125,7 +125,9 @@ jobs:
       registry: ${{ steps.acr.outputs.login_server }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 1 }
+        with:
+          fetch-depth: 1
+          lfs: true
 
       - name: Azure login (OIDC)
         if: ${{ env.AZURE_CLIENT_ID != '' }}

@@ -59,17 +59,18 @@ mobile/
 # startup, so the fallback copy is dead weight.
 model_artifacts/
 
-# ── Model registry: ship all switchable variants ────────────────────────────
-# variant_1 is the active default (lowest MAPE = 7.48%).
-# variant_2 and variant_3 are shipped so users can switch between them from
-# the Results screen without a 404. variant_4 / variant_s5 are only needed
-# when their ACTIVE_VARIANT_ID is pinned; exclude those until needed.
-# Total on-disk cost: ~3 × 66 MB ≈ 198 MB for all three variants.
+# ── Model registry: ship final production variant ───────────────────────────
+# final is the active model (5-Seed LightGBM + Luxury CatBoost Specialist + Strategy D)
 model_registry/*
 !model_registry/registry.json
+!model_registry/final/**
 !model_registry/variant_1/**
 !model_registry/variant_2/**
 !model_registry/variant_3/**
+
+# ── Data directory for comparables ──────────────────────────────────────────
+!data/
+!data/data.csv
 
 # ── Infra / docs that never belong in an image ───────────────────────────────
 infra/
