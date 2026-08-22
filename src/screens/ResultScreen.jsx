@@ -175,15 +175,15 @@ export default function ResultScreen() {
               {inputs.fuel} <span>•</span> {inputs.transmission} <span>•</span> {Number(inputs.mileage || 0).toLocaleString('en-IN')} km <span>•</span> {inputs.ownerCount || 1} {inputs.ownerCount === '1' ? 'Owner' : 'Owners'} <span>•</span> {inputs.locality || 'Indiranagar'}
             </div>
 
-            <div className="val-label">EXPECTED SELLING RANGE</div>
-            <div className="val-price" style={{ fontSize: 'clamp(28px, 4.5vw, 42px)', letterSpacing: -1 }}>
-              {fmt(sellFloor)} — {fmt(sellCeil)}
+            <div className="val-label">RECOMMENDED BUY PRICE</div>
+            <div className="val-price buy-color" style={{ color: '#15803d', fontSize: 'clamp(36px, 5vw, 48px)' }}>
+              {fmt(recommendedBuyPrice)}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 4, marginBottom: 2 }}>
-              AI-estimated market resale range based on vehicle characteristics and market data.
+              Target dealer acquisition price based on market data and operational margins.
             </div>
 
-            {/* 3 Aligned Major Financial Outcome Cards */}
+            {/* Aligned Major Financial Outcome Cards */}
             <div className="val-financials" style={{ marginTop: 20 }}>
               {/* Card 1: Recommended Buy Range */}
               <div className="val-fin-cell" style={{ borderLeft: '3px solid #16a34a' }}>
@@ -192,11 +192,22 @@ export default function ResultScreen() {
                   {fmt(buyFloor)} — {fmt(buyCeil)}
                 </div>
                 <div className="val-fin-sub" style={{ marginTop: 4 }}>
-                  Target acquisition price: <strong style={{ color: '#15803d' }}>{fmt(recommendedBuyPrice)}</strong>
+                  Acquisition negotiation band
                 </div>
               </div>
 
-              {/* Card 2: Expected Profit & ROI */}
+              {/* Card 2: Expected Selling Range */}
+              <div className="val-fin-cell" style={{ borderLeft: '3px solid #2563eb' }}>
+                <div className="val-fin-label">EXPECTED SELLING RANGE</div>
+                <div className="val-fin-value" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, color: '#1d4ed8', marginTop: 4 }}>
+                  {fmt(sellFloor)} — {fmt(sellCeil)}
+                </div>
+                <div className="val-fin-sub" style={{ marginTop: 4 }}>
+                  Likely market resale range
+                </div>
+              </div>
+
+              {/* Card 3: Expected Profit & ROI */}
               <div className="val-fin-cell" style={{ borderLeft: '3px solid #e85d26' }}>
                 <div className="val-fin-label">EXPECTED NET PROFIT</div>
                 <div className="val-fin-value brand-color" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>
@@ -205,39 +216,6 @@ export default function ResultScreen() {
                 <div className="val-fin-sub" style={{ marginTop: 4 }}>
                   Projected Net ROI: <strong style={{ color: '#e85d26' }}>{expectedMarginPct || 5.3}%</strong>
                 </div>
-              </div>
-
-              {/* Card 3: Deal Confidence & Rating */}
-              <div className="val-fin-cell" style={{ borderLeft: '3px solid #2563eb' }}>
-                <div className="val-fin-label">DEAL CONFIDENCE & QUALITY</div>
-                <div className="val-fin-value" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, color: '#1d4ed8', marginTop: 4 }}>
-                  {confidenceScore || 86}% · {dealQualityScore}/100
-                </div>
-                <div className="val-fin-sub" style={{ marginTop: 4 }}>
-                  Recommendation: <strong style={{ color: isBuy ? '#15803d' : isCaution ? '#b45309' : '#b91c1c' }}>{act}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Explanatory Pricing Guide Callout */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 10,
-              padding: '10px 14px',
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border-2)',
-              borderRadius: 'var(--r-md)',
-              marginTop: 18,
-              fontSize: 12,
-              color: 'var(--text-3)',
-              lineHeight: 1.45,
-              textAlign: 'left'
-            }}>
-              <Icon name="info" size={15} color="#2563eb" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1.5 }} />
-              <div>
-                <strong style={{ color: 'var(--text-1)' }}>Pricing Guide: </strong>
-                Selling Range represents the expected resale uncertainty range. Buy Range is the target acquisition range. Target Acquisition Price is the recommended negotiation target. Net Profit reflects projected return after estimated dealer costs.
               </div>
             </div>
           </div>
