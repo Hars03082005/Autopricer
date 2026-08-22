@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { LOCALITIES } from '../utils/mockData.js';
 import { fetchBrands, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
-import { DATASET_CATALOG } from '../utils/variantCatalog.js';
+import { DATASET_CATALOG, normalizeBrandKey, getModels, getVariants, SUPPORTED_BRANDS } from '../utils/variantCatalog.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 import Icon from '../components/Icon.jsx';
 
@@ -102,50 +102,30 @@ export default function InputScreen() {
     return () => { active = false; };
   }, []);
 
-  // Compute Brand list
+  // Compute Brand list — dataset-backed only
   const brandList = useMemo(() => {
     const fromApi = Object.keys(brandsMap);
     if (fromApi.length > 0) return fromApi.sort();
-    const fromCatalog = Object.keys(DATASET_CATALOG).map(titleCase);
-    return fromCatalog.length ? fromCatalog.sort() : ['Honda', 'Hyundai', 'Maruti', 'Tata', 'Toyota', 'Mahindra', 'KIA', 'BMW', 'Mercedes-Benz', 'Audi'];
+    return SUPPORTED_BRANDS;
   }, [brandsMap]);
 
-  // Compute Model list based on selected brand
+  // Compute Model list — dataset-backed only, no generic fallback
   const modelList = useMemo(() => {
     if (!inputs.brand) return [];
-    
-    // Check API brandsMap first
-    const brandKey = Object.keys(brandsMap).find(b => b.toLowerCase() === inputs.brand.toLowerCase());
-    if (brandKey && Array.isArray(brandsMap[brandKey]) && brandsMap[brandKey].length > 0) {
-      return brandsMap[brandKey].sort();
+    const apiKey = Object.keys(brandsMap).find(
+      b => b.toLowerCase() === inputs.brand.toLowerCase()
+    );
+    if (apiKey && Array.isArray(brandsMap[apiKey]) && brandsMap[apiKey].length > 0) {
+      return brandsMap[apiKey].sort();
     }
-
-    // Check dataset catalog
-    const catalogBrandKey = Object.keys(DATASET_CATALOG).find(b => b.toLowerCase() === inputs.brand.toLowerCase());
-    if (catalogBrandKey && DATASET_CATALOG[catalogBrandKey]) {
-      const models = Object.keys(DATASET_CATALOG[catalogBrandKey]).map(titleCase);
-      if (models.length > 0) return models.sort();
-    }
-
-    return ['City', 'Creta', 'Swift', 'Nexon', 'Innova Crysta', 'Thar', 'Seltos', 'Fortuner', '3 Series', 'C-Class'];
+    return getModels(inputs.brand);
   }, [inputs.brand, brandsMap]);
 
-  // Compute Variant list based on selected brand & model
-  const variantList = useMemo(() => {
-    if (!inputs.brand || !inputs.model) return [];
-    
-    const catalogBrandKey = Object.keys(DATASET_CATALOG).find(b => b.toLowerCase() === inputs.brand.toLowerCase());
-    if (catalogBrandKey && DATASET_CATALOG[catalogBrandKey]) {
-      const modelKey = Object.keys(DATASET_CATALOG[catalogBrandKey]).find(m => m.toLowerCase() === inputs.model.toLowerCase());
-      if (modelKey && Array.isArray(DATASET_CATALOG[catalogBrandKey][modelKey])) {
-        const rawVariants = DATASET_CATALOG[catalogBrandKey][modelKey];
-        if (rawVariants.length > 0) {
-          return rawVariants.map(v => v.toUpperCase()).sort();
-        }
-      }
-    }
-
-    return ['Standard', 'Base Trim', 'V MT', 'VX MT', 'ZX', 'ZX CVT', 'SX', 'SX(O)'];
+  // Compute Variant state — dataset-backed only, no generic fallback
+  // variants: string[] when found, null when model exists but no variants, undefined when model not in catalog
+  const variantState = useMemo(() => {
+    if (!inputs.brand || !inputs.model) return undefined;
+    return getVariants(inputs.brand, inputs.model);
   }, [inputs.brand, inputs.model]);
 
   const score = useMemo(() => healthScore(inputs), [inputs]);
@@ -252,15 +232,27 @@ export default function InputScreen() {
               </div>
 
               <div className="nv-grid" style={{ marginTop: 12 }}>
-                <div className="form-group">
+                 <div className="form-group">
                   <label className="form-label form-label-req">Variant / Trim</label>
-                  <SearchableDropdown
-                    options={variantList}
-                    value={inputs.variant}
-                    onChange={(val) => upd('variant', val)}
-                    placeholder={inputs.model ? "Select variant" : "Select model first"}
-                    disabled={!inputs.model}
-                  />
+                  {inputs.model && variantState === null ? (
+                    <div className="form-input" style={{ color: 'var(--text-4)', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.7, cursor: 'not-allowed' }}>
+                      <Icon name="info" size={13} strokeWidth={2} />
+                      No dataset-backed variants available for this model
+                    </div>
+                  ) : inputs.model && variantState === undefined ? (
+                    <div className="form-input" style={{ color: 'var(--text-4)', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.7, cursor: 'not-allowed' }}>
+                      <Icon name="info" size={13} strokeWidth={2} />
+                      Model not in supported catalog
+                    </div>
+                  ) : (
+                    <SearchableDropdown
+                      options={Array.isArray(variantState) ? variantState : []}
+                      value={inputs.variant}
+                      onChange={(val) => upd('variant', val)}
+                      placeholder={inputs.model ? 'Select variant' : 'Select model first'}
+                      disabled={!inputs.model || !Array.isArray(variantState)}
+                    />
+                  )}
                 </div>
 
                 <div className="form-group">

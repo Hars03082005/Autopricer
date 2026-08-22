@@ -1682,12 +1682,20 @@ export const DATASET_CATALOG = {
       "CREATIVE SUNROOF",
       "CREATIVE SUNROOF DCA",
       "FEARLESS DUAL TONE",
+      "FEARLESS PLUS",
       "FEARLESS PLUS PS 6AMT DUAL TONE",
       "FEARLESS PLUS PS DCA DUAL TONE",
       "FEARLESS PLUS PURPLE DCA DUAL TONE",
+      "FEARLESS PLUS S",
       "FEARLESS PLUS S DARK",
       "FEARLESS PLUS S PURPLE REVOTRON 7DCA DUAL TONE",
+      "FEARLESS PLUS SUNROOF",
+      "FEARLESS PLUS SUNROOF DCA",
+      "FEARLESS PLUS SUNROOF DUAL TONE",
+      "FEARLESS S",
       "FEARLESS S PURPLE REVOTRON 7DCA DUAL TONE",
+      "FEARLESS SUNROOF",
+      "FEARLESS SUNROOF DCA",
       "FEARLESS SUNROOF DCA DUAL TONE",
       "FEARLESS SUNROOF DUAL TONE",
       "PLUS REVOTRON",
@@ -2049,3 +2057,71 @@ export const DATASET_CATALOG = {
     ]
   }
 };
+
+// Canonical brand aliases → dataset key (lowercase, matches DATASET_CATALOG keys exactly)
+const _BRAND_ALIASES = {
+  'maruti':          'maruti suzuki',
+  'maruti suzuki':   'maruti suzuki',
+  'marutisuzuki':    'maruti suzuki',
+  'maruti-suzuki':   'maruti suzuki',
+  'suzuki':          'maruti suzuki',
+  'mercedes':        'mercedes-benz',
+  'mercedes benz':   'mercedes-benz',
+  'mercedesbenz':    'mercedes-benz',
+  'mercedes-benz':   'mercedes-benz',
+  'merc':            'mercedes-benz',
+  'land rover':      'land rover',
+  'land-rover':      'land rover',
+  'landrover':       'land rover',
+  'range rover':     'land rover',
+  'vw':              'volkswagen',
+  'volkswagon':      'volkswagen',
+  'mg motor':        'mg',
+};
+
+/** Return the canonical DATASET_CATALOG brand key for any raw brand string. */
+export function normalizeBrandKey(raw) {
+  const key = String(raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (key in _BRAND_ALIASES) return _BRAND_ALIASES[key];
+  if (key in DATASET_CATALOG) return key;
+  return key;
+}
+
+/** Return dataset-backed models for a brand, or [] if brand is unsupported. */
+export function getModels(brandRaw) {
+  const key = normalizeBrandKey(brandRaw);
+  const brandData = DATASET_CATALOG[key];
+  if (!brandData) return [];
+  return Object.keys(brandData).sort();
+}
+
+/**
+ * Return dataset-backed variants for a brand+model pair.
+ * Returns null when the model exists but has no recorded variants.
+ * Returns undefined when the model is not in the catalog at all.
+ */
+export function getVariants(brandRaw, modelRaw) {
+  const brandKey = normalizeBrandKey(brandRaw);
+  const brandData = DATASET_CATALOG[brandKey];
+  if (!brandData) return undefined;
+
+  const modelKey = String(modelRaw || '').trim().toLowerCase();
+  if (modelKey in brandData) {
+    const variants = brandData[modelKey];
+    return Array.isArray(variants) && variants.length > 0 ? variants.slice().sort() : null;
+  }
+
+  // Fallback: case-insensitive exact match
+  const found = Object.keys(brandData).find(m => m.toLowerCase() === modelKey);
+  if (found) {
+    const variants = brandData[found];
+    return Array.isArray(variants) && variants.length > 0 ? variants.slice().sort() : null;
+  }
+
+  return undefined;
+}
+
+/** List of all dataset-backed brand display names, sorted. */
+export const SUPPORTED_BRANDS = Object.keys(DATASET_CATALOG)
+  .map(k => k.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))
+  .sort();

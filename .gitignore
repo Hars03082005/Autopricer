@@ -145,9 +145,9 @@ ml_training/scratch_diff.txt
 ml_training/find_dropped.py
 analyze_raw.py
 split_dataset.py
-test_*.py
+/test_*.py
 !test_adaptive.py          # keep the canonical integration test
-!tests/test_coverage_boost.py  # permanent CI coverage tests
+!tests/test_*.py           # permanent CI test suite
 scratch/
 tmp/
 temp/

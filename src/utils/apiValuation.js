@@ -231,9 +231,9 @@ export async function fetchBrands() {
 }
 
 /** Fetch the full dataset catalog: brand → { model → [variants] } */
-export async function fetchCatalog(variantId) {
-  const url = variantId
-    ? `${getApiBase()}/api/catalog?model_variant=${encodeURIComponent(variantId)}`
+export async function fetchCatalog(mlVariantId) {
+  const url = mlVariantId
+    ? `${getApiBase()}/api/catalog?variant_id=${encodeURIComponent(mlVariantId)}`
     : `${getApiBase()}/api/catalog`;
   const response = await fetch(url);
   if (!response.ok) {

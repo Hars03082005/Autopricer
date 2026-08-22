@@ -1062,7 +1062,17 @@ class AdaptiveComparableService:
         if df is None or df.empty:
             return self._empty_result()
 
+        _b_aliases = {
+            "maruti": "maruti suzuki", "marutisuzuki": "maruti suzuki",
+            "maruti-suzuki": "maruti suzuki", "suzuki": "maruti suzuki",
+            "mercedes": "mercedes-benz", "mercedes benz": "mercedes-benz",
+            "mercedesbenz": "mercedes-benz", "merc": "mercedes-benz",
+            "land-rover": "land rover", "landrover": "land rover",
+            "range rover": "land rover", "vw": "volkswagen",
+            "volkswagon": "volkswagen", "mg motor": "mg",
+        }
         bk  = str(brand or "").strip().lower()
+        bk  = _b_aliases.get(bk, bk)
         mk  = str(model or "").strip().lower()
 
         same_model_df = df[df["brand"].eq(bk) & df["model"].eq(mk)]

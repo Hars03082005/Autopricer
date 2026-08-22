@@ -142,11 +142,18 @@ def _load_variant_data(variant_id: str) -> dict:
         from backend.champion_predictor import load_champion
         predictor = load_champion(bundle_path)
         metadata = predictor.metadata
+        cat_path = path / "dataset_catalog.json"
+        if not cat_path.exists():
+            cat_path = ROOT / "model_artifacts" / "dataset_catalog.json"
+        catalog: dict = {}
+        if cat_path.exists():
+            with open(cat_path, encoding="utf-8") as f:
+                catalog = json.load(f)
         return {
             "predictor":      predictor,
             "segment_models": {},
             "metadata":       metadata,
-            "catalog":        {},
+            "catalog":        catalog,
             "artifact_dir":   path,
         }
 

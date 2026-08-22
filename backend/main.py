@@ -842,7 +842,7 @@ def predict_market_value(vehicle: VehicleInput, model_variant: str | None = None
                  else METADATA.get("metrics", {}).get("mape", 0.0628)
     try:
         mr_result = get_market_range_result(
-            brand              = str(vehicle.brand),
+            brand              = _normalize_brand(vehicle.brand),
             model              = normalize_model_name(vehicle.brand, vehicle.model, int(vehicle.year)),
             variant            = variant_clean,
             fuel               = clean_text(vehicle.fuel_type),
@@ -1079,6 +1079,55 @@ def evaluate_vehicle(vehicle: VehicleInput, model_variant: str | None = None) ->
                 row["value"] = int(price_median)
                 row["note"]  = f"Dataset-anchored median ({comp_count} comps)"
 
+    # ── ENFORCE STRICT MATHEMATICAL SEPARATION: BUY RANGE < SELL RANGE ──────
+    # A dealer's acquisition offer must always be strictly below their minimum resale price.
+    rec_buy  = int(decision.get("recommended_buy_price", 0) or (market_value * 0.92))
+    rec_sell = int(decision.get("recommended_sell_price", 0) or market_value)
+
+    recon_cost   = int(decision.get("recon_cost", 18_000))
+    holding_cost = int(decision.get("holding_cost", 5_000))
+    doc_cost     = int(decision.get("doc_cost", 4_500))
+    total_costs  = recon_cost + holding_cost + doc_cost
+
+    # Sell Floor must cover the buy price + operational costs + minimum profit margin
+    min_sell_floor = int(round((rec_buy + total_costs + 8_000) / 500) * 500)
+    p_min = max(int(price_min or (rec_sell * 0.95)), min_sell_floor)
+    p_max = max(int(price_max or (rec_sell * 1.05)), p_min + 20_000, int(round(rec_sell * 1.04 / 500) * 500))
+    p_med = int(round((p_min + p_max) / 1000) * 500)
+
+    # Max buy offer (walk-away ceiling) must strictly stay below the sell floor
+    max_safe_buy = int(round((p_min - total_costs - 5_000) / 500) * 500)
+    rec_buy = min(rec_buy, max_safe_buy)
+
+    op_offer = int(decision.get("opening_offer", 0) or int(round(rec_buy * 0.95 / 500) * 500))
+    op_offer = min(op_offer, int(round(rec_buy * 0.96 / 500) * 500))
+
+    max_off = int(decision.get("max_offer", 0) or int(round(rec_buy * 1.015 / 500) * 500))
+    max_off = min(max_off, max_safe_buy)
+    max_off = max(max_off, rec_buy)
+
+    profit = max(0, rec_sell - rec_buy - total_costs)
+    margin = round((profit / max(rec_buy, 1)) * 100, 1)
+
+    decision.update({
+        "recommended_buy_price":  rec_buy,
+        "recommended_sell_price": rec_sell,
+        "dealer_acq_price":       rec_buy,
+        "suggested_sell_price":   rec_sell,
+        "opening_offer":          op_offer,
+        "max_offer":              max_off,
+        "expected_profit":        profit,
+        "expected_margin_pct":    margin,
+        "margin_pct":             margin,
+        "margin_amt":             profit,
+    })
+
+    prediction.update({
+        "price_min":    p_min,
+        "price_max":    p_max,
+        "price_median": p_med,
+    })
+
     return {
         **prediction,
         "model_name":         meta.get("model_name", "CatBoostRegressor"),
@@ -1149,25 +1198,25 @@ def get_brands():
 
 
 @app.get("/api/catalog")
-def get_catalog(model_variant: str | None = None):
-    _, _, _, catalog, _ = resolve_variant_data(model_variant)
+def get_catalog(variant_id: str | None = None):
+    _, _, _, catalog, _ = resolve_variant_data(variant_id)
     return {"catalog": catalog or DATASET_CATALOG}
 
 
 @app.get("/api/catalog/{brand}")
-def get_catalog_brand(brand: str, model_variant: str | None = None):
-    _, _, _, catalog, _ = resolve_variant_data(model_variant)
+def get_catalog_brand(brand: str, variant_id: str | None = None):
+    _, _, _, catalog, _ = resolve_variant_data(variant_id)
     cat = catalog or DATASET_CATALOG
-    key = brand.strip().lower()
-    models_map = cat.get(key)
+    # Normalize brand to canonical key before lookup
+    canonical = _normalize_brand(brand)
+    models_map = cat.get(canonical)
     if models_map is None:
-        for cat_brand in cat:
-            if cat_brand.startswith(key) or key.startswith(cat_brand.split()[0]):
-                models_map = cat[cat_brand]
-                break
+        # Try exact lowercase match as fallback
+        key = brand.strip().lower()
+        models_map = cat.get(key)
     if models_map is None:
         return {"brand": brand, "models": {}}
-    return {"brand": brand, "models": models_map}
+    return {"brand": canonical, "models": models_map}
 
 
 @app.get("/api/options")

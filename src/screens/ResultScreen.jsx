@@ -86,9 +86,9 @@ export default function ResultScreen() {
   const isCaution = act === 'NEGOTIATE' || act === 'INSPECT' || act === 'BUY AFTER INSPECTION';
 
   const buyFloor = opening_offer || Math.round((recommendedBuyPrice * 0.95) / 500) * 500;
-  const buyCeil = max_offer || Math.round((recommendedBuyPrice * 1.03) / 500) * 500;
-  const sellFloor = priceMin || Math.round(predictedPrice * 0.95);
-  const sellCeil = priceMax || Math.round(predictedPrice * 1.05);
+  const buyCeil = max_offer || Math.round((recommendedBuyPrice * 1.015) / 500) * 500;
+  const sellFloor = Math.max(priceMin || Math.round(predictedPrice * 0.98), buyCeil + 10000);
+  const sellCeil = Math.max(priceMax || Math.round(predictedPrice * 1.05), sellFloor + 20000);
 
   const handleShare = () => {
     const text = `PriceRef Valuation: ${inputs.year} ${inputs.brand} ${inputs.model}\nMarket Value: ${fmt(predictedPrice)}\nBuy Range: ${fmt(buyFloor)} – ${fmt(buyCeil)} (Target: ${fmt(recommendedBuyPrice)})\nSelling Range: ${fmt(sellFloor)} – ${fmt(sellCeil)}\nExp. Net Profit: ${fmt(expectedProfit)} (${expectedMarginPct}%)\nDecision: ${act}`;

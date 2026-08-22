@@ -27,12 +27,12 @@ def test_brand_catalog_functions():
     assert isinstance(catalog, dict)
     assert len(catalog) > 0
     norm = brand_catalog.normalize_brand_name("maruti suzuki")
-    assert norm in ["Maruti", "Maruti Suzuki"]
-    assert brand_catalog._title_words("hello_world") == "Hello_world"
-    merged = {}
-    brand_catalog._merge_models(merged, "Honda", ["City", "Civic"])
-    assert "Honda" in merged
-    assert "City" in merged["Honda"]
+    assert norm == "maruti suzuki"
+    norm_maruti = brand_catalog.normalize_brand_name("Maruti")
+    assert norm_maruti == "maruti suzuki"
+    variants = brand_catalog.get_catalog_variants("Maruti", "jimny")
+    assert variants is not None
+    assert "ALPHA ALL GRIP PRO" in variants
 
 
 def test_model_registry_functions():

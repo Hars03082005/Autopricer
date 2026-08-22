@@ -7,151 +7,48 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT / "ml_training" / "data" / "processed_widoutown-2.csv"
 
-INDIAN_BRAND_CATALOG: dict[str, list[str]] = {
-    "Maruti": [
-        "Swift", "Dzire", "Baleno", "Alto", "WagonR", "Vitara Brezza",
-        "Ertiga", "Ciaz", "S-Cross", "Ignis", "Celerio", "S-Presso",
-        "Alto K10", "XL6", "Grand Vitara", "Brezza", "Fronx", "Jimny",
-        "Eeco", "Omni", "Gypsy", "Ritz",
-    ],
-    "Hyundai": [
-        "i10", "Grand i10", "Grand i10 Nios",
-        "i20", "Elite i20", "i20 Active",
-        "Creta", "Verna", "Tucson", "Elantra", "Venue",
-        "Santro", "Aura", "Alcazar", "Ioniq 5", "Kona",
-        "Xcent", "Eon",
-    ],
-    "Tata": [
-        "Nexon", "Nexon EV", "Harrier", "Safari", "Tiago", "Tiago EV",
-        "Tigor", "Tigor EV", "Altroz", "Punch", "Punch EV",
-        "Hexa", "Bolt", "Zest", "Indica", "Indigo", "Nano", "Curvv",
-    ],
-    "Honda": [
-        "City", "Amaze", "Jazz", "WR-V", "CR-V", "Civic", "Accord",
-        "BR-V", "HR-V",
-    ],
-    "Toyota": [
-        "Innova", "Innova Crysta", "Innova Hycross",
-        "Fortuner", "Camry", "Corolla", "Glanza",
-        "Urban Cruiser", "Hilux", "Vellfire", "Yaris",
-        "Etios", "Platinum Etios", "Liva", "Hyryder",
-    ],
-    "Mahindra": [
-        "Scorpio", "Scorpio N", "Scorpio Classic",
-        "XUV500", "XUV300", "XUV400", "XUV700",
-        "Thar", "Thar Roxx", "Bolero", "Bolero Neo",
-        "KUV100", "Marazzo", "Alturas G4", "BE6", "XEV9e",
-    ],
-    "Kia": ["Seltos", "Sonet", "Carnival", "Carens", "EV6", "EV9"],
-    "Renault": ["Kwid", "Duster", "Triber", "Kiger", "Captur", "Fluence", "Scala"],
-    "Nissan": ["Magnite", "Kicks", "Terrano", "Sunny", "Micra", "GT-R"],
-    "Volkswagen": ["Polo", "Vento", "Taigun", "Virtus", "Tiguan", "T-Roc", "Passat"],
-    "Skoda": ["Rapid", "Octavia", "Superb", "Kushaq", "Slavia", "Kodiaq", "Karoq", "Fabia"],
-    "Ford": ["EcoSport", "Endeavour", "Figo", "Figo Aspire", "Freestyle", "Aspire", "Mustang"],
-    "Jeep": ["Compass", "Meridian", "Wrangler", "Grand Cherokee"],
-    "MG": ["Hector", "Astor", "Gloster", "ZS EV", "Comet EV", "Windsor EV"],
-    "Mitsubishi": ["Pajero Sport", "Outlander", "Eclipse Cross", "Cedia"],
-    "Citroen": ["C3", "C5 Aircross", "C3 Aircross"],
-    "Datsun": ["Go", "Go+", "Redi-Go"],
-    "Isuzu": ["D-Max", "MU-X", "V-Cross"],
-    "Chevrolet": ["Beat", "Sail", "Spark", "Cruze", "Aveo", "Captiva", "Trailblazer"],
-    "Fiat": ["Punto", "Linea", "Avventura", "Urban Cross"],
-    "BMW": [
-        "3 Series", "5 Series", "7 Series", "X1", "X3", "X5", "X7",
-        "M3", "M5", "i4", "iX", "2 Series", "4 Series", "6 Series GT",
-    ],
-    "Mercedes-Benz": [
-        "A-Class", "C-Class", "E-Class", "S-Class",
-        "GLA", "GLC", "GLE", "GLS", "AMG GT", "EQS", "EQB",
-        "CLA", "CLS", "G-Class",
-    ],
-    "Audi": ["A3", "A4", "A6", "A8", "Q3", "Q5", "Q7", "Q8", "e-tron", "RS5", "TT"],
-    "Volvo": ["XC40", "XC60", "XC90", "S60", "S90", "V60"],
-    "Porsche": ["Cayenne", "Macan", "Panamera", "911", "Taycan", "Boxster"],
-    "Land Rover": [
-        "Defender", "Discovery", "Discovery Sport", "Range Rover",
-        "Range Rover Sport", "Range Rover Evoque", "Freelander",
-    ],
-    "Jaguar": ["XE", "XF", "XJ", "F-Pace", "E-Pace", "I-Pace", "F-Type"],
-    "Lamborghini": ["Urus", "Huracan", "Aventador"],
-    "Ferrari": ["Roma", "Portofino", "SF90", "812 Superfast", "F8"],
-    "Rolls-Royce": ["Ghost", "Phantom", "Cullinan", "Wraith", "Dawn"],
-    "Bentley": ["Bentayga", "Continental GT", "Flying Spur", "Mulsanne"],
-    "Lexus": ["ES", "LS", "NX", "RX", "UX", "LC", "LX", "IS"],
-    "Infiniti": ["Q50", "Q60", "QX50", "QX60", "QX80"],
-    "Maserati": ["Ghibli", "Quattroporte", "Levante", "Grecale", "MC20"],
-    "Bugatti": ["Chiron", "Veyron", "Divo"],
-    "McLaren": ["720S", "570S", "GT", "Artura", "Senna"],
-    "Aston Martin": ["DB11", "Vantage", "DBS", "DBX"],
+# Canonical brand aliases → lowercase dataset key (matches dataset_catalog.json keys exactly)
+BRAND_ALIASES: dict[str, str] = {
+    "maruti":               "maruti suzuki",
+    "marutisuzuki":         "maruti suzuki",
+    "maruti-suzuki":        "maruti suzuki",
+    "maruti suzuki":        "maruti suzuki",
+    "suzuki":               "maruti suzuki",
+    "mercedes":             "mercedes-benz",
+    "mercedes benz":        "mercedes-benz",
+    "mercedesbenz":         "mercedes-benz",
+    "mercedes-benz":        "mercedes-benz",
+    "merc":                 "mercedes-benz",
+    "land-rover":           "land rover",
+    "landrover":            "land rover",
+    "range rover":          "land rover",
+    "vw":                   "volkswagen",
+    "volkswagon":           "volkswagen",
+    "hyundai motor":        "hyundai",
+    "tata motors":          "tata",
+    "honda cars":           "honda",
+    "general motors":       "chevrolet",
+    "chevy":                "chevrolet",
+    "bajaj auto":           "bajaj",
+    "fiat chrysler":        "fiat",
+    "mg motor":             "mg",
 }
-
-BRAND_ALIASES = {
-    "maruti suzuki": "Maruti",
-    "maruti": "Maruti",
-    "mercedes benz": "Mercedes-Benz",
-    "mercedes-benz": "Mercedes-Benz",
-    "land rover": "Land Rover",
-    "range rover": "Land Rover",
-    "rolls royce": "Rolls-Royce",
-    "aston martin": "Aston Martin",
-}
-
-
-def _title_words(value: str) -> str:
-    parts = str(value or "").strip().split()
-    return " ".join(p[:1].upper() + p[1:] if p else "" for p in parts)
 
 
 def normalize_brand_name(raw: str) -> str:
+    """Return canonical lowercase brand key matching dataset_catalog.json."""
     key = str(raw or "").strip().lower()
+    key = " ".join(key.split())  # collapse whitespace
     if not key:
         return ""
-    if key in BRAND_ALIASES:
-        return BRAND_ALIASES[key]
-    for brand in INDIAN_BRAND_CATALOG:
-        if brand.lower() == key:
-            return brand
-    return _title_words(raw)
-
-
-def _merge_models(catalog: dict[str, list[str]], brand: str, models: list[str]) -> None:
-    existing = {m.lower(): m for m in catalog.get(brand, [])}
-    for model in models:
-        cleaned = str(model or "").strip()
-        if not cleaned:
-            continue
-        key = cleaned.lower()
-        if key not in existing:
-            existing[key] = _title_words(cleaned)
-    catalog[brand] = sorted(existing.values(), key=str.casefold)
-
-
-def _load_dataset_brands() -> dict[str, list[str]]:
-    if not DATASET_PATH.exists():
-        return {}
-
-    try:
-        frame = pd.read_csv(DATASET_PATH, usecols=["brand_name", "model_name"], low_memory=False)
-    except ValueError:
-        frame = pd.read_csv(DATASET_PATH, low_memory=False)
-        if "brand_name" not in frame.columns or "model_name" not in frame.columns:
-            return {}
-
-    grouped: dict[str, list[str]] = {}
-    for brand_raw, model_raw in frame[["brand_name", "model_name"]].dropna().itertuples(index=False):
-        brand = normalize_brand_name(brand_raw)
-        model = str(model_raw).strip()
-        if not brand or not model:
-            continue
-        grouped.setdefault(brand, []).append(_title_words(model))
-    return grouped
+    return BRAND_ALIASES.get(key, key)
 
 
 def build_brand_catalog() -> dict[str, list[str]]:
     """
     Build the brand → [models] catalog.
-    PRIMARY source: model_artifacts/dataset_catalog.json (only real dataset models).
-    FALLBACK: hardcoded INDIAN_BRAND_CATALOG if the JSON doesn't exist yet.
+    SOURCE OF TRUTH: model_artifacts/dataset_catalog.json.
+    Returns only dataset-backed brands and models.
     """
     import json as _json
 
@@ -160,25 +57,69 @@ def build_brand_catalog() -> dict[str, list[str]]:
         with open(catalog_json, encoding="utf-8") as f:
             raw: dict = _json.load(f)
         catalog: dict[str, list[str]] = {}
-        for brand_lower, models_dict in raw.items():
-            brand = normalize_brand_name(brand_lower)
-            if not brand:
+        for brand_key, models_dict in raw.items():
+            # brand_key is already lowercase (e.g. "maruti suzuki")
+            canonical = normalize_brand_name(brand_key)
+            if not canonical:
                 continue
             model_names = sorted(
-                {_title_words(m) for m in models_dict if str(m).strip()},
+                {str(m).strip() for m in models_dict if str(m).strip()},
                 key=str.casefold,
             )
             if model_names:
-                catalog[brand] = model_names
+                catalog[canonical] = model_names
         return dict(sorted(catalog.items(), key=lambda item: item[0].casefold()))
 
-    catalog = {brand: list(models) for brand, models in INDIAN_BRAND_CATALOG.items()}
-    for brand, models in _load_dataset_brands().items():
-        if brand in catalog:
-            _merge_models(catalog, brand, models)
-        else:
-            unique = sorted({_title_words(m) for m in models if str(m).strip()}, key=str.casefold)
-            if unique:
-                catalog[brand] = unique
-    return dict(sorted(catalog.items(), key=lambda item: item[0].casefold()))
+    # Fallback: derive from dataset CSV (no hardcoded brands)
+    if not DATASET_PATH.exists():
+        return {}
+    try:
+        frame = pd.read_csv(DATASET_PATH, usecols=["brand_name", "model_name"], low_memory=False)
+    except (ValueError, KeyError):
+        return {}
 
+    catalog: dict[str, list[str]] = {}
+    for brand_raw, model_raw in frame[["brand_name", "model_name"]].dropna().itertuples(index=False):
+        brand = normalize_brand_name(brand_raw)
+        model = str(model_raw).strip()
+        if not brand or not model:
+            continue
+        catalog.setdefault(brand, []).append(model)
+
+    return {
+        b: sorted({m for m in models if m}, key=str.casefold)
+        for b, models in sorted(catalog.items(), key=lambda item: item[0].casefold())
+        if models
+    }
+
+
+def get_catalog_variants(brand_raw: str, model_raw: str) -> list[str] | None:
+    """
+    Return dataset-backed variants for a brand+model pair.
+    Returns None when model is not in the catalog.
+    Returns [] when model is in catalog but has no variant data.
+    """
+    import json as _json
+
+    catalog_json = ROOT / "model_artifacts" / "dataset_catalog.json"
+    if not catalog_json.exists():
+        return None
+
+    with open(catalog_json, encoding="utf-8") as f:
+        raw: dict = _json.load(f)
+
+    brand_key = normalize_brand_name(brand_raw)
+    brand_data = raw.get(brand_key)
+    if brand_data is None:
+        return None
+
+    model_key = str(model_raw or "").strip().lower()
+    if model_key in brand_data:
+        return list(brand_data[model_key])
+
+    # Case-insensitive fallback
+    for m in brand_data:
+        if m.lower() == model_key:
+            return list(brand_data[m])
+
+    return None
