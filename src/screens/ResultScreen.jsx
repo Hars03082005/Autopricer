@@ -175,10 +175,12 @@ export default function ResultScreen() {
               {inputs.fuel} <span>•</span> {inputs.transmission} <span>•</span> {Number(inputs.mileage || 0).toLocaleString('en-IN')} km <span>•</span> {inputs.ownerCount || 1} {inputs.ownerCount === '1' ? 'Owner' : 'Owners'} <span>•</span> {inputs.locality || 'Indiranagar'}
             </div>
 
-            <div className="val-label">ESTIMATED MARKET VALUE</div>
-            <div className="val-price">{fmt(predictedPrice)}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 2, marginBottom: 2 }}>
-              AI-estimated current market value based on vehicle characteristics and market data.
+            <div className="val-label">EXPECTED SELLING RANGE</div>
+            <div className="val-price" style={{ fontSize: 'clamp(28px, 4.5vw, 42px)', letterSpacing: -1 }}>
+              {fmt(sellFloor)} — {fmt(sellCeil)}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-4)', marginTop: 4, marginBottom: 2 }}>
+              AI-estimated market resale range based on vehicle characteristics and market data.
             </div>
 
             {/* 3 Aligned Major Financial Outcome Cards */}
@@ -194,18 +196,7 @@ export default function ResultScreen() {
                 </div>
               </div>
 
-              {/* Card 2: Expected Selling Range (Uncertainty Range only) */}
-              <div className="val-fin-cell" style={{ borderLeft: '3px solid #2563eb' }}>
-                <div className="val-fin-label">EXPECTED SELLING RANGE</div>
-                <div className="val-fin-value" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, color: '#1d4ed8', marginTop: 4 }}>
-                  {fmt(sellFloor)} — {fmt(sellCeil)}
-                </div>
-                <div className="val-fin-sub" style={{ marginTop: 4 }}>
-                  Likely resale range
-                </div>
-              </div>
-
-              {/* Card 3: Expected Profit & ROI */}
+              {/* Card 2: Expected Profit & ROI */}
               <div className="val-fin-cell" style={{ borderLeft: '3px solid #e85d26' }}>
                 <div className="val-fin-label">EXPECTED NET PROFIT</div>
                 <div className="val-fin-value brand-color" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, marginTop: 4 }}>
@@ -213,6 +204,17 @@ export default function ResultScreen() {
                 </div>
                 <div className="val-fin-sub" style={{ marginTop: 4 }}>
                   Projected Net ROI: <strong style={{ color: '#e85d26' }}>{expectedMarginPct || 5.3}%</strong>
+                </div>
+              </div>
+
+              {/* Card 3: Deal Confidence & Rating */}
+              <div className="val-fin-cell" style={{ borderLeft: '3px solid #2563eb' }}>
+                <div className="val-fin-label">DEAL CONFIDENCE & QUALITY</div>
+                <div className="val-fin-value" style={{ fontSize: 20, fontWeight: 900, letterSpacing: -0.5, color: '#1d4ed8', marginTop: 4 }}>
+                  {confidenceScore || 86}% · {dealQualityScore}/100
+                </div>
+                <div className="val-fin-sub" style={{ marginTop: 4 }}>
+                  Recommendation: <strong style={{ color: isBuy ? '#15803d' : isCaution ? '#b45309' : '#b91c1c' }}>{act}</strong>
                 </div>
               </div>
             </div>
@@ -235,7 +237,7 @@ export default function ResultScreen() {
               <Icon name="info" size={15} color="#2563eb" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1.5 }} />
               <div>
                 <strong style={{ color: 'var(--text-1)' }}>Pricing Guide: </strong>
-                Market Value is the AI-estimated current market value. Selling Range represents the expected resale range. Buy Range is the target acquisition range. Target Acquisition Price is the recommended negotiation target. Net Profit reflects expected profit after estimated dealer costs.
+                Selling Range represents the expected resale uncertainty range. Buy Range is the target acquisition range. Target Acquisition Price is the recommended negotiation target. Net Profit reflects projected return after estimated dealer costs.
               </div>
             </div>
           </div>
