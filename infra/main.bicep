@@ -231,7 +231,7 @@ resource backend 'Microsoft.App/containerApps@2024-03-01' = {
           env: concat([
             { name: 'PORT', value: '8000' }
             { name: 'APP_ENVIRONMENT', value: environmentName }
-            { name: 'ACTIVE_VARIANT_ID', value: 'variant_1' }
+            { name: 'ACTIVE_VARIANT_ID', value: 'final' }
             { name: 'LOG_LEVEL', value: isProduction ? 'info' : 'debug' }
             // Browser traffic arrives same-origin via the frontend proxy, so no
             // browser origin needs listing. This covers the Flutter shell, which
