@@ -1,6 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
-from backend.main import app, CURRENT_YEAR
+
+pytest.importorskip("joblib", reason="requires ML stack")
+pytest.importorskip("pandas", reason="requires ML stack")
+
+pytestmark = pytest.mark.models
+
+from backend.main import app, CURRENT_YEAR  # noqa: E402
 
 client = TestClient(app)
 

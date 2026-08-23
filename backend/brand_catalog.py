@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT / "ml_training" / "data" / "processed_widoutown-2.csv"
@@ -44,6 +43,16 @@ def normalize_brand_name(raw: str) -> str:
     return BRAND_ALIASES.get(key, key)
 
 
+def _find_dataset_catalog_path() -> Path | None:
+    for candidate in [
+        ROOT / "model_artifacts" / "dataset_catalog.json",
+        ROOT / "model_registry" / "final" / "dataset_catalog.json",
+    ]:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def build_brand_catalog() -> dict[str, list[str]]:
     """
     Build the brand → [models] catalog.
@@ -52,8 +61,8 @@ def build_brand_catalog() -> dict[str, list[str]]:
     """
     import json as _json
 
-    catalog_json = ROOT / "model_artifacts" / "dataset_catalog.json"
-    if catalog_json.exists():
+    catalog_json = _find_dataset_catalog_path()
+    if catalog_json and catalog_json.exists():
         with open(catalog_json, encoding="utf-8") as f:
             raw: dict = _json.load(f)
         catalog: dict[str, list[str]] = {}
@@ -73,6 +82,7 @@ def build_brand_catalog() -> dict[str, list[str]]:
     # Fallback: derive from dataset CSV (no hardcoded brands)
     if not DATASET_PATH.exists():
         return {}
+    import pandas as pd  # noqa: PLC0415 — lazy: only needed when JSON catalog absent
     try:
         frame = pd.read_csv(DATASET_PATH, usecols=["brand_name", "model_name"], low_memory=False)
     except (ValueError, KeyError):
@@ -101,8 +111,8 @@ def get_catalog_variants(brand_raw: str, model_raw: str) -> list[str] | None:
     """
     import json as _json
 
-    catalog_json = ROOT / "model_artifacts" / "dataset_catalog.json"
-    if not catalog_json.exists():
+    catalog_json = _find_dataset_catalog_path()
+    if not catalog_json or not catalog_json.exists():
         return None
 
     with open(catalog_json, encoding="utf-8") as f:

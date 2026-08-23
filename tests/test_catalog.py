@@ -175,6 +175,7 @@ class TestPayloadConsistency:
 
     def test_brand_normalization_matches_feature_builder(self):
         """The same brand alias map used in the catalog must match main.py's _normalize_brand."""
+        pytest.importorskip("joblib", reason="requires ML stack")
         from backend.main import _normalize_brand
 
         # These must agree: brand_catalog and main.py both map "Maruti" → "maruti suzuki"
@@ -186,6 +187,7 @@ class TestPayloadConsistency:
 
     def test_maruti_jimny_brand_in_feature_builder(self):
         """Maruti → Jimny must produce brand='maruti suzuki' in build_features()."""
+        pytest.importorskip("joblib", reason="requires ML stack")
         from backend.main import build_features, VehicleInput, _normalize_brand
 
         vehicle = VehicleInput(

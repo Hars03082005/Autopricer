@@ -23,13 +23,15 @@ from __future__ import annotations
 import pickle
 import time
 from pathlib import Path
-import pandas as pd
-import numpy as np
+
 import pytest
 
 from tests.conftest import requires_models
 
 pytestmark = [pytest.mark.models, requires_models]
+
+pd = pytest.importorskip("pandas", reason="requires ML stack")
+np = pytest.importorskip("numpy", reason="requires ML stack")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FINAL_BUNDLE_PATH = REPO_ROOT / "model_registry" / "final" / "ensemble_bundle.pkl"

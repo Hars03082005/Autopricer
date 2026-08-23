@@ -95,6 +95,7 @@ WORKDIR /app
 # Model artifacts: final is the active model (5-Seed LightGBM + Luxury CatBoost Specialist + Strategy D)
 COPY model_registry/registry.json  /app/model_registry/registry.json
 COPY model_registry/final/         /app/model_registry/final/
+COPY model_artifacts/dataset_catalog.json /app/model_artifacts/dataset_catalog.json
 
 # Application code — smallest and most frequently changed, so it goes last.
 COPY backend/            /app/backend/
