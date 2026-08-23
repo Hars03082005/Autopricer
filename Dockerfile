@@ -16,7 +16,8 @@ COPY backend/ ./backend/
 COPY data/ ./data/
 COPY model_registry/ ./model_registry/
 COPY scripts/ ./scripts/
-COPY tests/ ./tests/
+COPY model_artifacts/dataset_catalog.json ./model_artifacts/dataset_catalog.json
+COPY src/ ./src/
 COPY --from=frontend-builder /app/dist ./dist
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser

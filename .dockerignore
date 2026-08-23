@@ -57,7 +57,8 @@ mobile/
 # backend/main.py only falls back to model_artifacts/ when the registry lookup
 # fails. The image ships a known-good registry variant and asserts it loaded at
 # startup, so the fallback copy is dead weight.
-model_artifacts/
+model_artifacts/*
+!model_artifacts/dataset_catalog.json
 
 # ── Model registry: ship final production variant ───────────────────────────
 # final is the active model (5-Seed LightGBM + Luxury CatBoost Specialist + Strategy D)

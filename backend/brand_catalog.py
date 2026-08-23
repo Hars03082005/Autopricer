@@ -43,6 +43,16 @@ def normalize_brand_name(raw: str) -> str:
     return BRAND_ALIASES.get(key, key)
 
 
+def _find_dataset_catalog_path() -> Path | None:
+    for candidate in [
+        ROOT / "model_artifacts" / "dataset_catalog.json",
+        ROOT / "model_registry" / "final" / "dataset_catalog.json",
+    ]:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def build_brand_catalog() -> dict[str, list[str]]:
     """
     Build the brand → [models] catalog.
@@ -51,8 +61,8 @@ def build_brand_catalog() -> dict[str, list[str]]:
     """
     import json as _json
 
-    catalog_json = ROOT / "model_artifacts" / "dataset_catalog.json"
-    if catalog_json.exists():
+    catalog_json = _find_dataset_catalog_path()
+    if catalog_json and catalog_json.exists():
         with open(catalog_json, encoding="utf-8") as f:
             raw: dict = _json.load(f)
         catalog: dict[str, list[str]] = {}
@@ -101,8 +111,8 @@ def get_catalog_variants(brand_raw: str, model_raw: str) -> list[str] | None:
     """
     import json as _json
 
-    catalog_json = ROOT / "model_artifacts" / "dataset_catalog.json"
-    if not catalog_json.exists():
+    catalog_json = _find_dataset_catalog_path()
+    if not catalog_json or not catalog_json.exists():
         return None
 
     with open(catalog_json, encoding="utf-8") as f:

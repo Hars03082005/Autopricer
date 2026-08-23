@@ -317,6 +317,7 @@ jobs:
             -v "$PWD/tests:/app/tests:ro" \
             -v "$PWD/pyproject.toml:/app/pyproject.toml:ro" \
             -v "$PWD/supabase:/app/supabase:ro" \
+            -v "$PWD/src:/app/src:ro" \
             --entrypoint sh \
             priceref-backend:ci -c "pip install --quiet pytest && cd /app && python -m pytest -v -p no:cacheprovider"
 

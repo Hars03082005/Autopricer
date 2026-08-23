@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { LOCALITIES } from '../utils/mockData.js';
 import { fetchBrands, fetchOptions, runMLValuation } from '../utils/apiValuation.js';
-import { DATASET_CATALOG, normalizeBrandKey, getModels, getVariants, SUPPORTED_BRANDS } from '../utils/variantCatalog.js';
+import { getModels, getVariants, SUPPORTED_BRANDS } from '../utils/variantCatalog.js';
 import SearchableDropdown from '../components/SearchableDropdown.jsx';
 import Icon from '../components/Icon.jsx';
 
@@ -45,15 +45,6 @@ function healthMeta(score) {
   if (score >= 55) return { label: 'Viable Opportunity',   color: '#d97706', bg: '#fffbeb' };
   if (score >= 35) return { label: 'Requires Inspection',  color: '#ea580c', bg: '#fff7ed' };
   return              { label: 'High Holding Risk',       color: '#dc2626', bg: '#fef2f2' };
-}
-
-function titleCase(str) {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
 }
 
 export default function InputScreen() {
