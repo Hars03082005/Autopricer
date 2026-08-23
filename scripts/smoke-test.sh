@@ -92,16 +92,30 @@ echo "$cache" | grep -qi 'no-store' \
 pass "config.js is not cacheable"
 
 # ── 3. Backend is reachable through the proxy ────────────────────────────────
+# The readiness loop waits for two things:
+#   a) /health returns 200 (backend reachable through nginx proxy)
+#   b) active_variant=final (new revision has fully replaced the old one)
+# Breaking on (a) alone is not enough: when Azure Container Apps replaces a
+# revision, the old replica stays healthy and in rotation until the new one
+# is ready. Without checking (b) the smoke test reports success against the
+# old variant_1 image while the new revision is still loading.
 echo "--> backend via proxy (up to ${READINESS_TIMEOUT}s for model load)"
 deadline=$(( $(date +%s) + READINESS_TIMEOUT ))
 health=""
+reachable=false
 while [ "$(date +%s)" -lt "$deadline" ]; do
   if health=$(curl -fsS "${BASE_URL}/health" 2>/dev/null); then
-    break
+    reachable=true
+    # Keep polling until the new revision (active_variant=final) is live.
+    # The old revision may still be healthy and answering during rollover.
+    if echo "$health" | grep -q '"active_variant":"final"'; then
+      break
+    fi
+    echo "  (waiting for final revision — currently: $(echo "$health" | grep -o '"active_variant":"[^"]*"' || echo 'unknown'))"
   fi
   sleep "$POLL_INTERVAL"
 done
-[ -n "$health" ] || fail "backend never answered /health through the proxy"
+[ "$reachable" = "true" ] || fail "backend never answered /health through the proxy"
 pass "backend reachable through the nginx proxy"
 
 echo "$health" | grep -q '"status":"ok"' || fail "unexpected health payload: ${health}"
