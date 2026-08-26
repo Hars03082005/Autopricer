@@ -123,7 +123,12 @@ def resolve_variant_data(variant_id: str | None = None) -> tuple[EnsemblePredict
     else:
         meta = {"model_name": "CatBoostRegressor", "features": [], "categorical_features": []}
 
-    pred = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
+    bundle_path = ARTIFACT_DIR / "ensemble_bundle.pkl"
+    if bundle_path.exists() and not (ARTIFACT_DIR / "vehicle_price_catboost.cbm").exists():
+        from backend.champion_predictor import load_champion
+        pred = load_champion(bundle_path)
+    else:
+        pred = EnsemblePredictor.from_artifact_dir(ARTIFACT_DIR)
     seg_mods = {}
     for _seg in ["economy", "premium", "luxury"]:
         _p = ARTIFACT_DIR / f"ensemble_{_seg}.pkl"

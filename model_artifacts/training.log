@@ -1,39 +1,137 @@
-2026-08-06 15:56:05  DEBUG     Random seed set to 42
-2026-08-06 15:56:05  INFO      AutoPricer ML Training [train-1]  Variant variant_1
-2026-08-06 15:56:05  DEBUG     Loaded train=23,796 rows, valid=5,099 rows from overall_only/
-2026-08-06 15:56:05  DEBUG     Clean [train]: 23,796 → 23,796 rows (dropped 0)
-2026-08-06 15:56:05  DEBUG     Clean [valid]: 5,099 → 5,099 rows (dropped 0)
-2026-08-06 15:56:06  DEBUG     W&B package not installed — skipping experiment tracking
-2026-08-06 15:56:06  DEBUG     CatBoost params: {'iterations': 3000, 'learning_rate': 0.03, 'depth': 6, 'loss_function': 'RMSE', 'eval_metric': 'RMSE', 'random_seed': 42, 'l2_leaf_reg': 10, 'min_data_in_leaf': 25, 'early_stopping_rounds': 150}
-2026-08-06 16:00:12  DEBUG     LightGBM params: {'objective': 'regression', 'metric': 'rmse', 'learning_rate': 0.03, 'num_leaves': 48, 'feature_fraction': 0.8, 'bagging_fraction': 0.8, 'bagging_freq': 5, 'min_child_samples': 25, 'lambda_l2': 5.0, 'verbosity': -1, 'seed': 42}
-2026-08-06 16:00:24  DEBUG     XGBoost params: {'objective': 'reg:squarederror', 'eval_metric': 'rmse', 'learning_rate': 0.03, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8, 'min_child_weight': 25, 'lambda': 5.0, 'seed': 42}
-2026-08-06 16:00:33  DEBUG     CatBoost MAE=₹55,110 MAPE=8.79% R2=0.9612
-2026-08-06 16:00:33  DEBUG     LightGBM MAE=₹35,812 MAPE=6.01% R2=0.9777
-2026-08-06 16:00:34  DEBUG     XGBoost MAE=₹40,065 MAPE=6.77% R2=0.9738
-2026-08-06 16:00:34  DEBUG     Saved model_comparison.csv (validation-set scores)
-2026-08-06 16:00:34  DEBUG     [catboost] pincode importance rank: 9/15
-2026-08-06 16:00:34  DEBUG     Saved feature importance: feature_importance_catboost.csv
-2026-08-06 16:00:34  DEBUG     [lightgbm] pincode importance rank: 10/15
-2026-08-06 16:00:34  DEBUG     Saved feature importance: feature_importance_lightgbm.csv
-2026-08-06 16:00:34  DEBUG     [xgboost] pincode importance rank: 10/15
-2026-08-06 16:00:34  DEBUG     Saved feature importance: feature_importance_xgboost.csv
-2026-08-06 16:00:34  DEBUG     Segment: 0_6_lakh (train 14,442 rows, valid 3,074 rows)
-2026-08-06 16:03:29  DEBUG     Segment 0_6_lakh: seg MAPE=8.01%, global MAPE=9.26%, relative improvement=13.5% (threshold=5.0%)
-2026-08-06 16:03:29  DEBUG     Segment 0_6_lakh ACTIVE
-2026-08-06 16:03:29  DEBUG     Segment: 6_12_lakh (train 7,454 rows, valid 1,602 rows)
-2026-08-06 16:06:05  DEBUG     Segment 6_12_lakh: seg MAPE=5.54%, global MAPE=8.17%, relative improvement=32.2% (threshold=5.0%)
-2026-08-06 16:06:05  DEBUG     Segment 6_12_lakh ACTIVE
-2026-08-06 16:06:06  DEBUG     Segment: 12_plus_lakh (train 2,059 rows, valid 458 rows)
-2026-08-06 16:08:28  DEBUG     Segment 12_plus_lakh: seg MAPE=4.42%, global MAPE=11.37%, relative improvement=61.1% (threshold=5.0%)
-2026-08-06 16:08:28  DEBUG     Segment 12_plus_lakh ACTIVE
-2026-08-06 16:08:29  DEBUG     Artifacts saved
-2026-08-06 16:08:30  DEBUG     Saved dataset_catalog.json (28 brands)
-2026-08-06 16:08:30  DEBUG     Loaded test holdout: 5,100 rows from test.csv
-2026-08-06 16:08:30  WARNING   LEAKAGE WARNING: 1919 test rows appear in train.csv!
-2026-08-06 16:08:30  WARNING   LEAKAGE WARNING: 544 test rows appear in valid.csv!
-2026-08-06 16:08:30  DEBUG     Clean [test]: 5,100 → 5,100 rows (dropped 0)
-2026-08-06 16:08:30  DEBUG     CatBoost MAE=₹53,678 MAPE=8.91% R2=0.9605
-2026-08-06 16:08:31  DEBUG     LightGBM MAE=₹35,556 MAPE=6.10% R2=0.9761
-2026-08-06 16:08:31  DEBUG     XGBoost MAE=₹39,764 MAPE=6.84% R2=0.9729
-2026-08-06 16:08:32  DEBUG     Saved holdout_test_results.json and holdout_test_comparison.csv
-2026-08-06 16:08:32  INFO      COMPLETE — Val MAPE 6.01%  R2 0.9777  (747.3s)
+2026-08-22 10:53:56,822  INFO      ========================================================================
+2026-08-22 10:53:56,822  INFO      FINAL PRODUCTION TRAINING -- START
+2026-08-22 10:53:56,822  INFO      Output: C:\Users\Harshavardhana\Downloads\Price-Prediction\model_registry\final\ensemble_bundle.pkl
+2026-08-22 10:53:56,822  INFO      ========================================================================
+2026-08-22 10:53:56,822  INFO      ========================================================================
+2026-08-22 10:53:56,823  INFO      STEP 1 -- FEATURE SCHEMA VERIFICATION
+2026-08-22 10:53:56,823  INFO      ========================================================================
+2026-08-22 10:53:56,823  INFO        Categorical features (11): ['brand', 'model', 'variant', 'locality', 'rto', 'fuel_type', 'transmission', 'seller_type', 'color', 'brand_model', 'model_variant']
+2026-08-22 10:53:56,827  INFO        Numerical features  (6): ['vehicle_age', 'odometer_reading', 'km_per_year', 'owner_count', 'certified', 'pincode']
+2026-08-22 10:53:56,827  INFO        Total features      : 17
+2026-08-22 10:53:56,827  INFO        Target              : selling_price  (transformed: log1p)
+2026-08-22 10:53:56,827  INFO        OK Schema verified: 17 features (11 cat + 6 num)
+2026-08-22 10:53:56,828  INFO      ========================================================================
+2026-08-22 10:53:56,828  INFO      STEP 2 -- DATA INTEGRITY CHECKS
+2026-08-22 10:53:56,828  INFO      ========================================================================
+2026-08-22 10:53:56,917  INFO        [train] 17,632 raw -> 17,632 clean rows  |  0 duplicate rows
+2026-08-22 10:53:56,918  INFO        [train] OK  target range: Rs54,000 - Rs7,407,000
+2026-08-22 10:53:56,952  INFO        [valid] 3,778 raw -> 3,778 clean rows  |  0 duplicate rows
+2026-08-22 10:53:56,953  INFO        [valid] OK  target range: Rs50,000 - Rs7,599,000
+2026-08-22 10:53:56,953  INFO        OK Data integrity checks passed
+2026-08-22 10:53:56,953  INFO      ========================================================================
+2026-08-22 10:53:56,953  INFO      STEP 3 -- VERIFY TEST SET INTEGRITY
+2026-08-22 10:53:56,953  INFO      ========================================================================
+2026-08-22 10:53:56,970  INFO        Test set: 3,748 rows  |  SHA-256: 7265c067fb3738ea25fb383c...
+2026-08-22 10:53:56,970  INFO        OK Test set verified (not used in training)
+2026-08-22 10:53:56,970  INFO      ========================================================================
+2026-08-22 10:53:56,970  INFO      STEP 4 -- TRAINING 5-SEED LIGHTGBM ENSEMBLE
+2026-08-22 10:53:56,970  INFO      ========================================================================
+2026-08-22 10:53:56,970  INFO        Seeds: [42, 123, 456, 789, 2024]
+2026-08-22 10:53:56,970  INFO        num_leaves=48  ff=0.7  bf=0.9  l2=3
+2026-08-22 10:54:02,993  INFO        Seed   42: trees=4452  MAE=Rs41,550  MAPE=7.23%  R2=0.9594  (5.5s)
+2026-08-22 10:54:08,842  INFO        Seed  123: trees=4997  MAE=Rs41,429  MAPE=7.26%  R2=0.9595  (5.6s)
+2026-08-22 10:54:14,934  INFO        Seed  456: trees=4990  MAE=Rs41,213  MAPE=7.13%  R2=0.9607  (5.9s)
+2026-08-22 10:54:21,145  INFO        Seed  789: trees=4997  MAE=Rs40,534  MAPE=7.13%  R2=0.9604  (6.0s)
+2026-08-22 10:54:27,348  INFO        Seed 2024: trees=4951  MAE=Rs41,298  MAPE=7.22%  R2=0.9599  (6.0s)
+2026-08-22 10:54:27,350  INFO        5-Seed Ensemble: MAE=Rs40,781  MAPE=7.13%  R2=0.9605  Bias=Rs-9,335
+2026-08-22 10:54:27,351  INFO        OK 5-seed LightGBM training complete
+2026-08-22 10:54:27,353  INFO      ========================================================================
+2026-08-22 10:54:27,353  INFO      STEP 5 -- TRAINING LUXURY CATBOOST SPECIALIST
+2026-08-22 10:54:27,353  INFO      ========================================================================
+2026-08-22 10:54:27,373  INFO        Luxury pool: 1,083 rows
+2026-08-22 10:54:27,388  INFO        Luxury holdout: 150 rows  (UNTOUCHED -- evaluation only)
+2026-08-22 10:54:27,392  INFO        Luxury split: train=866  val=217
+2026-08-22 10:55:26,583  INFO        Specialist val: trees=1692  MAE=Rs203,857  MAPE=4.99%  R2=0.9683  (59.1s)
+2026-08-22 10:55:26,599  INFO        Specialist holdout: MAE=Rs218,776  MAPE=5.34%  R2=0.9688  Bias=Rs-38,025
+2026-08-22 10:55:26,599  INFO        OK Luxury specialist training complete
+2026-08-22 10:55:26,600  INFO      ========================================================================
+2026-08-22 10:55:26,600  INFO      STEP 6 -- COMPONENT VALIDATION
+2026-08-22 10:55:26,600  INFO      ========================================================================
+2026-08-22 10:55:26,600  INFO        LightGBM 5-seed: MAE=Rs40,781  MAPE=7.13%  R2=0.9605
+2026-08-22 10:55:26,600  INFO        Luxury spec val: MAE=Rs203,857  MAPE=4.99%  R2=0.9683
+2026-08-22 10:55:26,600  INFO        Luxury holdout : MAE=Rs218,776  MAPE=5.34%  R2=0.9688
+2026-08-22 10:55:26,600  INFO      ========================================================================
+2026-08-22 10:55:26,600  INFO      STEP 7 -- FULL SYSTEM EVALUATION (VALIDATION SET)
+2026-08-22 10:55:26,600  INFO      ========================================================================
+2026-08-22 10:55:26,648  INFO        Routing (val): specialist=25 (0.7%)  champion=3753
+2026-08-22 10:55:26,650  INFO        Full system val: MAE=Rs42,603  MAPE=7.20%  R2=0.9599  Bias=Rs-5,989
+2026-08-22 10:55:26,653  INFO          0-3L    : N=  713  MAE=Rs    22,240  MAPE=11.78%
+2026-08-22 10:55:26,653  INFO          3-7L    : N= 1900  MAE=Rs    28,286  MAPE= 6.11%
+2026-08-22 10:55:26,653  INFO          7-10L   : N=  648  MAE=Rs    45,720  MAPE= 5.49%
+2026-08-22 10:55:26,653  INFO          10-15L  : N=  389  MAE=Rs    71,220  MAPE= 5.89%
+2026-08-22 10:55:26,653  INFO          15-20L  : N=   91  MAE=Rs   115,628  MAPE= 6.88%
+2026-08-22 10:55:26,653  INFO          20-30L  : N=   23  MAE=Rs   455,404  MAPE=18.34%
+2026-08-22 10:55:26,653  INFO          30-50L  : N=   12  MAE=Rs   833,424  MAPE=22.01%
+2026-08-22 10:55:26,653  INFO          50L+    : N=    2  MAE=Rs 1,511,691  MAPE=20.16%
+2026-08-22 10:55:26,653  INFO        OK Validation system evaluation complete
+2026-08-22 10:55:26,654  INFO      ========================================================================
+2026-08-22 10:55:26,654  INFO      STEP 8 -- FINAL EVALUATION ON UNTOUCHED TEST SET
+2026-08-22 10:55:26,654  INFO      ========================================================================
+2026-08-22 10:55:27,957  INFO        Test set: 3,748 rows  |  specialist=17 (0.45%)  champion=3731 (99.55%)
+2026-08-22 10:55:27,959  INFO      
+2026-08-22 10:55:27,959  INFO        FINAL SYSTEM -- TEST SET METRICS
+2026-08-22 10:55:27,959  INFO          MAE       = Rs   39,969.55
+2026-08-22 10:55:27,960  INFO          MAPE      =     6.7342%
+2026-08-22 10:55:27,960  INFO          RMSE      = Rs   97,821.45
+2026-08-22 10:55:27,960  INFO          R2        =   0.967513
+2026-08-22 10:55:27,960  INFO          Bias      = Rs   -2,987.86
+2026-08-22 10:55:27,960  INFO          Median AE = Rs   20,880.69
+2026-08-22 10:55:27,960  INFO          P90       = Rs   82,320.50
+2026-08-22 10:55:27,960  INFO          P95       = Rs  119,234.89
+2026-08-22 10:55:27,960  INFO          P99       = Rs  298,685.14
+2026-08-22 10:55:27,960  INFO          MaxAE     = Rs2,391,939.05
+2026-08-22 10:55:27,960  INFO      
+2026-08-22 10:55:27,960  INFO        Delta vs old variant_1:  MAE=+989  MAPE=-0.01%  R2=+0.0001
+2026-08-22 10:55:27,965  INFO      
+2026-08-22 10:55:27,965  INFO        Price-Band Breakdown:
+2026-08-22 10:55:27,965  INFO          0-3L    : N=  673  MAE=Rs    20,475  MAPE=10.46%  RMSE=Rs    31,051  Bias=Rs     8,384  MedianAE=Rs    12,445
+2026-08-22 10:55:27,965  INFO          3-7L    : N= 1950  MAE=Rs    27,515  MAPE= 5.85%  RMSE=Rs    41,163  Bias=Rs     1,052  MedianAE=Rs    18,530
+2026-08-22 10:55:27,965  INFO          7-10L   : N=  606  MAE=Rs    49,268  MAPE= 5.94%  RMSE=Rs    73,763  Bias=Rs    -2,742  MedianAE=Rs    33,126
+2026-08-22 10:55:27,965  INFO          10-15L  : N=  387  MAE=Rs    66,171  MAPE= 5.40%  RMSE=Rs   101,987  Bias=Rs   -29,226  MedianAE=Rs    42,710
+2026-08-22 10:55:27,966  INFO          15-20L  : N=  103  MAE=Rs    94,506  MAPE= 5.53%  RMSE=Rs   199,925  Bias=Rs   -64,151  MedianAE=Rs    45,449
+2026-08-22 10:55:27,966  INFO          20-30L  : N=   17  MAE=Rs   446,878  MAPE=18.86%  RMSE=Rs   630,515  Bias=Rs   -50,362  MedianAE=Rs   155,294
+2026-08-22 10:55:27,966  INFO          30-50L  : N=    8  MAE=Rs   703,232  MAPE=20.65%  RMSE=Rs 1,008,211  Bias=Rs   686,885  MedianAE=Rs   445,978
+2026-08-22 10:55:27,966  INFO          50L+    : N=    4  MAE=Rs   987,819  MAPE=13.67%  RMSE=Rs 1,181,312  Bias=Rs  -987,819  MedianAE=Rs 1,106,313
+2026-08-22 10:55:27,966  INFO      
+2026-08-22 10:55:27,966  INFO        Luxury Tier Breakdown:
+2026-08-22 10:55:27,966  INFO          >=15L : N= 132  MAE=Rs   203,850  MAPE= 8.41%  RMSE=Rs   431,603  Bias=Rs   -44,848  MedianAE=Rs    57,422
+2026-08-22 10:55:27,967  INFO          >=20L : N=  29  MAE=Rs   592,209  MAPE=18.64%  RMSE=Rs   840,202  Bias=Rs    23,712  MedianAE=Rs   409,903
+2026-08-22 10:55:27,968  INFO          >=30L : N=  12  MAE=Rs   798,094  MAPE=18.32%  RMSE=Rs 1,069,030  Bias=Rs   128,650  MedianAE=Rs   515,978
+2026-08-22 10:55:27,968  INFO          >=50L : N=   4  MAE=Rs   987,819  MAPE=13.67%  RMSE=Rs 1,181,312  Bias=Rs  -987,819  MedianAE=Rs 1,106,313
+2026-08-22 10:55:27,969  INFO      
+2026-08-22 10:55:27,969  INFO        Mass-Market Tier (<15L): N=3616  MAE=Rs33,987  MAPE=6.67%  RMSE=Rs55,841  Bias=Rs-1,460
+2026-08-22 10:55:27,969  INFO      
+2026-08-22 10:55:27,969  INFO        Brand Breakdown:
+2026-08-22 10:55:27,972  INFO          bmw            : N=  10  MAE=Rs   867,828  MAPE=25.13%  Bias=Rs    -2,665
+2026-08-22 10:55:27,973  INFO          mercedes-benz  : N=   6  MAE=Rs   566,992  MAPE=30.41%  Bias=Rs  -483,250
+2026-08-22 10:55:27,974  INFO          audi           : N=   7  MAE=Rs   490,759  MAPE=19.45%  Bias=Rs   170,542
+2026-08-22 10:55:27,976  INFO          volvo          : N=   4  MAE=Rs   488,300  MAPE=35.05%  Bias=Rs    11,545
+2026-08-22 10:55:27,977  INFO          toyota         : N=  59  MAE=Rs    85,010  MAPE= 8.23%  Bias=Rs    11,385
+2026-08-22 10:55:27,978  INFO          land rover     : N=   1  MAE=Rs   590,232  MAPE=53.17%  Bias=Rs  -590,232
+2026-08-22 10:55:27,980  INFO          jeep           : N=  20  MAE=Rs   145,195  MAPE= 9.68%  Bias=Rs  -110,988
+2026-08-22 10:55:27,981  INFO          hyundai        : N= 830  MAE=Rs    31,910  MAPE= 6.20%  Bias=Rs    -1,298
+2026-08-22 10:55:27,982  INFO      
+2026-08-22 10:55:27,982  INFO        Catastrophic Error Tail Analysis:
+2026-08-22 10:55:27,982  INFO          |Error| >2L: 70 cars (1.87%)
+2026-08-22 10:55:27,982  INFO          |Error| >5L: 17 cars (0.45%)
+2026-08-22 10:55:27,982  INFO          |Error| >10L: 9 cars (0.24%)
+2026-08-22 10:55:27,982  INFO          |Error| >20L: 1 cars (0.03%)
+2026-08-22 10:55:27,983  INFO        OK Test set evaluation complete
+2026-08-22 10:55:27,983  INFO      ========================================================================
+2026-08-22 10:55:27,983  INFO      PACKAGING FINAL BUNDLE
+2026-08-22 10:55:27,983  INFO      ========================================================================
+2026-08-22 10:55:29,553  INFO        Bundle saved: C:\Users\Harshavardhana\Downloads\Price-Prediction\model_registry\final\ensemble_bundle.pkl
+2026-08-22 10:55:29,553  INFO        Size: 119.9 MB  |  Save time: 1.6s
+2026-08-22 10:55:29,555  INFO        Metadata JSON: C:\Users\Harshavardhana\Downloads\Price-Prediction\model_registry\final\model_metadata.json
+2026-08-22 10:55:29,555  INFO        Verifying bundle round-trip load...
+2026-08-22 10:55:30,062  INFO        OK Round-trip load verified (0.51s)
+2026-08-22 10:55:30,062  INFO        OK Bundle: 5 LightGBM models + CatBoost specialist + routing + metadata
+2026-08-22 10:55:30,108  INFO      ========================================================================
+2026-08-22 10:55:30,109  INFO      BENCHMARKING INFERENCE LATENCY
+2026-08-22 10:55:30,109  INFO      ========================================================================
+2026-08-22 10:55:38,537  INFO        Single prediction latency : 35.76 ms / request
+2026-08-22 10:55:38,537  INFO        Batch 100 prediction time : 80.77 ms (0.81 ms / record)
+2026-08-22 10:55:38,591  INFO      ========================================================================
+2026-08-22 10:55:38,591  INFO      FINAL PRODUCTION TRAINING -- COMPLETE  (101.8s)
+2026-08-22 10:55:38,591  INFO      Bundle: C:\Users\Harshavardhana\Downloads\Price-Prediction\model_registry\final\ensemble_bundle.pkl
+2026-08-22 10:55:38,591  INFO      ========================================================================

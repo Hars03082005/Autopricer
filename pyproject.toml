@@ -20,6 +20,7 @@ markers = [
 ]
 filterwarnings = [
     "error::DeprecationWarning:backend.*",
+    "ignore:.*Using `httpx` with `starlette.testclient` is deprecated.*",
 ]
 
 [tool.ruff]

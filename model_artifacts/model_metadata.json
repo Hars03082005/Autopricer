@@ -1,11 +1,19 @@
 {
-  "variant_id": "variant_1",
-  "script": "train-1",
-  "data_folder": "overall_only",
-  "split_source": "pre_split",
-  "train_rows": 23796,
-  "valid_rows": 5099,
-  "features": [
+  "model_version": "final",
+  "bundle_file": "ensemble_bundle.pkl",
+  "bundle_sha256": "5c3a2ccee8efb8d842b0bac7a6380c49d2491a39b403e10dac5a279ed4bf9f3b",
+  "bundle_size_bytes": 119923750,
+  "training_timestamp": "2026-08-22T05:25:27.983539+00:00",
+  "python_version": "3.13.7",
+  "library_versions": {
+    "lightgbm": "4.6.0",
+    "catboost": "1.2.10",
+    "numpy": "2.3.5",
+    "pandas": "2.3.1",
+    "sklearn": "1.9.0",
+    "scipy": "1.16.1"
+  },
+  "feature_schema": [
     "brand",
     "model",
     "variant",
@@ -15,6 +23,8 @@
     "transmission",
     "seller_type",
     "color",
+    "brand_model",
+    "model_variant",
     "vehicle_age",
     "odometer_reading",
     "km_per_year",
@@ -22,7 +32,7 @@
     "certified",
     "pincode"
   ],
-  "cat_features": [
+  "categorical_features": [
     "brand",
     "model",
     "variant",
@@ -31,9 +41,11 @@
     "fuel_type",
     "transmission",
     "seller_type",
-    "color"
+    "color",
+    "brand_model",
+    "model_variant"
   ],
-  "numeric_features": [
+  "numerical_features": [
     "vehicle_age",
     "odometer_reading",
     "km_per_year",
@@ -41,79 +53,298 @@
     "certified",
     "pincode"
   ],
-  "val_metrics": {
-    "CatBoost": {
-      "MAE": 55109.66,
-      "RMSE": 116861.15,
-      "R2": 0.9612,
-      "MAPE": 8.79
-    },
-    "LightGBM": {
-      "MAE": 35811.9,
-      "RMSE": 77118.67,
-      "R2": 0.9777,
-      "MAPE": 6.01
-    },
-    "XGBoost": {
-      "MAE": 40065.4,
-      "RMSE": 81667.2,
-      "R2": 0.9738,
-      "MAPE": 6.77
-    },
-    "Ensemble": {
-      "MAE": 35811.9,
-      "RMSE": 77118.67,
-      "R2": 0.9777,
-      "MAPE": 6.01
-    }
-  },
-  "ensemble_weights": {
-    "catboost": 6.938893903907228e-17,
-    "lightgbm": 0.9999999999999998,
-    "xgboost": 8.326672684688674e-17
-  },
-  "active_segment_models": [
-    "0_6_lakh",
-    "6_12_lakh",
-    "12_plus_lakh"
+  "target": "selling_price",
+  "target_transform": "log1p",
+  "inverse_transform": "expm1",
+  "lightgbm_seeds": [
+    42,
+    123,
+    456,
+    789,
+    2024
   ],
-  "hyperparameters": {
-    "catboost": {
-      "iterations": 3000,
-      "learning_rate": 0.03,
-      "depth": 6,
-      "loss_function": "RMSE",
-      "eval_metric": "RMSE",
-      "random_seed": 42,
-      "l2_leaf_reg": 10,
-      "min_data_in_leaf": 25,
-      "early_stopping_rounds": 150
+  "lightgbm_parameters": {
+    "objective": "regression",
+    "metric": "rmse",
+    "learning_rate": 0.03,
+    "num_leaves": 48,
+    "min_child_samples": 25,
+    "feature_fraction": 0.7,
+    "bagging_fraction": 0.9,
+    "bagging_freq": 5,
+    "lambda_l1": 0,
+    "lambda_l2": 3,
+    "verbosity": -1
+  },
+  "catboost_parameters": {
+    "iterations": 4000,
+    "learning_rate": 0.04,
+    "depth": 8,
+    "l2_leaf_reg": 3.0,
+    "loss_function": "RMSE",
+    "eval_metric": "RMSE",
+    "random_seed": 42,
+    "early_stopping_rounds": 100
+  },
+  "luxury_brand_list": [
+    "audi",
+    "bmw",
+    "jaguar",
+    "land rover",
+    "lexus",
+    "mercedes-benz",
+    "mini",
+    "porsche",
+    "volvo"
+  ],
+  "luxury_threshold": 1600000.0,
+  "global_threshold": 2200000.0,
+  "training_dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\overall_only",
+  "luxury_training_dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\luxury_augmented\\luxury_train_pool.csv",
+  "validation_dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\overall_only\\valid.csv",
+  "evaluation_dataset": "C:\\Users\\Harshavardhana\\Downloads\\Price-Prediction\\ml_training\\data\\overall_only\\test.csv",
+  "metrics": {
+    "validation": {
+      "MAE": 42602.59,
+      "MAPE": 7.2044,
+      "RMSE": 127423.56,
+      "R2": 0.959908,
+      "Bias": -5988.51,
+      "MedianAE": 21149.43,
+      "P90": 84118.22,
+      "P95": 126908.13,
+      "P99": 331631.77,
+      "MaxAE": 3657661.21
     },
-    "lightgbm": {
-      "objective": "regression",
-      "metric": "rmse",
-      "learning_rate": 0.03,
-      "num_leaves": 48,
-      "feature_fraction": 0.8,
-      "bagging_fraction": 0.8,
-      "bagging_freq": 5,
-      "min_child_samples": 25,
-      "lambda_l2": 5.0,
-      "verbosity": -1,
-      "seed": 42,
-      "num_boost_round": 3000
+    "test": {
+      "MAE": 39969.55,
+      "MAPE": 6.7342,
+      "RMSE": 97821.45,
+      "R2": 0.967513,
+      "Bias": -2987.86,
+      "MedianAE": 20880.69,
+      "P90": 82320.5,
+      "P95": 119234.89,
+      "P99": 298685.14,
+      "MaxAE": 2391939.05
     },
-    "xgboost": {
-      "objective": "reg:squarederror",
-      "eval_metric": "rmse",
-      "learning_rate": 0.03,
-      "max_depth": 6,
-      "subsample": 0.8,
-      "colsample_bytree": 0.8,
-      "min_child_weight": 25,
-      "lambda": 5.0,
-      "seed": 42,
-      "num_boost_round": 3000
+    "price_bands": {
+      "0-3L": {
+        "n": 673,
+        "MAE": 20475.16,
+        "MAPE": 10.4565,
+        "RMSE": 31051.14,
+        "Bias": 8384.05,
+        "MedianAE": 12444.83
+      },
+      "3-7L": {
+        "n": 1950,
+        "MAE": 27514.58,
+        "MAPE": 5.8459,
+        "RMSE": 41163.43,
+        "Bias": 1051.94,
+        "MedianAE": 18529.59
+      },
+      "7-10L": {
+        "n": 606,
+        "MAE": 49267.88,
+        "MAPE": 5.9439,
+        "RMSE": 73763.47,
+        "Bias": -2742.39,
+        "MedianAE": 33125.7
+      },
+      "10-15L": {
+        "n": 387,
+        "MAE": 66170.91,
+        "MAPE": 5.4042,
+        "RMSE": 101986.59,
+        "Bias": -29225.94,
+        "MedianAE": 42710.25
+      },
+      "15-20L": {
+        "n": 103,
+        "MAE": 94505.96,
+        "MAPE": 5.5257,
+        "RMSE": 199924.83,
+        "Bias": -64151.08,
+        "MedianAE": 45448.67
+      },
+      "20-30L": {
+        "n": 17,
+        "MAE": 446877.73,
+        "MAPE": 18.8604,
+        "RMSE": 630515.45,
+        "Bias": -50362.35,
+        "MedianAE": 155293.76
+      },
+      "30-50L": {
+        "n": 8,
+        "MAE": 703231.93,
+        "MAPE": 20.6461,
+        "RMSE": 1008211.31,
+        "Bias": 686884.61,
+        "MedianAE": 445977.65
+      },
+      "50L+": {
+        "n": 4,
+        "MAE": 987819.46,
+        "MAPE": 13.6707,
+        "RMSE": 1181311.64,
+        "Bias": -987819.46,
+        "MedianAE": 1106313.19
+      }
+    },
+    "luxury_tiers": {
+      ">=15L": {
+        "n": 132,
+        "MAE": 203849.76,
+        "MAPE": 8.4062,
+        "RMSE": 431603.41,
+        "Bias": -44847.89,
+        "MedianAE": 57422.32
+      },
+      ">=20L": {
+        "n": 29,
+        "MAE": 592208.78,
+        "MAPE": 18.6372,
+        "RMSE": 840202.25,
+        "Bias": 23711.69,
+        "MedianAE": 409903.1
+      },
+      ">=30L": {
+        "n": 12,
+        "MAE": 798094.44,
+        "MAPE": 18.321,
+        "RMSE": 1069030.29,
+        "Bias": 128649.92,
+        "MedianAE": 515977.65
+      },
+      ">=50L": {
+        "n": 4,
+        "MAE": 987819.46,
+        "MAPE": 13.6707,
+        "RMSE": 1181311.64,
+        "Bias": -987819.46,
+        "MedianAE": 1106313.19
+      }
+    },
+    "mass_market": {
+      "n": 3616,
+      "MAE": 33987.19,
+      "MAPE": 6.6732,
+      "RMSE": 55841.29,
+      "Bias": -1459.79,
+      "MedianAE": 20322.57
+    },
+    "brands": {
+      "bmw": {
+        "n": 10,
+        "MAE": 867827.61,
+        "MAPE": 25.1257,
+        "RMSE": 1176490.48,
+        "Bias": -2665.47,
+        "MedianAE": 687929.08
+      },
+      "mercedes-benz": {
+        "n": 6,
+        "MAE": 566992.28,
+        "MAPE": 30.4102,
+        "RMSE": 749343.14,
+        "Bias": -483249.6,
+        "MedianAE": 414207.17
+      },
+      "audi": {
+        "n": 7,
+        "MAE": 490758.68,
+        "MAPE": 19.445,
+        "RMSE": 662802.75,
+        "Bias": 170541.52,
+        "MedianAE": 409903.1
+      },
+      "volvo": {
+        "n": 4,
+        "MAE": 488299.64,
+        "MAPE": 35.0462,
+        "RMSE": 583784.92,
+        "Bias": 11544.72,
+        "MedianAE": 476754.92
+      },
+      "toyota": {
+        "n": 59,
+        "MAE": 85010.41,
+        "MAPE": 8.2307,
+        "RMSE": 133352.56,
+        "Bias": 11384.63,
+        "MedianAE": 43602.7
+      },
+      "land rover": {
+        "n": 1,
+        "MAE": 590232.44,
+        "MAPE": 53.1741,
+        "RMSE": 590232.44,
+        "Bias": -590232.44,
+        "MedianAE": 590232.44
+      },
+      "jeep": {
+        "n": 20,
+        "MAE": 145195.44,
+        "MAPE": 9.677,
+        "RMSE": 266311.7,
+        "Bias": -110987.94,
+        "MedianAE": 80279.55
+      },
+      "hyundai": {
+        "n": 830,
+        "MAE": 31909.62,
+        "MAPE": 6.1973,
+        "RMSE": 52026.37,
+        "Bias": -1297.83,
+        "MedianAE": 18954.96
+      }
+    },
+    "error_tails": {
+      ">2L": {
+        "count": 70,
+        "pct": 1.87
+      },
+      ">5L": {
+        "count": 17,
+        "pct": 0.45
+      },
+      ">10L": {
+        "count": 9,
+        "pct": 0.24
+      },
+      ">20L": {
+        "count": 1,
+        "pct": 0.03
+      }
+    },
+    "luxury_holdout": {
+      "MAE": 218776.12,
+      "MAPE": 5.3444,
+      "RMSE": 291299.02,
+      "R2": 0.968766,
+      "Bias": -38024.69,
+      "MedianAE": 183258.24,
+      "P90": 471407.09,
+      "P95": 586404.74,
+      "P99": 788153.19,
+      "MaxAE": 1050470.19
     }
-  }
+  },
+  "routing_stats": {
+    "test": {
+      "specialist": 17,
+      "champion": 3731,
+      "specialist_pct": 0.45,
+      "champion_pct": 99.55
+    },
+    "validation": {
+      "specialist": 25,
+      "champion": 3753
+    }
+  },
+  "architecture": "5-Seed LightGBM + Luxury CatBoost Specialist + Strategy D Routing",
+  "variant_id": "final"
 }
